@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-bot = commands.Bot(command_prefix='+', intents=intents)
+intents.guilds = True
+bot = commands.Bot(command_prefix='+', intents=intents, help_command=None)
 
 # Colors
 PRIMARY = 0x00D9FF

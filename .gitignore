@@ -1,0 +1,10 @@
+.env
+.env.local
+brawl.db
+__pycache__/
+*.py[cod]
+.vscode/
+.idea/
+*.log
+venv/
+env/

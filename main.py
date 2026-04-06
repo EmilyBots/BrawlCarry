@@ -15,7 +15,7 @@ DANGER       = 0xE74C3C
 DARK         = 0x0A0E1A
 ACCENT       = 0xA855F7
 
-FOOTER_BRAND = "Powered by Brawl Carry\u2122"
+FOOTER_BRAND = "Powered by Brawl Carry™"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -72,6 +72,7 @@ def init_db():
         vouch_channel_id INT,
         ticket_channel_id INT,
         completed_channel_id INT,
+        ticket_category_id INT,
         ticket_panel_title TEXT,
         ticket_panel_desc TEXT
     )""")
@@ -87,6 +88,7 @@ def init_db():
         ("giveaways",    "extra_entries TEXT"),
         ("giveaways",    "ping TEXT"),
         ("guild_config", "completed_channel_id INT"),
+        ("guild_config", "ticket_category_id INT"),
         ("vouchers",     "method TEXT"),
     ]
     for table, col_def in migrations:
@@ -115,7 +117,7 @@ def get_config(guild_id: int):
 
 ALLOWED_CONFIG_KEYS = {
     "vouch_channel_id", "ticket_channel_id",
-    "completed_channel_id",
+    "completed_channel_id", "ticket_category_id",
     "ticket_panel_title", "ticket_panel_desc"
 }
 
@@ -133,10 +135,13 @@ def set_config(guild_id: int, **kwargs):
 # ---------------------------------------------------------------------------
 # PAYMENT METHOD HELPERS
 # ---------------------------------------------------------------------------
+# Default PayPal emoji uses the custom emoji registered in the Developer Portal.
+# Format: <:emoji_name:emoji_id>  — replace PAYPAL_EMOJI_ID with your actual ID.
+PAYPAL_EMOJI    = "<:Paypal:1490768356960243764>"   # ← replace PAYPAL_EMOJI_ID
 DEFAULT_PAYMENT_METHODS = [
-    ("PayPal",        "\U0001f4b3"),
-    ("Bank Transfer", "\U0001f3e6"),
-    ("Crypto",        "\U0001fa99"),
+    ("PayPal",        PAYPAL_EMOJI),
+    ("Bank Transfer", "🏦"),
+    ("Crypto",        "🪙"),
 ]
 
 def get_payment_methods(guild_id: int) -> list:
@@ -172,6 +177,71 @@ def remove_payment_method(guild_id: int, label: str) -> bool:
     conn.commit()
     conn.close()
     return affected > 0
+
+# ---------------------------------------------------------------------------
+# TICKET HELPER  –  creates a private thread inside a Forum channel, or falls
+#                   back to a text channel inside the configured category.
+# ---------------------------------------------------------------------------
+async def create_ticket_thread(
+    guild: discord.Guild,
+    member: discord.Member,
+    name: str,
+    topic_embed: discord.Embed,
+    view: "ui.View",
+    cfg,
+) -> discord.Thread | discord.TextChannel:
+    """
+    Attempt to create a private thread in the configured ticket *forum* channel.
+    If the ticket channel is a ForumChannel → creates a forum post (thread).
+    Otherwise falls back to a plain TextChannel inside the configured category.
+    Returns the created channel/thread.
+    """
+    ticket_ch_id  = cfg["ticket_channel_id"]  if cfg else None
+    category_id   = cfg["ticket_category_id"] if cfg else None
+
+    # ── Option A: Forum channel → forum post (thread) ──────────────────────
+    if ticket_ch_id:
+        forum = guild.get_channel(ticket_ch_id)
+        if isinstance(forum, discord.ForumChannel):
+            # Apply per-member permission overwrite on the forum itself
+            # (Forum threads inherit the forum's overwrites; we can't set
+            #  per-thread overwrites directly, so we lock then unlock.)
+            thread_with_msg = await forum.create_thread(
+                name=name,
+                embed=topic_embed,
+                view=view,
+                reason=f"Ticket opened by {member}",
+            )
+            thread = thread_with_msg.thread
+            # Mention the member so they can find it
+            await thread.send(content=member.mention, delete_after=1)
+            return thread
+
+    # ── Option B: Text channel inside the configured category ───────────────
+    category = guild.get_channel(category_id) if category_id else None
+    if not isinstance(category, discord.CategoryChannel):
+        category = None     # safety – ignore if it resolved to something else
+
+    overwrites = {
+        guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        member:             discord.PermissionOverwrite(
+                                view_channel=True,
+                                send_messages=True,
+                                read_message_history=True,
+                            ),
+    }
+    for role in guild.roles:
+        if role.permissions.administrator or role.permissions.manage_channels:
+            overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+
+    ch = await guild.create_text_channel(
+        name=name,
+        overwrites=overwrites,
+        category=category,
+        topic=f"Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+    )
+    await ch.send(content=member.mention, embed=topic_embed, view=view)
+    return ch
 
 # ---------------------------------------------------------------------------
 # WATERMARK UTILITY
@@ -243,7 +313,6 @@ DESIRED_RANKS = [
     "Pro",
 ]
 
-# Rank emoji map keyed by tier name prefix
 RANK_EMOJI = {
     "Bronze":    "<:Bronze:1490768371619336493>",
     "Silver":    "<:Silver:1490768369551409312>",
@@ -261,15 +330,15 @@ def rank_emoji(rank_name: str) -> str:
             return emoji
     return ""
 
-P11_OPTIONS    = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
+P11_OPTIONS      = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
 PRESTIGE_OPTIONS = ["Prestige 0 -> Prestige 1", "Prestige 1 -> Prestige 2", "Prestige 2 -> Prestige 3"]
 
 RATING_OPTIONS = [
-    discord.SelectOption(label="5 Stars", value="5", emoji="\u2b50", description="Excellent service"),
-    discord.SelectOption(label="4 Stars", value="4", emoji="\u2b50", description="Great service"),
-    discord.SelectOption(label="3 Stars", value="3", emoji="\u2b50", description="Good service"),
-    discord.SelectOption(label="2 Stars", value="2", emoji="\u2b50", description="Average service"),
-    discord.SelectOption(label="1 Star",  value="1", emoji="\u2b50", description="Below expectations"),
+    discord.SelectOption(label="5 Stars", value="5", emoji="⭐", description="Excellent service"),
+    discord.SelectOption(label="4 Stars", value="4", emoji="⭐", description="Great service"),
+    discord.SelectOption(label="3 Stars", value="3", emoji="⭐", description="Good service"),
+    discord.SelectOption(label="2 Stars", value="2", emoji="⭐", description="Average service"),
+    discord.SelectOption(label="1 Star",  value="1", emoji="⭐", description="Below expectations"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -347,7 +416,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
 
 
 # ---------------------------------------------------------------------------
-# VOUCH DETAIL MODAL  (shown after user picks rating + payment via selects)
+# VOUCH DETAIL MODAL
 # ---------------------------------------------------------------------------
 class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
     amount = ui.TextInput(
@@ -381,7 +450,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
             amount_val = 0.0
 
         stars    = self.rating
-        star_str = "\u2b50" * stars + f"  ({stars}/5)"
+        star_str = "⭐" * stars + f"  ({stars}/5)"
         img      = self.image_url.value.strip() if self.image_url.value else None
 
         vouch_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
@@ -400,12 +469,12 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
                 vouch_ch_id = cfg["vouch_channel_id"]
         conn.close()
 
-        e = base_embed("\u2b50 New Vouch", color=GOLD)
+        e = base_embed("⭐ New Vouch", color=GOLD)
         e.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
         e.add_field(name="👤 Customer",     value=interaction.user.mention,        inline=True)
         e.add_field(name="💰 Order Amount", value=f"**${amount_val:.2f}**",        inline=True)
         e.add_field(name="💳 Payment",      value=f"**{self.payment_method}**",    inline=True)
-        e.add_field(name="\u2b50 Rating",   value=star_str,                        inline=True)
+        e.add_field(name="⭐ Rating",       value=star_str,                        inline=True)
         e.add_field(name="💬 Feedback",     value=f"*{self.feedback.value}*",      inline=False)
         if self.order_id:
             e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
@@ -430,7 +499,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
 
 
 # ---------------------------------------------------------------------------
-# VOUCH SELECTOR VIEW  (rating + payment dropdowns before modal)
+# VOUCH SELECTOR VIEW
 # ---------------------------------------------------------------------------
 class VouchSelectorView(ui.View):
     def __init__(self, guild_id: int, order_id: str = None):
@@ -458,7 +527,7 @@ class VouchSelectorView(ui.View):
         self.add_item(pay_select)
 
         submit_btn = ui.Button(label="Continue", style=discord.ButtonStyle.success,
-                               custom_id="vouch_continue", row=2, emoji="\u2705")
+                               custom_id="vouch_continue", row=2, emoji="✅")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
@@ -541,19 +610,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 
         guild  = interaction.guild
         member = interaction.user
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-        }
-        for role in guild.roles:
-            if role.permissions.administrator or role.permissions.manage_channels:
-                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
-
-        ticket_ch = await guild.create_text_channel(
-            name=f"ranked-{member.name[:12].lower()}",
-            overwrites=overwrites,
-            topic=f"Ranked Boost | {order_id} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
-        )
+        cfg    = get_config(guild.id)
 
         welcome = base_embed("🔥 Ranked Boost Ticket", color=PRIMARY)
         welcome.description = (
@@ -568,9 +625,17 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         )
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await ticket_ch.send(content=member.mention, embed=welcome, view=TicketCloseView())
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"ranked-{member.name[:12].lower()}",
+            topic_embed=welcome,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+
         await interaction.response.send_message(
-            f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket_ch.mention}",
+            f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
             ephemeral=True
         )
 
@@ -606,23 +671,11 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
         guild  = interaction.guild
         member = interaction.user
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-        }
-        for role in guild.roles:
-            if role.permissions.administrator or role.permissions.manage_channels:
-                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+        cfg    = get_config(guild.id)
 
-        ticket_ch = await guild.create_text_channel(
-            name=f"prestige-{member.name[:12].lower()}",
-            overwrites=overwrites,
-            topic=f"Prestige Boost | {order_id} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
-        )
-
-        welcome = base_embed("\u2728 Prestige Boost Ticket", color=ACCENT)
+        welcome = base_embed("✨ Prestige Boost Ticket", color=ACCENT)
         welcome.description = (
-            f"Welcome, {member.mention}! \u2728\n\n"
+            f"Welcome, {member.mention}! ✨\n\n"
             f"📋 **Order:** `{order_id}`\n"
             f"🏆 **Prestige:** {self.prestige_spec}\n"
             f"💳 **Payment:** {self.payment}\n"
@@ -632,9 +685,17 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         )
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await ticket_ch.send(content=member.mention, embed=welcome, view=TicketCloseView())
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"prestige-{member.name[:12].lower()}",
+            topic_embed=welcome,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+
         await interaction.response.send_message(
-            f"✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: {ticket_ch.mention}",
+            f"✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
             ephemeral=True
         )
 
@@ -753,7 +814,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                     f"📦 **Route:** `{order['from_tier']}` → `{order['to_tier']}`\n"
                     f"💵 **Amount:** ${price_val:.2f}\n"
                     f"💳 **Payment:** {self.payment_used.value.strip()}\n\n"
-                    "Thank you for choosing BrawlCarry! Consider leaving a vouch \u2b50"
+                    "Thank you for choosing BrawlCarry! Consider leaving a vouch ⭐"
                 )
                 await customer_user.send(embed=dm_e)
             except discord.Forbidden:
@@ -771,7 +832,6 @@ class RankedOrderView(ui.View):
         self.p11          = None
         self.payment      = None
 
-        # Build current rank options with per-rank emoji
         current_options = []
         for r in CURRENT_RANKS:
             emo = rank_emoji(r)
@@ -788,7 +848,6 @@ class RankedOrderView(ui.View):
         current_select.callback = self._on_current
         self.add_item(current_select)
 
-        # Build desired rank options with per-rank emoji
         desired_options = []
         for r in DESIRED_RANKS:
             emo = rank_emoji(r)
@@ -823,12 +882,12 @@ class RankedOrderView(ui.View):
         self.add_item(pay_select)
 
         submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary,
-                               custom_id="ranked_submit", row=4, emoji="\u2705")
+                               custom_id="ranked_submit", row=4, emoji="✅")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
         cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary,
-                               custom_id="ranked_cancel", row=4, emoji="\u2716\ufe0f")
+                               custom_id="ranked_cancel", row=4, emoji="✖️")
         cancel_btn.callback = self._on_cancel
         self.add_item(cancel_btn)
 
@@ -895,12 +954,12 @@ class PrestigeOrderView(ui.View):
         self.add_item(pay_select)
 
         submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary,
-                               custom_id="prest_submit", row=2, emoji="\u2705")
+                               custom_id="prest_submit", row=2, emoji="✅")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
         cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary,
-                               custom_id="prest_cancel", row=2, emoji="\u2716\ufe0f")
+                               custom_id="prest_cancel", row=2, emoji="✖️")
         cancel_btn.callback = self._on_cancel
         self.add_item(cancel_btn)
 
@@ -961,9 +1020,9 @@ class PrestigePanelButton(ui.View):
         super().__init__(timeout=None)
 
     @ui.button(label="Prestige Boost Order", style=discord.ButtonStyle.primary,
-               emoji="\u2728", custom_id="prestige_panel_btn_v1")
+               emoji="✨", custom_id="prestige_panel_btn_v1")
     async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("\u2728 Prestige Boost Order", color=ACCENT)
+        e = base_embed("✨ Prestige Boost Order", color=ACCENT)
         e.description = (
             "Fill in the fields below and press **Submit** to place your order.\n"
             "A private ticket will be created for you automatically."
@@ -996,7 +1055,7 @@ class OrderActionsView(ui.View):
         super().__init__(timeout=None)
         self.order_id = order_id
 
-    @ui.button(label="Claim Your Boost", style=discord.ButtonStyle.primary, emoji="\U0001f7e0", custom_id="order_upgrade_btn")
+    @ui.button(label="Claim Your Boost", style=discord.ButtonStyle.primary, emoji="🟠", custom_id="order_upgrade_btn")
     async def upgrade(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_message(
             "📨 Our team will contact you shortly to begin your order!", ephemeral=True
@@ -1008,10 +1067,10 @@ class VouchButtonView(ui.View):
         super().__init__(timeout=None)
         self.order_id = order_id
 
-    @ui.button(label="Submit a Vouch", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="vouch_btn_v2")
+    @ui.button(label="Submit a Vouch", style=discord.ButtonStyle.success, emoji="⭐", custom_id="vouch_btn_v2")
     async def vouch(self, interaction: discord.Interaction, button: ui.Button):
         guild_id = interaction.guild.id if interaction.guild else 0
-        e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
+        e = base_embed("⭐ Submit Your Vouch", color=GOLD)
         e.description = (
             "Select your **rating** and **payment method**, then click **Continue** "
             "to fill in your feedback and proof.\n\n"
@@ -1047,7 +1106,7 @@ class GiveawayView(ui.View):
             c.execute("UPDATE giveaways SET participants = ? WHERE id = ?",
                       (json.dumps(participants), self.giveaway_id))
             conn.commit()
-            await interaction.response.send_message("\u2705 You've entered! Good luck \U0001f340", ephemeral=True)
+            await interaction.response.send_message("✅ You've entered! Good luck 🍀", ephemeral=True)
         conn.close()
 
     @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="👥", custom_id="ga_view_v2")
@@ -1075,11 +1134,14 @@ class GiveawayView(ui.View):
         await interaction.response.send_message(embed=e, ephemeral=True)
 
 
+# ---------------------------------------------------------------------------
+# TICKET SELECT  –  uses create_ticket_thread() helper
+# ---------------------------------------------------------------------------
 class TicketSelect(ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="Carry Order",     value="carry", emoji="🎮", description="Place or inquire about a Brawl Stars boost order"),
-            discord.SelectOption(label="General Support", value="other", emoji="\u2139\ufe0f",  description="Any other questions or concerns"),
+            discord.SelectOption(label="General Support", value="other", emoji="ℹ️",  description="Any other questions or concerns"),
         ]
         super().__init__(
             placeholder="📩 Select a category to open a ticket...",
@@ -1090,25 +1152,12 @@ class TicketSelect(ui.Select):
     async def callback(self, interaction: discord.Interaction):
         category_map = {
             "carry": ("🎮 Carry Order",    PRIMARY),
-            "other": ("\u2139\ufe0f General Support", SUCCESS),
+            "other": ("ℹ️ General Support", SUCCESS),
         }
         label, color = category_map.get(self.values[0], ("Ticket", PRIMARY))
         guild  = interaction.guild
         member = interaction.user
-
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-        }
-        for role in guild.roles:
-            if role.permissions.administrator or role.permissions.manage_channels:
-                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
-
-        ch = await guild.create_text_channel(
-            name=f"ticket-{member.name[:12].lower()}",
-            overwrites=overwrites,
-            topic=f"{label} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
-        )
+        cfg    = get_config(guild.id)
 
         e = base_embed(label, color=color)
         e.description = (
@@ -1119,8 +1168,15 @@ class TicketSelect(ui.Select):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await ch.send(content=member.mention, embed=e, view=TicketCloseView())
-        await interaction.response.send_message(f"\u2705 Ticket created: {ch.mention}", ephemeral=True)
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"ticket-{member.name[:12].lower()}",
+            topic_embed=e,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+        await interaction.response.send_message(f"✅ Ticket created: {ticket.mention}", ephemeral=True)
 
 
 class TicketView(ui.View):
@@ -1140,25 +1196,26 @@ class TicketCloseView(ui.View):
         await interaction.response.send_message(embed=e)
         await asyncio.sleep(5)
         try:
+            # Works for both TextChannel and Thread
             await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
         except Exception:
             pass
 
-    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
+    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("❌ Staff only.", ephemeral=True)
             return
-        e = base_embed("\u2b50 Leave a Vouch", color=GOLD)
+        e = base_embed("⭐ Leave a Vouch", color=GOLD)
         e.description = (
             "Thank you for your order! We'd love your feedback.\n\n"
             "📸 Attach a screenshot as proof\n"
-            "\u2b50 Rate your experience (1-5)\n"
+            "⭐ Rate your experience (1-5)\n"
             "💬 Leave honest feedback\n\n"
             "Click the button below to submit."
         )
         await interaction.channel.send(embed=e, view=VouchButtonView())
-        await interaction.response.send_message("\u2705 Vouch panel sent.", ephemeral=True)
+        await interaction.response.send_message("✅ Vouch panel sent.", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1168,34 +1225,41 @@ class TicketCloseView(ui.View):
 @bot.tree.command(name="setup", description="Configure bot settings for this server")
 @app_commands.describe(
     vouch_channel="Channel where vouch posts will be sent",
-    ticket_channel="Channel where the ticket panel will live",
+    ticket_channel="Forum channel (or text channel) where tickets will be created",
+    ticket_category="Category where ticket text-channels will be placed (ignored if using a Forum channel)",
     completed_channel="Channel where completed orders will be posted"
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
     interaction: discord.Interaction,
     vouch_channel: discord.TextChannel = None,
-    ticket_channel: discord.TextChannel = None,
-    completed_channel: discord.TextChannel = None
+    ticket_channel: discord.abc.GuildChannel = None,
+    ticket_category: discord.CategoryChannel = None,
+    completed_channel: discord.TextChannel = None,
 ):
     updates = {}
     if vouch_channel:
         updates["vouch_channel_id"] = vouch_channel.id
     if ticket_channel:
         updates["ticket_channel_id"] = ticket_channel.id
+    if ticket_category:
+        updates["ticket_category_id"] = ticket_category.id
     if completed_channel:
         updates["completed_channel_id"] = completed_channel.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
-    e = base_embed("\u2699\ufe0f Server Configuration", color=SUCCESS)
+    e = base_embed("⚙️ Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
     if vouch_channel:
-        e.add_field(name="\u2b50 Vouch Channel",     value=vouch_channel.mention,     inline=True)
+        e.add_field(name="⭐ Vouch Channel",     value=vouch_channel.mention,     inline=True)
     if ticket_channel:
-        e.add_field(name="🎫 Ticket Channel",    value=ticket_channel.mention,    inline=True)
+        ch_type = "Forum" if isinstance(ticket_channel, discord.ForumChannel) else "Text"
+        e.add_field(name=f"🎫 Ticket Channel ({ch_type})", value=ticket_channel.mention, inline=True)
+    if ticket_category:
+        e.add_field(name="📂 Ticket Category",   value=ticket_category.mention,   inline=True)
     if completed_channel:
-        e.add_field(name="\u2705 Completed Channel", value=completed_channel.mention, inline=True)
+        e.add_field(name="✅ Completed Channel", value=completed_channel.mention, inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -1208,13 +1272,13 @@ async def order_complete(interaction: discord.Interaction):
 @bot.tree.command(name="add_payment_method", description="Add a payment method to the order forms")
 @app_commands.describe(
     label="Payment method name (e.g. LTC, Revolut)",
-    emoji="Emoji to display next to it (e.g. \U0001fa99)"
+    emoji="Emoji to display next to it — use <:name:id> for custom emojis"
 )
 @app_commands.checks.has_permissions(manage_channels=True)
 async def add_payment_method_cmd(interaction: discord.Interaction, label: str, emoji: str = "💳"):
     success = add_payment_method(interaction.guild.id, label.strip(), emoji.strip())
     if success:
-        e = base_embed("\u2705 Payment Method Added", color=SUCCESS)
+        e = base_embed("✅ Payment Method Added", color=SUCCESS)
         e.description = f"{emoji} **{label}** has been added to the payment options.\n\nIt will appear in all new order forms immediately."
     else:
         e = base_embed("⚠️ Already Exists", color=GOLD)
@@ -1228,7 +1292,7 @@ async def add_payment_method_cmd(interaction: discord.Interaction, label: str, e
 async def remove_payment_method_cmd(interaction: discord.Interaction, label: str):
     success = remove_payment_method(interaction.guild.id, label.strip())
     if success:
-        e = base_embed("\u2705 Payment Method Removed", color=SUCCESS)
+        e = base_embed("✅ Payment Method Removed", color=SUCCESS)
         e.description = f"**{label}** has been removed from the payment options."
     else:
         e = base_embed("❌ Not Found", color=DANGER)
@@ -1258,14 +1322,14 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
         "Ready to rank up? Click the button below to place your carry order.\n\n"
         "**What we offer:**\n"
         "🥇 Brawl Stars Ranked Boosting\n"
-        "\u26a1 Fast & reliable completion\n"
-        "\u2b50 5-star rated service\n"
+        "⚡ Fast & reliable completion\n"
+        "⭐ 5-star rated service\n"
         "🔒 Secure & confidential"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=OrderButton())
-    await interaction.response.send_message("\u2705 Order panel posted.", ephemeral=True)
+    await interaction.response.send_message("✅ Order panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="ranked_panel", description="Post the Ranked Boost order panel in this channel")
@@ -1276,34 +1340,34 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
     e.description = (
         "Want to climb the ranked ladder? Click the button below to place your **Ranked Boost** order!\n\n"
         "**Pricing** *(depends on starting rank & P11 brawlers)*\n"
-        "\U0001f3c6 Legendary Boost -- from **16\u20ac**\n"
-        "\U0001f3c6 Masters Boost -- from **35\u20ac**\n"
-        "\U0001f3c6 Pro Rank -- from **200\u20ac**\n\n"
-        "\u26a1 Fast & reliable | 🔒 Secure | \u2b50 5-star rated"
+        "🏆 Legendary Boost -- from **16€**\n"
+        "🏆 Masters Boost -- from **35€**\n"
+        "🏆 Pro Rank -- from **200€**\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=RankedPanelButton())
-    await interaction.response.send_message("\u2705 Ranked Boost panel posted.", ephemeral=True)
+    await interaction.response.send_message("✅ Ranked Boost panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="prestige_panel", description="Post the Prestige Boost order panel in this channel")
 @app_commands.describe(image_url="Optional banner image URL for the panel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("\u2728 Prestige Boost", color=ACCENT)
+    e = base_embed("✨ Prestige Boost", color=ACCENT)
     e.description = (
         "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
         "**Pricing** *(depends on brawler & power level)*\n"
-        "\U0001f7e3 Prestige 0 -> 1 -- from **10\u20ac**\n"
-        "\U0001f534 Prestige 1 -> 2 -- from **25\u20ac**\n"
-        "\U0001f7e1 Prestige 2 -> 3 -- from **70\u20ac**\n\n"
-        "\u26a1 Fast & reliable | 🔒 Secure | \u2b50 5-star rated"
+        "🟣 Prestige 0 -> 1 -- from **10€**\n"
+        "🔴 Prestige 1 -> 2 -- from **25€**\n"
+        "🟡 Prestige 2 -> 3 -- from **70€**\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=PrestigePanelButton())
-    await interaction.response.send_message("\u2705 Prestige Boost panel posted.", ephemeral=True)
+    await interaction.response.send_message("✅ Prestige Boost panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
@@ -1317,7 +1381,7 @@ async def ticket_panel(interaction: discord.Interaction):
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
     await interaction.channel.send(embed=e, view=TicketView())
-    await interaction.response.send_message("\u2705 Ticket panel posted.", ephemeral=True)
+    await interaction.response.send_message("✅ Ticket panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
@@ -1337,11 +1401,11 @@ async def configure_ticket_panel(interaction: discord.Interaction):
 @app_commands.describe(user="DM the vouch panel to this user", order_id="Order ID to attach")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def vouch_panel(interaction: discord.Interaction, user: discord.User = None, order_id: str = None):
-    e = base_embed("\u2b50 Leave a Vouch", color=GOLD)
+    e = base_embed("⭐ Leave a Vouch", color=GOLD)
     e.description = (
         "Thank you for your order! We'd love your feedback.\n\n"
         "📸 Attach a screenshot as proof\n"
-        "\u2b50 Rate your experience (1-5)\n"
+        "⭐ Rate your experience (1-5)\n"
         "💬 Leave honest feedback\n\n"
         "Click the button below to submit."
     )
@@ -1352,12 +1416,12 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
     if user:
         try:
             await user.send(embed=e, view=view)
-            await interaction.response.send_message(f"\u2705 Vouch panel sent to {user.mention}.", ephemeral=True)
+            await interaction.response.send_message(f"✅ Vouch panel sent to {user.mention}.", ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message("❌ Could not DM that user. They may have DMs disabled.", ephemeral=True)
     else:
         await interaction.channel.send(embed=e, view=view)
-        await interaction.response.send_message("\u2705 Vouch panel posted.", ephemeral=True)
+        await interaction.response.send_message("✅ Vouch panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="giveaway", description="Start a new giveaway")
@@ -1396,9 +1460,9 @@ async def giveaway(
     end_ts = int(ends_at.timestamp())
 
     e = discord.Embed(title=f"🎁 {prize}", color=PRIMARY)
-    e.add_field(name="\u2139\ufe0f Description", value=description, inline=False)
-    e.add_field(name="\u23f0 Ends", value=f"<t:{end_ts}:F>  (<t:{end_ts}:R>)", inline=False)
-    e.add_field(name="\U0001f3c6 Winners", value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
+    e.add_field(name="ℹ️ Description", value=description, inline=False)
+    e.add_field(name="⏰ Ends", value=f"<t:{end_ts}:F>  (<t:{end_ts}:R>)", inline=False)
+    e.add_field(name="🏆 Winners", value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
     e.add_field(name="👥 Participants", value="**0** entered", inline=True)
     e.add_field(name="🎯 Hosted By", value=interaction.user.mention, inline=True)
     if extra_entries:
@@ -1417,7 +1481,7 @@ async def giveaway(
         view=GiveawayView(ga_id),
         allowed_mentions=discord.AllowedMentions(everyone=True, roles=True)
     )
-    await interaction.response.send_message(f"\u2705 Giveaway started! ID: `{ga_id}`", ephemeral=True)
+    await interaction.response.send_message(f"✅ Giveaway started! ID: `{ga_id}`", ephemeral=True)
 
 
 @bot.tree.command(name="end_giveaway", description="End a giveaway and pick winners")
@@ -1448,9 +1512,9 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
 
     e = discord.Embed(title=f"🎁 {ga['prize']} -- Giveaway Ended", color=SUCCESS)
-    e.add_field(name="\U0001f3c6 Winners", value=winner_mentions, inline=False)
+    e.add_field(name="🏆 Winners", value=winner_mentions, inline=False)
     e.add_field(name="👥 Total Participants", value=f"**{len(participants):,}**", inline=True)
-    e.add_field(name="\U0001f194 Giveaway ID", value=f"`{giveaway_id}`", inline=True)
+    e.add_field(name="🆔 Giveaway ID", value=f"`{giveaway_id}`", inline=True)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
 
@@ -1459,7 +1523,7 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
         embed=e,
         allowed_mentions=discord.AllowedMentions(users=True)
     )
-    await interaction.response.send_message("\u2705 Giveaway ended.", ephemeral=True)
+    await interaction.response.send_message("✅ Giveaway ended.", ephemeral=True)
 
 
 @bot.tree.command(name="backup_link", description="DM all members the backup server link")
@@ -1488,7 +1552,7 @@ async def backup_link(interaction: discord.Interaction, link: str):
     await asyncio.gather(*[send_dm(m) for m in members])
 
     e = base_embed("📨 Backup Link Sent", color=SUCCESS)
-    e.add_field(name="\u2705 Delivered", value=f"**{results['sent']}**", inline=True)
+    e.add_field(name="✅ Delivered", value=f"**{results['sent']}**", inline=True)
     e.add_field(name="❌ Failed",    value=f"**{results['failed']}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
@@ -1509,7 +1573,7 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     e.set_thumbnail(url=target.display_avatar.url)
     e.add_field(name="🎮 Total Carries", value=f"**{row['count'] or 0}**", inline=True)
     e.add_field(name="💵 Total Spent",   value=f"**${row['total']:.2f}**" if row["total"] else "**$0.00**", inline=True)
-    e.add_field(name="\u2b50 Vouches",   value=f"**{vc['vc'] or 0}**", inline=True)
+    e.add_field(name="⭐ Vouches",       value=f"**{vc['vc'] or 0}**", inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -1517,25 +1581,29 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
 async def help_cmd(interaction: discord.Interaction):
     e = base_embed("📋 BrawlCarry Bot -- Commands", color=PRIMARY)
     e.description = (
-        "**\u2699\ufe0f Admin Commands**\n"
-        "`/setup` -- Configure vouch, ticket, and completed-orders channels\n"
+        "**⚙️ Admin Commands**\n"
+        "`/setup` -- Configure vouch, ticket, ticket category, and completed-orders channels\n"
         "`/configure_ticket_panel` -- Customise ticket panel text\n"
         "`/order_panel` -- Post the generic order panel\n"
         "`/ranked_panel` -- Post the Ranked Boost panel 🔥\n"
-        "`/prestige_panel` -- Post the Prestige Boost panel \u2728\n"
+        "`/prestige_panel` -- Post the Prestige Boost panel ✨\n"
         "`/ticket_panel` -- Post the ticket panel\n"
         "`/vouch_panel` -- Send vouch panel to user or channel\n"
         "`/giveaway` -- Start a giveaway (supports extra entries & custom ping)\n"
         "`/end_giveaway` -- End a giveaway and draw winners\n"
         "`/backup_link` -- DM all members the backup server link\n\n"
-        "**\u2705 Staff Commands**\n"
+        "**✅ Staff Commands**\n"
         "`/order_complete` -- Mark an order as completed, posts to completed-orders channel\n"
         "`/add_payment_method` -- Add a payment method to order forms\n"
         "`/remove_payment_method` -- Remove a payment method from order forms\n"
         "`/list_payment_methods` -- View all configured payment methods\n\n"
         "**👤 User Commands**\n"
         "`/stats` -- View your carry statistics\n"
-        "`/help` -- Show this menu"
+        "`/help` -- Show this menu\n\n"
+        "**🎫 Ticket Setup Tips**\n"
+        "• For **thread-based tickets**: set `ticket_channel` to a **Forum Channel** in `/setup`\n"
+        "• For **category-based tickets**: set `ticket_category` to a **Category** in `/setup`\n"
+        "• Both options work simultaneously — Forum takes priority"
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 

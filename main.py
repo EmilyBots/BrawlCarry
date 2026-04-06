@@ -413,7 +413,6 @@ class TicketSelect(ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="Carry Order",     value="carry",   emoji="\U0001f3ae", description="Place or inquire about a ranked boost order"),
-            discord.SelectOption(label="Account Issues",  value="account", emoji="\u26a0\ufe0f",  description="Problems with your account or access"),
             discord.SelectOption(label="Payment Issues",  value="payment", emoji="\U0001f4b3", description="Payment not received or billing questions"),
             discord.SelectOption(label="General Support", value="other",   emoji="\u2139\ufe0f",  description="Any other questions or concerns"),
         ]
@@ -426,7 +425,6 @@ class TicketSelect(ui.Select):
     async def callback(self, interaction: discord.Interaction):
         category_map = {
             "carry":   ("\U0001f3ae Carry Order",    PRIMARY),
-            "account": ("\u26a0\ufe0f Account Issue",   DANGER),
             "payment": ("\U0001f4b3 Payment Issue",  GOLD),
             "other":   ("\u2139\ufe0f General Support", SUCCESS),
         }
@@ -545,7 +543,6 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
         "**What we offer:**\n"
         "- \U0001f947 Rank boosting (any tier)\n"
         "- \u26a1 Fast completion\n"
-        "- \U0001f512 Account safety guaranteed\n"
         "- \u2b50 5-star rated service"
     )
     if image_url:

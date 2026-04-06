@@ -1006,8 +1006,9 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
     e.description = (
         "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
         "**Pricing** *(depends on brawler & power level)*\n"
-        "🔴 Prestige 1 → 2 \n"
-        "🟡 Prestige 2 → 3 \n\n"
+        "🟣 Prestige 0 → 1 — from **10€**\n"
+        "🔴 Prestige 1 → 2 — from **25€**\n"
+        "🟡 Prestige 2 → 3 — from **70€**\n\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     if image_url:

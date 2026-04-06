@@ -204,7 +204,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
             value=f"\u21b3 {self.from_tier.value} \u2192 {self.to_tier.value}",
             inline=False
         )
-        e.set_author(name="\U0001f3ae BrawlMart | Ranked Boost")
+        e.set_author(name="\U0001f3ae BrawlCarry | Brawl Stars Boost")
 
         wm_file = None
         if img:
@@ -412,7 +412,7 @@ class GiveawayView(ui.View):
 class TicketSelect(ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Carry Order",     value="carry",   emoji="\U0001f3ae", description="Place or inquire about a ranked boost order"),
+            discord.SelectOption(label="Carry Order",     value="carry",   emoji="\U0001f3ae", description="Place or inquire about a brawl stars boost order"),
             discord.SelectOption(label="General Support", value="other",   emoji="\u2139\ufe0f",  description="Any other questions or concerns"),
         ]
         super().__init__(
@@ -533,7 +533,7 @@ async def setup(
 @app_commands.describe(image_url="Optional banner image URL for the panel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("\U0001f680 Ranked Boost Orders", color=PRIMARY)
+    e = base_embed("\U0001f680 Brawl Stars Boost Orders", color=PRIMARY)
     e.description = (
         "## \U0001f3ae Place Your Carry Order\n\n"
         "> Click the button below to fill out your order details.\n"
@@ -743,7 +743,7 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
 
 @bot.tree.command(name="help", description="View all available bot commands")
 async def help_cmd(interaction: discord.Interaction):
-    e = base_embed("\U0001f4cb BrawlMart Bot Commands", color=PRIMARY)
+    e = base_embed("\U0001f4cb BrawlCarry Bot Commands", color=PRIMARY)
     e.description = (
         "## \u2699\ufe0f Admin Commands\n"
         "> `/setup` \u2014 Configure vouch and ticket channels\n"

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands, ui
-import json, os, sqlite3, uuid, random, io, aiohttp
+import json, os, sqlite3, uuid, random, io, aiohttp, asyncio
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 
@@ -89,11 +89,15 @@ def get_config(guild_id: int):
     conn.close()
     return row
 
+ALLOWED_CONFIG_KEYS = {"vouch_channel_id", "ticket_channel_id", "ticket_panel_title", "ticket_panel_desc"}
+
 def set_config(guild_id: int, **kwargs):
     conn = get_db()
     c = conn.cursor()
     c.execute("INSERT OR IGNORE INTO guild_config (guild_id) VALUES (?)", (guild_id,))
     for key, val in kwargs.items():
+        if key not in ALLOWED_CONFIG_KEYS:
+            continue
         c.execute(f"UPDATE guild_config SET {key} = ? WHERE guild_id = ?", (val, guild_id))
     conn.commit()
     conn.close()
@@ -101,7 +105,7 @@ def set_config(guild_id: int, **kwargs):
 # ---------------------------------------------------------------------------
 # WATERMARK UTILITY
 # ---------------------------------------------------------------------------
-async def watermark_image(image_bytes: bytes, text: str = "Iceyz Vouches") -> bytes:
+def watermark_image(image_bytes: bytes, text: str = "Iceyz Vouches") -> bytes:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     w, h = img.size
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -130,7 +134,8 @@ async def fetch_and_watermark(url: str):
                 if resp.status != 200:
                     return None
                 raw = await resp.read()
-        marked = await watermark_image(raw)
+        loop = asyncio.get_event_loop()
+        marked = await loop.run_in_executor(None, watermark_image, raw)
         return discord.File(io.BytesIO(marked), filename="proof.jpg")
     except Exception:
         return None
@@ -297,8 +302,8 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
             "\u2705 Your vouch has been submitted. Thank you!", ephemeral=True
         )
 
-        if vouch_ch_id:
-            ch = interaction.guild.get_channel(vouch_ch_id) if interaction.guild else None
+        if vouch_ch_id and interaction.guild:
+            ch = interaction.guild.get_channel(vouch_ch_id)
             if ch:
                 if wm_file:
                     await ch.send(embed=e, file=wm_file)
@@ -475,7 +480,6 @@ class TicketCloseView(ui.View):
         e = base_embed("\U0001f512 Ticket Closing", color=DANGER)
         e.description = "This ticket will be deleted in **5 seconds**."
         await interaction.response.send_message(embed=e)
-        import asyncio
         await asyncio.sleep(5)
         try:
             await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
@@ -665,14 +669,14 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     ga = c.fetchone()
 
     if not ga:
-        await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
         conn.close()
+        await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
         return
 
     participants = json.loads(ga["participants"]) if ga["participants"] else []
     if not participants:
-        await interaction.response.send_message("\u274c No participants to draw from.", ephemeral=True)
         conn.close()
+        await interaction.response.send_message("\u274c No participants to draw from.", ephemeral=True)
         return
 
     winner_ids = random.sample(participants, min(ga["winners"], len(participants)))
@@ -697,7 +701,6 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
 @app_commands.describe(link="Backup server invite link")
 @app_commands.checks.has_permissions(administrator=True)
 async def backup_link(interaction: discord.Interaction, link: str):
-    import asyncio
     await interaction.response.defer(ephemeral=True)
 
     members = [m for m in interaction.guild.members if not m.bot]
@@ -792,6 +795,13 @@ async def on_ready():
     bot.add_view(TicketView())
     bot.add_view(TicketCloseView())
     bot.add_view(VouchButtonView())
+    # Re-register all active giveaway views so buttons survive restarts
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id FROM giveaways WHERE winner_ids IS NULL OR winner_ids = ''")
+    for row in c.fetchall():
+        bot.add_view(GiveawayView(row["id"]))
+    conn.close()
 
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")

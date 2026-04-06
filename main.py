@@ -536,11 +536,11 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
     e = base_embed("\U0001f680 Brawl Stars Boost Orders", color=PRIMARY)
     e.description = (
         "## \U0001f3ae Place Your Carry Order\n\n"
-        "> Click the button below to fill out your order details.\n"
+        "> Click the button below to fill out your order details.\n\n"
         "**What we offer:**\n"
-        "- \U0001f947 Brawl Stars boost, eg. Ranked\n"
-        "- \u26a1 Fast completion\n"
-        "- \u2b50 5-star rated service"
+        "> \U0001f947 Brawl Stars boost, eg. Ranked\n"
+        "> \u26a1 Fast completion\n"
+        "> \u2b50 5-star rated service"
     )
     if image_url:
         e.set_image(url=image_url)
@@ -639,7 +639,7 @@ async def giveaway(
     end_ts = int(ends_at.timestamp())
     e = base_embed("\U0001f389 GIVEAWAY \U0001f389", color=PRIMARY)
     e.description = f"## \U0001f381 {prize}"
-    e.add_field(name="\u2139\ufe0f Description:", value=description, inline=False)
+    e.add_field(name="\u2139\ufe0f Description", value=f"> {description}", inline=False)
     e.add_field(name="\u23f0 Ends", value=f"in {hours} hour{'s' if hours != 1 else ''} ( <t:{end_ts}:F> )", inline=False)
     e.add_field(name="\U0001f3c6 Winners", value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
     e.add_field(name="\U0001f465 Participants", value="**0** participants", inline=True)
@@ -697,10 +697,15 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
 @app_commands.describe(link="Backup server invite link")
 @app_commands.checks.has_permissions(administrator=True)
 async def backup_link(interaction: discord.Interaction, link: str):
+    import asyncio
     await interaction.response.defer(ephemeral=True)
-    sent = failed = 0
-    for member in interaction.guild.members:
-        if not member.bot:
+
+    members = [m for m in interaction.guild.members if not m.bot]
+    results = {"sent": 0, "failed": 0}
+    sem = asyncio.Semaphore(20)
+
+    async def send_dm(member):
+        async with sem:
             try:
                 e = base_embed("\u26a0\ufe0f BACKUP SERVER", color=DANGER)
                 e.description = (
@@ -708,13 +713,15 @@ async def backup_link(interaction: discord.Interaction, link: str):
                     f"> **{link}**"
                 )
                 await member.send(embed=e)
-                sent += 1
+                results["sent"] += 1
             except Exception:
-                failed += 1
+                results["failed"] += 1
+
+    await asyncio.gather(*[send_dm(m) for m in members])
 
     e = base_embed("\U0001f4e8 Backup Link Sent", color=SUCCESS)
-    e.add_field(name="\u2705 Delivered", value=f"**{sent}**", inline=True)
-    e.add_field(name="\u274c Failed", value=f"**{failed}**", inline=True)
+    e.add_field(name="\u2705 Delivered", value=f"**{results['sent']}**", inline=True)
+    e.add_field(name="\u274c Failed", value=f"**{results['failed']}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
 

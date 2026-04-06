@@ -15,7 +15,7 @@ DANGER       = 0xE74C3C
 DARK         = 0x0A0E1A
 ACCENT       = 0xA855F7
 
-FOOTER_BRAND = "Powered by Brawl Carry\u2122"
+FOOTER_BRAND = "Powered by Brawl Carry™"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -62,8 +62,16 @@ def init_db():
         participants TEXT,
         winner_ids TEXT,
         image_url TEXT,
+        extra_entries TEXT,
+        ping TEXT,
         ended_at TIMESTAMP
     )""")
+    # Migrate: add new columns if they don't exist yet
+    for col in ("extra_entries TEXT", "ping TEXT"):
+        try:
+            c.execute(f"ALTER TABLE giveaways ADD COLUMN {col}")
+        except Exception:
+            pass
     c.execute("""CREATE TABLE IF NOT EXISTS guild_config (
         guild_id INT PRIMARY KEY,
         vouch_channel_id INT,
@@ -105,7 +113,7 @@ def set_config(guild_id: int, **kwargs):
 # ---------------------------------------------------------------------------
 # WATERMARK UTILITY
 # ---------------------------------------------------------------------------
-def watermark_image(image_bytes: bytes, text: str = "Iceyz Vouches") -> bytes:
+def watermark_image(image_bytes: bytes, text: str = "Brawl Carry Vouches") -> bytes:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     w, h = img.size
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -185,7 +193,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
             price_val = float(self.price.value.replace("$", "").strip())
         except ValueError:
             await interaction.response.send_message(
-                "\u274c Invalid price. Please enter a number like `44.99`.", ephemeral=True
+                "❌ Invalid price. Please enter a number like `44.99`.", ephemeral=True
             )
             return
 
@@ -200,16 +208,14 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
         conn.commit()
         conn.close()
 
-        e = base_embed("\U0001f680 RANKED ORDER", color=PRIMARY)
-        e.add_field(name="\U0001f91d Buyer", value=f"\u21b3 {interaction.user.mention}", inline=False)
-        e.add_field(name="\U0001f4b5 Order Amount (USD) \U0001f4b2", value=f"\u21b3 **${price_val:.2f}**", inline=False)
-        e.add_field(name="\U0001f680 Order Type", value="\u21b3 Ranked b\U0001f15eost", inline=False)
-        e.add_field(
-            name="\U0001f4e6 Order Details \u2139\ufe0f",
-            value=f"\u21b3 {self.from_tier.value} \u2192 {self.to_tier.value}",
-            inline=False
-        )
-        e.set_author(name="\U0001f3ae BrawlCarry | Brawl Stars Boost")
+        e = base_embed("🚀 New Carry Order", color=PRIMARY)
+        e.set_author(name="BrawlCarry | Brawl Stars Boost", icon_url=interaction.user.display_avatar.url)
+        e.add_field(name="👤 Customer", value=interaction.user.mention, inline=True)
+        e.add_field(name="💵 Amount", value=f"**${price_val:.2f}**", inline=True)
+        e.add_field(name="🎮 Type", value="Ranked Boost", inline=True)
+        e.add_field(name="📦 Route", value=f"`{self.from_tier.value}` → `{self.to_tier.value}`", inline=False)
+        e.add_field(name="💳 Payment", value=self.method.value, inline=True)
+        e.add_field(name="🆔 Order ID", value=f"`{order_id}`", inline=True)
 
         wm_file = None
         if img:
@@ -219,14 +225,15 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
 
         view = OrderActionsView(order_id)
         if wm_file:
-            await interaction.response.send_message(embed=e, view=view, file=wm_file)
+            await interaction.channel.send(embed=e, view=view, file=wm_file)
         else:
-            await interaction.response.send_message(embed=e, view=view)
+            await interaction.channel.send(embed=e, view=view)
+        await interaction.response.send_message("✅ Order submitted!", ephemeral=True)
 
 
 class VouchModal(ui.Modal, title="Submit Your Vouch"):
     rating = ui.TextInput(
-        label="Rating (1-5 stars)",
+        label="Rating (1–5 stars)",
         placeholder="5",
         min_length=1,
         max_length=1,
@@ -266,7 +273,7 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
             amount_val = 0.0
 
         img = self.image_url.value.strip() if self.image_url.value else None
-        star_str = "\u2b50" * stars
+        star_str = "⭐" * stars + f"  ({stars}/5)"
 
         vouch_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
         conn = get_db()
@@ -284,11 +291,12 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
                 vouch_ch_id = cfg["vouch_channel_id"]
         conn.close()
 
-        e = base_embed("\u2b50 CUSTOMER VOUCH", color=GOLD)
-        e.add_field(name="\U0001f91d Customer", value=f"\u21b3 {interaction.user.mention}", inline=False)
-        e.add_field(name="\U0001f4b0 Order Amount", value=f"\u21b3 **${amount_val:.2f}**", inline=False)
-        e.add_field(name="\U0001f4dd Feedback", value=f"\u21b3 *{self.feedback.value}*", inline=False)
-        e.add_field(name=f"\u2b50 Rating ({stars}/5)", value=star_str, inline=False)
+        e = base_embed("⭐ New Vouch", color=GOLD)
+        e.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+        e.add_field(name="👤 Customer", value=interaction.user.mention, inline=True)
+        e.add_field(name="💰 Order Amount", value=f"**${amount_val:.2f}**", inline=True)
+        e.add_field(name="⭐ Rating", value=star_str, inline=True)
+        e.add_field(name="💬 Feedback", value=f"*{self.feedback.value}*", inline=False)
         if self.order_id:
             e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
 
@@ -299,7 +307,7 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
                 e.set_image(url="attachment://proof.jpg")
 
         await interaction.response.send_message(
-            "\u2705 Your vouch has been submitted. Thank you!", ephemeral=True
+            "✅ Your vouch has been submitted. Thank you!", ephemeral=True
         )
 
         if vouch_ch_id and interaction.guild:
@@ -313,15 +321,15 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
 
 class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
     panel_title = ui.TextInput(
-        label="Panel Title (markdown supported)",
-        placeholder="## Support Center",
-        default="## \U0001f3ab Support Center",
+        label="Panel Title",
+        placeholder="🎫 Support Center",
+        default="🎫 Support Center",
         style=discord.TextStyle.short
     )
     panel_desc = ui.TextInput(
-        label="Panel Description (markdown supported)",
+        label="Panel Description",
         placeholder="Select a category below to open a ticket.",
-        default="Select the category that best matches your request.\nOur team will be with you shortly.\n\n> \U0001f4cc Tickets are private and handled by staff only.",
+        default="Select the category that best matches your request.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.",
         style=discord.TextStyle.long
     )
 
@@ -332,7 +340,7 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
             ticket_panel_desc=self.panel_desc.value
         )
         await interaction.response.send_message(
-            "\u2705 Ticket panel configuration saved.", ephemeral=True
+            "✅ Ticket panel configuration saved.", ephemeral=True
         )
 
 # ---------------------------------------------------------------------------
@@ -342,7 +350,7 @@ class OrderButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Create Order", style=discord.ButtonStyle.primary, emoji="\U0001f3ae", custom_id="order_btn_v2")
+    @ui.button(label="Place Order", style=discord.ButtonStyle.primary, emoji="🎮", custom_id="order_btn_v2")
     async def order(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(OrderModal())
 
@@ -352,10 +360,10 @@ class OrderActionsView(ui.View):
         super().__init__(timeout=None)
         self.order_id = order_id
 
-    @ui.button(label="Get Your Rank Upgraded", style=discord.ButtonStyle.primary, emoji="\U0001f7e0", custom_id="order_upgrade_btn")
+    @ui.button(label="Claim Your Boost", style=discord.ButtonStyle.primary, emoji="🟠", custom_id="order_upgrade_btn")
     async def upgrade(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_message(
-            "\U0001f4e8 Our team will contact you shortly to begin your order!", ephemeral=True
+            "📨 Our team will contact you shortly to begin your order!", ephemeral=True
         )
 
 
@@ -364,7 +372,7 @@ class VouchButtonView(ui.View):
         super().__init__(timeout=None)
         self.order_id = order_id
 
-    @ui.button(label="Submit A Vouch", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="vouch_btn_v2")
+    @ui.button(label="Submit a Vouch", style=discord.ButtonStyle.success, emoji="⭐", custom_id="vouch_btn_v2")
     async def vouch(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(VouchModal(order_id=self.order_id))
 
@@ -374,65 +382,71 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="\U0001f389", custom_id="ga_enter_v2")
+    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
         c.execute("SELECT * FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         if not ga:
-            await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
             conn.close()
             return
         participants = json.loads(ga["participants"]) if ga["participants"] else []
         if interaction.user.id in participants:
-            await interaction.response.send_message("\u274c You have already entered this giveaway.", ephemeral=True)
+            await interaction.response.send_message("❌ You have already entered this giveaway.", ephemeral=True)
         else:
             participants.append(interaction.user.id)
             c.execute("UPDATE giveaways SET participants = ? WHERE id = ?",
                       (json.dumps(participants), self.giveaway_id))
             conn.commit()
-            await interaction.response.send_message("\u2705 You have entered the giveaway! Good luck.", ephemeral=True)
+            await interaction.response.send_message("✅ You've entered! Good luck 🍀", ephemeral=True)
         conn.close()
 
-    @ui.button(label="View Participants", style=discord.ButtonStyle.blurple, emoji="\U0001f465", custom_id="ga_view_v2")
-    async def view(self, interaction: discord.Interaction, button: ui.Button):
+    @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="👥", custom_id="ga_view_v2")
+    async def view_participants(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
         c.execute("SELECT participants FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         conn.close()
         count = len(json.loads(ga["participants"])) if ga and ga["participants"] else 0
-        await interaction.response.send_message(
-            f"\U0001f465 **{count:,}** participant{'s' if count != 1 else ''} have entered.", ephemeral=True
-        )
+        e = base_embed("👥 Giveaway Participants", color=PRIMARY)
+        e.description = f"**{count:,}** participant{'s' if count != 1 else ''} have entered this giveaway."
+        await interaction.response.send_message(embed=e, ephemeral=True)
 
-    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="\U0001f381", custom_id="ga_extra_v2")
+    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
     async def extra(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_message(
-            "\U0001f4cc Check the pinned messages for extra entry methods!", ephemeral=True
-        )
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT extra_entries FROM giveaways WHERE id = ?", (self.giveaway_id,))
+        ga = c.fetchone()
+        conn.close()
+        extra = ga["extra_entries"] if ga and ga["extra_entries"] else None
+        e = base_embed("🎁 Extra Entry Methods", color=ACCENT)
+        e.description = extra if extra else "No extra entry methods have been configured for this giveaway."
+        await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 class TicketSelect(ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="Carry Order",     value="carry",   emoji="\U0001f3ae", description="Place or inquire about a brawl stars boost order"),
-            discord.SelectOption(label="General Support", value="other",   emoji="\u2139\ufe0f",  description="Any other questions or concerns"),
+            discord.SelectOption(label="Carry Order",     value="carry", emoji="🎮", description="Place or inquire about a Brawl Stars boost order"),
+            discord.SelectOption(label="General Support", value="other", emoji="ℹ️",  description="Any other questions or concerns"),
         ]
         super().__init__(
-            placeholder="\U0001f4e9 Select a category to open a ticket...",
+            placeholder="📩 Select a category to open a ticket...",
             options=options,
             custom_id="ticket_select_v2"
         )
 
     async def callback(self, interaction: discord.Interaction):
         category_map = {
-            "carry":   ("\U0001f3ae Carry Order",    PRIMARY),
-            "other":   ("\u2139\ufe0f General Support", SUCCESS),
+            "carry": ("🎮 Carry Order",    PRIMARY),
+            "other": ("ℹ️ General Support", SUCCESS),
         }
         label, color = category_map.get(self.values[0], ("Ticket", PRIMARY))
-        guild = interaction.guild
+        guild  = interaction.guild
         member = interaction.user
 
         overwrites = {
@@ -449,20 +463,17 @@ class TicketSelect(ui.Select):
             topic=f"{label} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
         )
 
-        e = base_embed(f"{label}", color=color)
+        e = base_embed(label, color=color)
         e.description = (
             f"Welcome, {member.mention}!\n\n"
-            f"> \U0001f4cc **Category:** {label}\n"
-            f"> \U0001f552 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            f"📋 **Category:** {label}\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Staff will be with you shortly. Please describe your request in detail."
         )
-        e.set_author(name=f"{member.display_name}", icon_url=member.display_avatar.url)
+        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        close_view = TicketCloseView()
-        await ch.send(content=member.mention, embed=e, view=close_view)
-        await interaction.response.send_message(
-            f"\u2705 Your ticket has been created: {ch.mention}", ephemeral=True
-        )
+        await ch.send(content=member.mention, embed=e, view=TicketCloseView())
+        await interaction.response.send_message(f"✅ Ticket created: {ch.mention}", ephemeral=True)
 
 
 class TicketView(ui.View):
@@ -475,9 +486,9 @@ class TicketCloseView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="\U0001f512", custom_id="ticket_close_v2")
+    @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="ticket_close_v2")
     async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("\U0001f512 Ticket Closing", color=DANGER)
+        e = base_embed("🔒 Closing Ticket", color=DANGER)
         e.description = "This ticket will be deleted in **5 seconds**."
         await interaction.response.send_message(embed=e)
         await asyncio.sleep(5)
@@ -486,20 +497,21 @@ class TicketCloseView(ui.View):
         except Exception:
             pass
 
-    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
+    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("\u274c Staff only.", ephemeral=True)
+            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
             return
-        e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
+        e = base_embed("⭐ Leave a Vouch", color=GOLD)
         e.description = (
-            "Thank you for your order!\n\n"
-            "> \U0001f4f8 Attach a screenshot as proof\n"
-            "> \u2b50 Rate your experience (1-5)\n"
-            "> \U0001f4ac Leave honest feedback\n\n"
+            "Thank you for your order! We'd love your feedback.\n\n"
+            "📸 Attach a screenshot as proof\n"
+            "⭐ Rate your experience (1–5)\n"
+            "💬 Leave honest feedback\n\n"
             "Click the button below to submit."
         )
-        await interaction.response.send_message(embed=e, view=VouchButtonView())
+        await interaction.channel.send(embed=e, view=VouchButtonView())
+        await interaction.response.send_message("✅ Vouch panel sent.", ephemeral=True)
 
 # ---------------------------------------------------------------------------
 # SLASH COMMANDS
@@ -524,12 +536,12 @@ async def setup(
     if updates:
         set_config(interaction.guild.id, **updates)
 
-    e = base_embed("\u2699\ufe0f Server Configuration", color=SUCCESS)
+    e = base_embed("⚙️ Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
     if vouch_channel:
-        e.add_field(name="\u2b50 Vouch Channel", value=vouch_channel.mention, inline=True)
+        e.add_field(name="⭐ Vouch Channel", value=vouch_channel.mention, inline=True)
     if ticket_channel:
-        e.add_field(name="\U0001f3ab Ticket Channel", value=ticket_channel.mention, inline=True)
+        e.add_field(name="🎫 Ticket Channel", value=ticket_channel.mention, inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -537,36 +549,33 @@ async def setup(
 @app_commands.describe(image_url="Optional banner image URL for the panel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("\U0001f680 Brawl Stars Boost Orders", color=PRIMARY)
+    e = base_embed("🎮 Brawl Stars Boost Orders", color=PRIMARY)
     e.description = (
-        "## \U0001f3ae Place Your Carry Order\n\n"
-        "> Click the button below to fill out your order details.\n\n"
+        "Ready to rank up? Click the button below to place your carry order.\n\n"
         "**What we offer:**\n"
-        "> \U0001f947 Brawl Stars boost, eg. Ranked\n"
-        "> \u26a1 Fast completion\n"
-        "> \u2b50 5-star rated service"
+        "🥇 Brawl Stars Ranked Boosting\n"
+        "⚡ Fast & reliable completion\n"
+        "⭐ 5-star rated service\n"
+        "🔒 Secure & confidential"
     )
     if image_url:
         e.set_image(url=image_url)
-    await interaction.response.send_message(embed=e, view=OrderButton())
+    await interaction.channel.send(embed=e, view=OrderButton())
+    await interaction.response.send_message("✅ Order panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ticket_panel(interaction: discord.Interaction):
-    cfg = get_config(interaction.guild.id)
-    title = (cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"]
-             else "## \U0001f3ab Support Center")
-    desc = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
-            else (
-                "Select the category that best matches your request.\n"
-                "Our team will be with you shortly.\n\n"
-                "> \U0001f4cc Tickets are private and handled by staff only."
-            ))
-    e = discord.Embed(color=PRIMARY, description=f"{title}\n{desc}")
+    cfg   = get_config(interaction.guild.id)
+    title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "🎫 Support Center"
+    desc  = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
+             else "Select the category that best matches your request.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.")
+    e = discord.Embed(title=title, color=PRIMARY, description=desc)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
-    await interaction.response.send_message(embed=e, view=TicketView())
+    await interaction.channel.send(embed=e, view=TicketView())
+    await interaction.response.send_message("✅ Ticket panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
@@ -586,12 +595,12 @@ async def configure_ticket_panel(interaction: discord.Interaction):
 @app_commands.describe(user="DM the vouch panel to this user", order_id="Order ID to attach")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def vouch_panel(interaction: discord.Interaction, user: discord.User = None, order_id: str = None):
-    e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
+    e = base_embed("⭐ Leave a Vouch", color=GOLD)
     e.description = (
-        "Thank you for your order!\n\n"
-        "> \U0001f4f8 Attach a screenshot as proof\n"
-        "> \u2b50 Rate your experience (1-5)\n"
-        "> \U0001f4ac Leave honest feedback\n\n"
+        "Thank you for your order! We'd love your feedback.\n\n"
+        "📸 Attach a screenshot as proof\n"
+        "⭐ Rate your experience (1–5)\n"
+        "💬 Leave honest feedback\n\n"
         "Click the button below to submit."
     )
     if order_id:
@@ -601,15 +610,12 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
     if user:
         try:
             await user.send(embed=e, view=view)
-            await interaction.response.send_message(
-                f"\u2705 Vouch panel sent to {user.mention}.", ephemeral=True
-            )
+            await interaction.response.send_message(f"✅ Vouch panel sent to {user.mention}.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message(
-                "\u274c Could not DM that user. They may have DMs disabled.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ Could not DM that user. They may have DMs disabled.", ephemeral=True)
     else:
-        await interaction.response.send_message(embed=e, view=view)
+        await interaction.channel.send(embed=e, view=view)
+        await interaction.response.send_message("✅ Vouch panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="giveaway", description="Start a new giveaway")
@@ -617,7 +623,9 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
     prize="Prize name",
     hours="Duration in hours",
     winners="Number of winners",
-    description="Rules or description",
+    description="Giveaway description or rules",
+    extra_entries="Extra entry methods shown when users click the Extra Entries button",
+    ping="Who to ping: @everyone, @here, a role mention, or none",
     image_url="Optional banner image URL"
 )
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -627,40 +635,54 @@ async def giveaway(
     hours: int,
     winners: int,
     description: str,
+    extra_entries: str = None,
+    ping: str = "@everyone",
     image_url: str = None
 ):
     conn = get_db()
     c = conn.cursor()
-    ga_id = f"G{uuid.uuid4().hex[:8].upper()}"
+    ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
-        "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, ends_at)
+        "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, ended_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries, ping, ends_at)
     )
     conn.commit()
     conn.close()
 
     end_ts = int(ends_at.timestamp())
-    e = base_embed("\U0001f389 GIVEAWAY \U0001f389", color=PRIMARY)
-    e.description = f"## \U0001f381 {prize}"
-    e.add_field(name="\u2139\ufe0f Description", value=f"> {description}", inline=False)
-    e.add_field(name="\u23f0 Ends", value=f"in {hours} hour{'s' if hours != 1 else ''} ( <t:{end_ts}:F> )", inline=False)
-    e.add_field(name="\U0001f3c6 Winners", value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
-    e.add_field(name="\U0001f465 Participants", value="**0** participants", inline=True)
-    e.add_field(name="\U0001f3af Hosted By", value=interaction.user.mention, inline=True)
+
+    e = discord.Embed(title=f"🎁 {prize}", color=PRIMARY)
+    e.add_field(name="ℹ️ Description", value=description, inline=False)
+    e.add_field(name="⏰ Ends", value=f"<t:{end_ts}:F>  (<t:{end_ts}:R>)", inline=False)
+    e.add_field(name="🏆 Winners", value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
+    e.add_field(name="👥 Participants", value="**0** entered", inline=True)
+    e.add_field(name="🎯 Hosted By", value=interaction.user.mention, inline=True)
+    if extra_entries:
+        e.add_field(name="🎁 Bonus Entries", value="Click **Extra Entries** to see how to earn more!", inline=False)
     if image_url:
         e.set_image(url=image_url)
-    e.set_footer(text=f"{FOOTER_BRAND} | Giveaway ID: {ga_id}")
-    await interaction.response.send_message(
-        "@everyone **NEW GIVEAWAY!**",
+    e.set_footer(text=f"{FOOTER_BRAND} | ID: {ga_id}")
+    e.timestamp = datetime.utcnow()
+
+    ping_content = ping if (ping and ping.lower() != "none") else ""
+    if ping_content:
+        ping_content += " **🎉 NEW GIVEAWAY!**"
+    else:
+        ping_content = "**🎉 NEW GIVEAWAY!**"
+
+    await interaction.channel.send(
+        content=ping_content,
         embed=e,
         view=GiveawayView(ga_id),
-        allowed_mentions=discord.AllowedMentions(everyone=True)
+        allowed_mentions=discord.AllowedMentions(everyone=True, roles=True)
     )
+    await interaction.response.send_message(f"✅ Giveaway started! ID: `{ga_id}`", ephemeral=True)
 
 
 @bot.tree.command(name="end_giveaway", description="End a giveaway and pick winners")
-@app_commands.describe(giveaway_id="Giveaway ID (shown in footer)")
+@app_commands.describe(giveaway_id="Giveaway ID (shown in the embed footer)")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn = get_db()
@@ -670,13 +692,13 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
 
     if not ga:
         conn.close()
-        await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
+        await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
         return
 
     participants = json.loads(ga["participants"]) if ga["participants"] else []
     if not participants:
         conn.close()
-        await interaction.response.send_message("\u274c No participants to draw from.", ephemeral=True)
+        await interaction.response.send_message("❌ No participants to draw from.", ephemeral=True)
         return
 
     winner_ids = random.sample(participants, min(ga["winners"], len(participants)))
@@ -685,16 +707,20 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn.close()
 
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
-    e = base_embed("\U0001f389 GIVEAWAY ENDED", color=SUCCESS)
-    e.description = f"## \U0001f381 {ga['prize']}"
-    e.add_field(name="\U0001f3c6 Winners", value=winner_mentions, inline=False)
-    e.add_field(name="\U0001f465 Total Participants", value=f"**{len(participants):,}**", inline=True)
-    e.set_footer(text=f"{FOOTER_BRAND} | Giveaway: {giveaway_id}")
-    await interaction.response.send_message(
-        f"\U0001f389 Congratulations {winner_mentions}!",
+
+    e = discord.Embed(title=f"🎁 {ga['prize']} — Giveaway Ended", color=SUCCESS)
+    e.add_field(name="🏆 Winners", value=winner_mentions, inline=False)
+    e.add_field(name="👥 Total Participants", value=f"**{len(participants):,}**", inline=True)
+    e.add_field(name="🆔 Giveaway ID", value=f"`{giveaway_id}`", inline=True)
+    e.set_footer(text=FOOTER_BRAND)
+    e.timestamp = datetime.utcnow()
+
+    await interaction.channel.send(
+        content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
         embed=e,
         allowed_mentions=discord.AllowedMentions(users=True)
     )
+    await interaction.response.send_message("✅ Giveaway ended.", ephemeral=True)
 
 
 @bot.tree.command(name="backup_link", description="DM all members the backup server link")
@@ -710,7 +736,7 @@ async def backup_link(interaction: discord.Interaction, link: str):
     async def send_dm(member):
         async with sem:
             try:
-                e = base_embed("\u26a0\ufe0f BACKUP SERVER", color=DANGER)
+                e = base_embed("⚠️ Backup Server", color=DANGER)
                 e.description = (
                     "If the main server becomes unavailable, join our backup:\n\n"
                     f"> **{link}**"
@@ -722,9 +748,9 @@ async def backup_link(interaction: discord.Interaction, link: str):
 
     await asyncio.gather(*[send_dm(m) for m in members])
 
-    e = base_embed("\U0001f4e8 Backup Link Sent", color=SUCCESS)
-    e.add_field(name="\u2705 Delivered", value=f"**{results['sent']}**", inline=True)
-    e.add_field(name="\u274c Failed", value=f"**{results['failed']}**", inline=True)
+    e = base_embed("📨 Backup Link Sent", color=SUCCESS)
+    e.add_field(name="✅ Delivered", value=f"**{results['sent']}**", inline=True)
+    e.add_field(name="❌ Failed",    value=f"**{results['failed']}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
 
@@ -732,41 +758,38 @@ async def backup_link(interaction: discord.Interaction, link: str):
 @app_commands.describe(user="User to look up (defaults to you)")
 async def stats(interaction: discord.Interaction, user: discord.User = None):
     target = user or interaction.user
-    conn = get_db()
-    c = conn.cursor()
-    c.execute(
-        "SELECT COUNT(*) as count, SUM(price) as total FROM orders WHERE user_id = ?",
-        (target.id,)
-    )
+    conn   = get_db()
+    c      = conn.cursor()
+    c.execute("SELECT COUNT(*) as count, SUM(price) as total FROM orders WHERE user_id = ?", (target.id,))
     row = c.fetchone()
     c.execute("SELECT COUNT(*) as vc FROM vouchers WHERE used_by = ?", (target.id,))
     vc = c.fetchone()
     conn.close()
 
-    e = base_embed(f"\U0001f4ca {target.display_name}", color=PRIMARY)
+    e = base_embed(f"📊 {target.display_name}'s Stats", color=PRIMARY)
     e.set_thumbnail(url=target.display_avatar.url)
-    e.add_field(name="\U0001f3ae Total Carries", value=f"**{row['count'] or 0}**", inline=True)
-    e.add_field(name="\U0001f4b5 Total Spent", value=f"**${row['total']:.2f}**" if row["total"] else "**$0.00**", inline=True)
-    e.add_field(name="\u2b50 Vouches", value=f"**{vc['vc'] or 0}**", inline=True)
+    e.add_field(name="🎮 Total Carries", value=f"**{row['count'] or 0}**", inline=True)
+    e.add_field(name="💵 Total Spent",   value=f"**${row['total']:.2f}**" if row["total"] else "**$0.00**", inline=True)
+    e.add_field(name="⭐ Vouches",       value=f"**{vc['vc'] or 0}**", inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 @bot.tree.command(name="help", description="View all available bot commands")
 async def help_cmd(interaction: discord.Interaction):
-    e = base_embed("\U0001f4cb BrawlCarry Bot Commands", color=PRIMARY)
+    e = base_embed("📋 BrawlCarry Bot — Commands", color=PRIMARY)
     e.description = (
-        "## \u2699\ufe0f Admin Commands\n"
-        "> `/setup` \u2014 Configure vouch and ticket channels\n"
-        "> `/configure_ticket_panel` \u2014 Customise ticket panel text\n"
-        "> `/order_panel` \u2014 Post the order panel\n"
-        "> `/ticket_panel` \u2014 Post the ticket panel\n"
-        "> `/vouch_panel` \u2014 Send vouch panel to user or channel\n"
-        "> `/giveaway` \u2014 Start a giveaway\n"
-        "> `/end_giveaway` \u2014 End a giveaway and draw winners\n"
-        "> `/backup_link` \u2014 DM all members the backup server link\n\n"
-        "## \U0001f464 User Commands\n"
-        "> `/stats` \u2014 View your carry statistics\n"
-        "> `/help` \u2014 Show this menu"
+        "**⚙️ Admin Commands**\n"
+        "`/setup` — Configure vouch and ticket channels\n"
+        "`/configure_ticket_panel` — Customise ticket panel text\n"
+        "`/order_panel` — Post the order panel\n"
+        "`/ticket_panel` — Post the ticket panel\n"
+        "`/vouch_panel` — Send vouch panel to user or channel\n"
+        "`/giveaway` — Start a giveaway (supports extra entries & custom ping)\n"
+        "`/end_giveaway` — End a giveaway and draw winners\n"
+        "`/backup_link` — DM all members the backup server link\n\n"
+        "**👤 User Commands**\n"
+        "`/stats` — View your carry statistics\n"
+        "`/help` — Show this menu"
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -776,9 +799,9 @@ async def help_cmd(interaction: discord.Interaction):
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
-        msg = "\u274c You do not have permission to use this command."
+        msg = "❌ You do not have permission to use this command."
     else:
-        msg = f"\u274c An error occurred: `{error}`"
+        msg = f"❌ An error occurred: `{error}`"
     if interaction.response.is_done():
         await interaction.followup.send(msg, ephemeral=True)
     else:
@@ -797,7 +820,7 @@ async def on_ready():
     bot.add_view(VouchButtonView())
     # Re-register all active giveaway views so buttons survive restarts
     conn = get_db()
-    c = conn.cursor()
+    c    = conn.cursor()
     c.execute("SELECT id FROM giveaways WHERE winner_ids IS NULL OR winner_ids = ''")
     for row in c.fetchall():
         bot.add_view(GiveawayView(row["id"]))

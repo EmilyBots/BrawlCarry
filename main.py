@@ -48,11 +48,14 @@ def create_order_embed(order_id, user_id, from_rank, to_rank, price, method, rat
     embed.set_footer(text=f"Brawl Carry | {order_id}")
     return embed
 
-def create_voucher_embed(code, amount, rating=5):
+def create_voucher_embed(code, amount, rating=5, image_url=None):
     embed = discord.Embed(color=PRIMARY)
-    embed.add_field(name="🎁 Voucher", value=f"**+vouch {code.lower()}**", inline=False)
-    embed.add_field(name="💵 Amount", value=f"**${amount:.2f}**", inline=False)
-    embed.add_field(name="⭐ Rating", value="⭐" * rating, inline=False)
+    embed.add_field(name="🎁 Vouch from its.mention", value=f"\n**New Customer Vouch!** 🎊", inline=False)
+    embed.add_field(name="+vouch", value=f"**{code.lower()}**", inline=False)
+    embed.add_field(name="💵 Vouch Amount", value=f"**${amount:.2f}**", inline=False)
+    embed.add_field(name="⭐ Rating (5/5)", value="⭐" * rating, inline=False)
+    if image_url:
+        embed.set_image(url=image_url)
     embed.set_footer(text="Brawl Carry")
     return embed
 
@@ -150,7 +153,12 @@ async def make_voucher(ctx, amount: float, rating: int = 5):
              (voucher_id, code, amount, rating))
     conn.commit()
     conn.close()
-    embed = create_voucher_embed(code, amount, rating)
+    
+    image_url = None
+    if ctx.message.attachments:
+        image_url = ctx.message.attachments[0].url
+    
+    embed = create_voucher_embed(code, amount, rating, image_url)
     await ctx.send(embed=embed)
 
 @bot.command(name='vouch')

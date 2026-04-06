@@ -291,7 +291,9 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
         e.add_field(name="\U0001f4dd Feedback", value=f"\u21b3 *{self.feedback.value}*", inline=False)
         e.add_field(name=f"\u2b50 Rating ({stars}/5)", value=star_str, inline=False)
         if self.order_id:
-            e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
+            e = discord.Embed(color=PRIMARY, description=f"{title}\n{desc}")
+            e.set_footer(text=FOOTER_BRAND)
+            e.timestamp = datetime.utcnow()
 
         wm_file = None
         if img:

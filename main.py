@@ -240,17 +240,6 @@ async def stats(ctx, user: discord.User = None):
     embed.set_thumbnail(url=target.avatar.url if target.avatar else "")
     await ctx.send(embed=embed)
 
-# HELP
-@bot.command(name='help')
-async def help_cmd(ctx):
-    embed = discord.Embed(color=PRIMARY, title="Commands")
-    embed.add_field(name="Orders", value="`+carry <from> <to> <price>` - Create\n`+mycarries` - View\n`+complete <id>` - Done (admin)", inline=False)
-    embed.add_field(name="Vouchers", value="`+makevoucher <amount>` - Create (admin)\n`+vouch <code>` - Redeem", inline=False)
-    embed.add_field(name="Giveaways", value="`+giveaway <prize> <hours> <winners> <desc>` - Start (admin)\n`+endgiveaway <id>` - End (admin)", inline=False)
-    embed.add_field(name="Other", value="`+stats [@user]` - View\n`+setup` - Setup server (admin)", inline=False)
-    embed.set_footer(text="Brawl Carry")
-    await ctx.send(embed=embed)
-
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):

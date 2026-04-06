@@ -180,7 +180,7 @@ DESIRED_RANKS = [
 
 P11_OPTIONS = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
 
-PRESTIGE_OPTIONS = ["Prestige 1 → Prestige 2", "Prestige 2 → Prestige 3"]
+PRESTIGE_OPTIONS = [Prestige 0 → Prestige 1", "Prestige 1 → Prestige 2", "Prestige 2 → Prestige 3"]
 
 # ---------------------------------------------------------------------------
 # MODALS
@@ -729,7 +729,7 @@ class RankedPanelButton(ui.View):
         )
         e.add_field(
             name="⚠️ Notice",
-            value="This form will be submitted to **BrawlMart | Bot**. "
+            value="This form will be submitted to **BrawlCarry Bot**. "
                   "Do not share passwords or other sensitive information.",
             inline=False
         )
@@ -751,7 +751,7 @@ class PrestigePanelButton(ui.View):
         )
         e.add_field(
             name="⚠️ Notice",
-            value="This form will be submitted to **BrawlMart | Bot**. "
+            value="This form will be submitted to **BrawlCarry Bot**. "
                   "Do not share passwords or other sensitive information.",
             inline=False
         )

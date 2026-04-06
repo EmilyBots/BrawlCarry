@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from discord.ext.commands import has_permissions
+from discord import app_commands, ui
 import json, os, sqlite3, uuid, random
 from datetime import datetime, timedelta
 
@@ -8,9 +8,9 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
+intents.dm_messages = True
 bot = commands.Bot(command_prefix='+', intents=intents, help_command=None)
 
-# Colors
 PRIMARY = 0x00D9FF
 DARK = 0x0A0E27
 SUCCESS = 0x00FF88
@@ -39,207 +39,197 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def create_order_embed(order_id, user_id, from_rank, to_rank, price, method, rating=5):
-    embed = discord.Embed(color=PRIMARY)
-    embed.add_field(name="👤 Buyer", value=f"<@{user_id}>", inline=False)
-    embed.add_field(name="💰 Amount", value=f"**${price:.2f}**", inline=False)
-    embed.add_field(name="🏆 Boost", value=f"{from_rank.title()} → {to_rank.title()}", inline=False)
-    embed.add_field(name="💳 Payment", value=method, inline=True)
-    embed.add_field(name="⭐", value="⭐" * rating, inline=True)
-    embed.set_footer(text=f"Brawl Carry | {order_id}")
-    return embed
+# MODALS
+class OrderModal(ui.Modal, title="Create Carry Order"):
+    from_rank = ui.TextInput(label="From Rank", placeholder="e.g. Mythic")
+    to_rank = ui.TextInput(label="To Rank", placeholder="e.g. Masters")
+    price = ui.TextInput(label="Price (USD)", placeholder="e.g. 44.99")
+    method = ui.TextInput(label="Payment Method", placeholder="Bank Transfer, PayPal, etc")
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        conn = get_db()
+        c = conn.cursor()
+        order_id = f"CARRY-{uuid.uuid4().hex[:6].upper()}"
+        c.execute('''INSERT INTO orders (id, user_id, from_rank, to_rank, price, method)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                 (order_id, interaction.user.id, self.from_rank.value.lower(), 
+                  self.to_rank.value.lower(), float(self.price.value), self.method.value))
+        conn.commit()
+        conn.close()
+        
+        embed = discord.Embed(color=SUCCESS, title="✅ Order Created")
+        embed.add_field(name="Order ID", value=order_id, inline=False)
+        embed.add_field(name="Boost", value=f"{self.from_rank.value} → {self.to_rank.value}", inline=False)
+        embed.add_field(name="Price", value=f"${self.price.value}", inline=True)
+        embed.add_field(name="Payment", value=self.method.value, inline=True)
+        embed.set_footer(text="Brawl Carry")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
-def create_voucher_embed(code, amount, rating=5, image_url=None):
-    embed = discord.Embed(color=PRIMARY)
-    embed.add_field(name="🎁 Vouch from its.mention", value=f"\n**New Customer Vouch!** 🎊", inline=False)
-    embed.add_field(name="+vouch", value=f"**{code.lower()}**", inline=False)
-    embed.add_field(name="💵 Vouch Amount", value=f"**${amount:.2f}**", inline=False)
-    embed.add_field(name="⭐ Rating (5/5)", value="⭐" * rating, inline=False)
-    if image_url:
-        embed.set_image(url=image_url)
+class VouchModal(ui.Modal, title="Fill Vouch"):
+    stars = ui.TextInput(label="Rating (1-5)", placeholder="5")
+    notes = ui.TextInput(label="Notes (optional)", placeholder="Fast service!", required=False)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = discord.Embed(color=SUCCESS, title="✅ Vouch Submitted")
+        embed.add_field(name="Rating", value="⭐" * int(self.stars.value), inline=False)
+        if self.notes.value:
+            embed.add_field(name="Notes", value=self.notes.value, inline=False)
+        embed.set_footer(text="Brawl Carry")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# BUTTONS
+class OrderButton(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+    
+    @ui.button(label="Create Order", style=discord.ButtonStyle.primary, custom_id="order_button")
+    async def order(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(OrderModal())
+
+class VouchButton(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+    
+    @ui.button(label="Submit Vouch", style=discord.ButtonStyle.primary, custom_id="vouch_button")
+    async def vouch(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(VouchModal())
+
+class GiveawayButton(ui.View):
+    def __init__(self, giveaway_id):
+        super().__init__(timeout=None)
+        self.giveaway_id = giveaway_id
+    
+    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, custom_id="giveaway_button")
+    async def enter(self, interaction: discord.Interaction, button: ui.Button):
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('SELECT * FROM giveaways WHERE id = ?', (self.giveaway_id,))
+        giveaway = c.fetchone()
+        
+        if giveaway:
+            participants = json.loads(giveaway['participants']) if giveaway['participants'] else []
+            if interaction.user.id not in participants:
+                participants.append(interaction.user.id)
+                c.execute('UPDATE giveaways SET participants = ? WHERE id = ?',
+                         (json.dumps(participants), self.giveaway_id))
+                conn.commit()
+                embed = discord.Embed(color=SUCCESS, description="✅ Entered giveaway!")
+            else:
+                embed = discord.Embed(color=DANGER, description="❌ Already entered")
+        conn.close()
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# SLASH COMMANDS
+@bot.tree.command(name="order_panel", description="Create order panel")
+async def order_panel(interaction: discord.Interaction):
+    embed = discord.Embed(color=PRIMARY, title="🎮 Create Carry Order")
+    embed.description = "Click button below to create a new order"
     embed.set_footer(text="Brawl Carry")
-    return embed
+    await interaction.response.send_message(embed=embed, view=OrderButton())
 
-def create_giveaway_embed(prize, desc, winners, participants, ends_at, giveaway_id):
-    embed = discord.Embed(color=PRIMARY)
-    embed.add_field(name="🎯 Prize", value=f"**{prize}**", inline=False)
-    embed.add_field(name="📝 Info", value=desc, inline=False)
-    embed.add_field(name="🏆", value=str(winners), inline=True)
-    embed.add_field(name="👥", value=str(participants), inline=True)
-    time_left = ends_at - datetime.utcnow()
-    hours = int(time_left.total_seconds() // 3600)
-    embed.add_field(name="⏰", value=f"in {hours}h", inline=False)
-    embed.set_footer(text=f"Brawl Carry | {giveaway_id}")
-    return embed
-
-@bot.event
-async def on_ready():
-    print(f'✅ {bot.user} online')
-    await bot.change_presence(activity=discord.Activity(
-        type=discord.ActivityType.watching, name="Brawl Carry services"))
-
-# SETUP
-@bot.command(name='setup')
-@has_permissions(administrator=True)
-async def setup(ctx):
+@bot.tree.command(name="vouch_panel", description="Send vouch panel to user")
+@app_commands.describe(user="User to send vouch to", order_id="Order ID completed")
+async def vouch_panel(interaction: discord.Interaction, user: discord.User, order_id: str):
+    embed = discord.Embed(color=PRIMARY, title="✨ Submit Your Vouch")
+    embed.description = f"Order: {order_id}\n\nClick button to submit vouch & proof"
+    embed.set_footer(text="Brawl Carry")
     try:
-        await ctx.guild.create_role(name='Carrier', color=discord.Color.purple())
-    except: pass
-    try:
-        await ctx.guild.create_text_channel('carries')
-    except: pass
-    try:
-        await ctx.guild.create_text_channel('vouchers')
-    except: pass
-    try:
-        await ctx.guild.create_text_channel('giveaways')
-    except: pass
-    embed = discord.Embed(color=SUCCESS, description="✅ Server setup complete")
-    await ctx.send(embed=embed)
+        await user.send(embed=embed, view=VouchButton())
+        await interaction.response.send_message(f"✅ Vouch panel sent to {user.mention}", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌ Failed to DM user", ephemeral=True)
 
-# ORDERS
-@bot.command(name='carry')
-async def create_order(ctx, from_rank: str, to_rank: str, price: float, *, method: str = "Bank Transfer"):
-    conn = get_db()
-    c = conn.cursor()
-    order_id = f"CARRY-{uuid.uuid4().hex[:6].upper()}"
-    c.execute('''INSERT INTO orders (id, user_id, from_rank, to_rank, price, method)
-                VALUES (?, ?, ?, ?, ?, ?)''',
-             (order_id, ctx.author.id, from_rank.lower(), to_rank.lower(), price, method))
-    conn.commit()
-    conn.close()
-    embed = create_order_embed(order_id, ctx.author.id, from_rank, to_rank, price, method)
-    await ctx.send(embed=embed)
-
-@bot.command(name='mycarries')
-async def my_carries(ctx):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5', (ctx.author.id,))
-    orders = c.fetchall()
-    conn.close()
-    if not orders:
-        embed = discord.Embed(color=DANGER, description="No carries yet")
-        await ctx.send(embed=embed)
-        return
-    embed = discord.Embed(color=PRIMARY, title=f"Your Carries ({len(orders)})")
-    for order in orders:
-        status = "✅" if order['status'] == 'completed' else "⏳"
-        embed.add_field(name=f"{status} {order['id']}", 
-                       value=f"{order['from_rank'].title()} → {order['to_rank'].title()} | ${order['price']:.2f}", 
-                       inline=False)
-    await ctx.send(embed=embed)
-
-@bot.command(name='complete')
-@has_permissions(administrator=True)
-async def complete_carry(ctx, order_id: str):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('UPDATE orders SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 
-             ('completed', order_id))
-    conn.commit()
-    conn.close()
-    embed = discord.Embed(color=SUCCESS, description=f"✅ {order_id} completed")
-    await ctx.send(embed=embed)
-
-# VOUCHERS
-@bot.command(name='makevoucher')
-@has_permissions(administrator=True)
-async def make_voucher(ctx, amount: float, rating: int = 5):
-    conn = get_db()
-    c = conn.cursor()
-    code = f"BRWL-{uuid.uuid4().hex[:6].upper()}"
-    voucher_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
-    c.execute('INSERT INTO vouchers (id, code, amount, rating) VALUES (?, ?, ?, ?)',
-             (voucher_id, code, amount, rating))
-    conn.commit()
-    conn.close()
-    
-    image_url = None
-    if ctx.message.attachments:
-        image_url = ctx.message.attachments[0].url
-    
-    embed = create_voucher_embed(code, amount, rating, image_url)
-    await ctx.send(embed=embed)
-
-@bot.command(name='vouch')
-async def use_voucher(ctx, code: str):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT * FROM vouchers WHERE code = ?', (code.upper(),))
-    voucher = c.fetchone()
-    if not voucher:
-        embed = discord.Embed(color=DANGER, description="❌ Invalid voucher")
-        await ctx.send(embed=embed)
-        conn.close()
-        return
-    if voucher['used_by']:
-        embed = discord.Embed(color=DANGER, description="❌ Already used")
-        await ctx.send(embed=embed)
-        conn.close()
-        return
-    c.execute('UPDATE vouchers SET used_by = ? WHERE id = ?', (ctx.author.id, voucher['id']))
-    conn.commit()
-    conn.close()
-    embed = discord.Embed(color=SUCCESS, description=f"✅ ${voucher['amount']:.2f} credit claimed")
-    await ctx.send(embed=embed)
-
-# GIVEAWAYS
-@bot.command(name='giveaway')
-@has_permissions(administrator=True)
-async def start_giveaway(ctx, prize: str, hours: int, winners: int, *, desc: str = ""):
+@bot.tree.command(name="giveaway", description="Start giveaway panel")
+@app_commands.describe(prize="Prize name", hours="Duration in hours", winners="Number of winners")
+async def giveaway(interaction: discord.Interaction, prize: str, hours: int, winners: int):
     conn = get_db()
     c = conn.cursor()
     giveaway_id = f"GA-{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute('INSERT INTO giveaways (id, prize, desc, winners, participants, ended_at) VALUES (?, ?, ?, ?, ?, ?)',
-             (giveaway_id, prize, desc or "Prize giveaway", winners, '[]', ends_at))
+             (giveaway_id, prize, "Giveaway", winners, '[]', ends_at))
     conn.commit()
     conn.close()
-    embed = create_giveaway_embed(prize, desc or "Prize giveaway", winners, 0, ends_at, giveaway_id)
-    await ctx.send(f"@everyone GIVEAWAY!", embed=embed)
+    
+    embed = discord.Embed(color=PRIMARY, title="🎁 GIVEAWAY")
+    embed.add_field(name="Prize", value=prize, inline=False)
+    embed.add_field(name="Winners", value=str(winners), inline=True)
+    embed.add_field(name="Ends In", value=f"{hours}h", inline=True)
+    embed.set_footer(text=f"Brawl Carry | {giveaway_id}")
+    await interaction.response.send_message(embed=embed, view=GiveawayButton(giveaway_id))
 
-@bot.command(name='endgiveaway')
-@has_permissions(administrator=True)
-async def end_giveaway(ctx, giveaway_id: str):
+@bot.tree.command(name="end_giveaway", description="End giveaway and select winners")
+@app_commands.describe(giveaway_id="Giveaway ID")
+async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT * FROM giveaways WHERE id = ?', (giveaway_id,))
     giveaway = c.fetchone()
+    
     if not giveaway:
-        embed = discord.Embed(color=DANGER, description="❌ Giveaway not found")
-        await ctx.send(embed=embed)
+        await interaction.response.send_message("❌ Giveaway not found", ephemeral=True)
         conn.close()
         return
+    
     participants = json.loads(giveaway['participants']) if giveaway['participants'] else []
     if not participants:
-        embed = discord.Embed(color=DANGER, description="❌ No participants")
-        await ctx.send(embed=embed)
+        await interaction.response.send_message("❌ No participants", ephemeral=True)
         conn.close()
         return
+    
     winners_list = random.sample(participants, min(giveaway['winners'], len(participants)))
     c.execute('UPDATE giveaways SET winner_ids = ? WHERE id = ?', (json.dumps(winners_list), giveaway_id))
     conn.commit()
     conn.close()
+    
     winner_mentions = ", ".join([f"<@{w}>" for w in winners_list])
-    embed = discord.Embed(color=SUCCESS, title="🎉 GIVEAWAY ENDED",
-                         description=f"Prize: {giveaway['prize']}\n🏆 {winner_mentions}")
-    await ctx.send(embed=embed)
+    embed = discord.Embed(color=SUCCESS, title="🎉 GIVEAWAY ENDED")
+    embed.description = f"Prize: {giveaway['prize']}\n\n🏆 {winner_mentions}"
+    await interaction.response.send_message(embed=embed)
 
-# STATS
-@bot.command(name='stats')
-async def stats(ctx, user: discord.User = None):
-    target = user or ctx.author
+@bot.tree.command(name="backup_link", description="Send backup server link to all members")
+@app_commands.describe(link="Backup server invite link")
+async def backup_link(interaction: discord.Interaction, link: str):
+    await interaction.response.defer(ephemeral=True)
+    sent = 0
+    failed = 0
+    
+    for member in interaction.guild.members:
+        if not member.bot:
+            try:
+                embed = discord.Embed(color=DANGER, title="⚠️ BACKUP SERVER")
+                embed.description = f"If main server goes down, join here:\n\n{link}"
+                await member.send(embed=embed)
+                sent += 1
+            except:
+                failed += 1
+    
+    result = discord.Embed(color=SUCCESS, title="✅ DM Sent")
+    result.add_field(name="Sent", value=sent, inline=True)
+    result.add_field(name="Failed", value=failed, inline=True)
+    await interaction.followup.send(embed=result, ephemeral=True)
+
+@bot.tree.command(name="stats", description="View user statistics")
+@app_commands.describe(user="User to check (optional)")
+async def stats(interaction: discord.Interaction, user: discord.User = None):
+    target = user or interaction.user
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT COUNT(*) as count, SUM(price) as total FROM orders WHERE user_id = ?', (target.id,))
     result = c.fetchone()
     conn.close()
+    
     embed = discord.Embed(color=PRIMARY, title=f"Stats - {target.name}")
     embed.add_field(name="🎮 Carries", value=result['count'] or 0, inline=True)
     embed.add_field(name="💰 Total Spent", value=f"${result['total']:.2f}" if result['total'] else "$0.00", inline=True)
     embed.set_thumbnail(url=target.avatar.url if target.avatar else "")
-    await ctx.send(embed=embed)
+    embed.set_footer(text="Brawl Carry")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f'✅ {bot.user} online | Slash commands synced')
 
 @bot.event
 async def on_command_error(ctx, error):

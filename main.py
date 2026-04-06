@@ -158,6 +158,31 @@ def base_embed(title: str = None, color: int = PRIMARY, description: str = None)
     return e
 
 # ---------------------------------------------------------------------------
+# RANKED BOOST — RANK OPTIONS
+# ---------------------------------------------------------------------------
+CURRENT_RANKS = [
+    "Bronze I", "Bronze II", "Bronze III",
+    "Silver I", "Silver II", "Silver III",
+    "Gold I", "Gold II", "Gold III",
+    "Diamond I", "Diamond II", "Diamond III",
+    "Mythic I", "Mythic II", "Mythic III",
+    "Legendary I", "Legendary II", "Legendary III",
+    "Masters I", "Masters II", "Masters III",
+]
+
+DESIRED_RANKS = [
+    "Diamond I", "Diamond II", "Diamond III",
+    "Mythic I", "Mythic II", "Mythic III",
+    "Legendary I", "Legendary II", "Legendary III",
+    "Masters I", "Masters II", "Masters III",
+    "Pro",
+]
+
+P11_OPTIONS = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
+
+PRESTIGE_OPTIONS = ["Prestige 1 → Prestige 2", "Prestige 2 → Prestige 3"]
+
+# ---------------------------------------------------------------------------
 # MODALS
 # ---------------------------------------------------------------------------
 class OrderModal(ui.Modal, title="Create Carry Order"):
@@ -343,8 +368,398 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
             "✅ Ticket panel configuration saved.", ephemeral=True
         )
 
+
 # ---------------------------------------------------------------------------
-# PERSISTENT VIEWS
+# RANKED BOOST MODAL  (opened after user selects options via Select menus)
+# ---------------------------------------------------------------------------
+class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
+    notes = ui.TextInput(
+        label="Additional Notes (Optional)",
+        placeholder="Any special requests or information...",
+        required=False,
+        style=discord.TextStyle.long,
+        max_length=500
+    )
+
+    def __init__(self, current_rank: str, desired_rank: str, p11: str, payment: str):
+        super().__init__()
+        self.current_rank = current_rank
+        self.desired_rank = desired_rank
+        self.p11          = p11
+        self.payment      = payment
+
+    async def on_submit(self, interaction: discord.Interaction):
+        conn = get_db()
+        c    = conn.cursor()
+        order_id = f"RANKED-{uuid.uuid4().hex[:6].upper()}"
+        c.execute(
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method) VALUES (?, ?, ?, ?, ?, ?)",
+            (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0, self.payment)
+        )
+        conn.commit()
+
+        # Fetch ticket channel and auto-open a ticket
+        guild_id    = interaction.guild.id if interaction.guild else None
+        ticket_ch   = None
+        if guild_id:
+            cfg = get_config(guild_id)
+            if cfg and cfg["ticket_channel_id"]:
+                ticket_ch = interaction.guild.get_channel(cfg["ticket_channel_id"])
+
+        conn.close()
+
+        # Build order embed
+        e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
+        e.set_author(name="BrawlCarry | Ranked Boost", icon_url=interaction.user.display_avatar.url)
+        e.add_field(name="👤 Customer",           value=interaction.user.mention,          inline=True)
+        e.add_field(name="🆔 Order ID",            value=f"`{order_id}`",                   inline=True)
+        e.add_field(name="📦 Route",
+                    value=f"`{self.current_rank}` → `{self.desired_rank}`",                 inline=False)
+        e.add_field(name="⚡ Power 11 Brawlers",  value=f"**{self.p11}**",                  inline=True)
+        e.add_field(name="💳 Payment Method",      value=f"**{self.payment}**",              inline=True)
+        if self.notes.value:
+            e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
+
+        # Auto-create ticket channel for this order
+        guild  = interaction.guild
+        member = interaction.user
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+        }
+        for role in guild.roles:
+            if role.permissions.administrator or role.permissions.manage_channels:
+                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+
+        ticket_ch = await guild.create_text_channel(
+            name=f"ranked-{member.name[:12].lower()}",
+            overwrites=overwrites,
+            topic=f"Ranked Boost | {order_id} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+        )
+
+        welcome = base_embed("🔥 Ranked Boost Ticket", color=PRIMARY)
+        welcome.description = (
+            f"Welcome, {member.mention}! 🎮\n\n"
+            f"📋 **Order:** `{order_id}`\n"
+            f"📦 **Route:** `{self.current_rank}` → `{self.desired_rank}`\n"
+            f"⚡ **P11 Brawlers:** {self.p11}\n"
+            f"💳 **Payment:** {self.payment}\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            "Our staff will contact you shortly to complete your order. "
+            "Please have your payment ready!"
+        )
+        welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+
+        await ticket_ch.send(content=member.mention, embed=welcome, view=TicketCloseView())
+        await interaction.response.send_message(
+            f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket_ch.mention}",
+            ephemeral=True
+        )
+
+
+# ---------------------------------------------------------------------------
+# PRESTIGE BOOST MODAL  (opened after user selects options via Select menus)
+# ---------------------------------------------------------------------------
+class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
+    notes = ui.TextInput(
+        label="Additional Notes (Optional)",
+        placeholder="Any special requests or information...",
+        required=False,
+        style=discord.TextStyle.long,
+        max_length=500
+    )
+
+    def __init__(self, prestige_spec: str, payment: str):
+        super().__init__()
+        self.prestige_spec = prestige_spec
+        self.payment       = payment
+
+    async def on_submit(self, interaction: discord.Interaction):
+        conn = get_db()
+        c    = conn.cursor()
+        order_id = f"PREST-{uuid.uuid4().hex[:6].upper()}"
+        c.execute(
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method) VALUES (?, ?, ?, ?, ?, ?)",
+            (order_id, interaction.user.id, self.prestige_spec.split("→")[0].strip(),
+             self.prestige_spec.split("→")[-1].strip(), 0.0, self.payment)
+        )
+        conn.commit()
+        conn.close()
+
+        guild  = interaction.guild
+        member = interaction.user
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
+        }
+        for role in guild.roles:
+            if role.permissions.administrator or role.permissions.manage_channels:
+                overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+
+        ticket_ch = await guild.create_text_channel(
+            name=f"prestige-{member.name[:12].lower()}",
+            overwrites=overwrites,
+            topic=f"Prestige Boost | {order_id} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
+        )
+
+        welcome = base_embed("✨ Prestige Boost Ticket", color=ACCENT)
+        welcome.description = (
+            f"Welcome, {member.mention}! ✨\n\n"
+            f"📋 **Order:** `{order_id}`\n"
+            f"🏆 **Prestige:** {self.prestige_spec}\n"
+            f"💳 **Payment:** {self.payment}\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            "Our staff will contact you shortly to complete your prestige boost. "
+            "Please have your payment ready!"
+        )
+        welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+
+        await ticket_ch.send(content=member.mention, embed=welcome, view=TicketCloseView())
+        await interaction.response.send_message(
+            f"✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: {ticket_ch.mention}",
+            ephemeral=True
+        )
+
+
+# ---------------------------------------------------------------------------
+# RANKED BOOST SELECT-MENU VIEW  (step-by-step form, mirrors the Discord form)
+# ---------------------------------------------------------------------------
+class RankedOrderView(ui.View):
+    """Multi-step select-menu form that collects all fields, then opens a modal for notes."""
+
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.current_rank: str | None = None
+        self.desired_rank: str | None = None
+        self.p11:          str | None = None
+        self.payment:      str | None = None
+
+        # ── Select: current rank ──────────────────────────────────────────
+        current_select = ui.Select(
+            placeholder="Select your current rank...",
+            options=[discord.SelectOption(label=r, value=r) for r in CURRENT_RANKS],
+            custom_id="ranked_current",
+            row=0
+        )
+        current_select.callback = self._on_current
+        self.add_item(current_select)
+
+        # ── Select: desired rank ──────────────────────────────────────────
+        desired_select = ui.Select(
+            placeholder="Select your desired rank...",
+            options=[discord.SelectOption(label=r, value=r) for r in DESIRED_RANKS],
+            custom_id="ranked_desired",
+            row=1
+        )
+        desired_select.callback = self._on_desired
+        self.add_item(desired_select)
+
+        # ── Select: P11 brawlers ──────────────────────────────────────────
+        p11_select = ui.Select(
+            placeholder="Select number of Power 11 brawlers...",
+            options=[discord.SelectOption(label=n, value=n) for n in P11_OPTIONS],
+            custom_id="ranked_p11",
+            row=2
+        )
+        p11_select.callback = self._on_p11
+        self.add_item(p11_select)
+
+        # ── Select: payment method ────────────────────────────────────────
+        pay_select = ui.Select(
+            placeholder="Select payment method...",
+            options=[discord.SelectOption(label="PayPal", value="PayPal", emoji="💳")],
+            custom_id="ranked_pay",
+            row=3
+        )
+        pay_select.callback = self._on_pay
+        self.add_item(pay_select)
+
+        # ── Submit button ─────────────────────────────────────────────────
+        submit_btn = ui.Button(
+            label="Submit",
+            style=discord.ButtonStyle.primary,
+            custom_id="ranked_submit",
+            row=4,
+            emoji="✅"
+        )
+        submit_btn.callback = self._on_submit
+        self.add_item(submit_btn)
+
+        # ── Cancel button ─────────────────────────────────────────────────
+        cancel_btn = ui.Button(
+            label="Cancel",
+            style=discord.ButtonStyle.secondary,
+            custom_id="ranked_cancel",
+            row=4,
+            emoji="✖️"
+        )
+        cancel_btn.callback = self._on_cancel
+        self.add_item(cancel_btn)
+
+    async def _on_current(self, interaction: discord.Interaction):
+        self.current_rank = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_desired(self, interaction: discord.Interaction):
+        self.desired_rank = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_p11(self, interaction: discord.Interaction):
+        self.p11 = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_pay(self, interaction: discord.Interaction):
+        self.payment = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_submit(self, interaction: discord.Interaction):
+        missing = []
+        if not self.current_rank: missing.append("Current Rank")
+        if not self.desired_rank: missing.append("Desired Rank")
+        if not self.p11:          missing.append("Power 11 Brawlers")
+        if not self.payment:      missing.append("Payment Method")
+        if missing:
+            await interaction.response.send_message(
+                f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True
+            )
+            return
+        await interaction.response.send_modal(
+            RankedOrderModal(self.current_rank, self.desired_rank, self.p11, self.payment)
+        )
+
+    async def _on_cancel(self, interaction: discord.Interaction):
+        await interaction.response.send_message("❌ Order cancelled.", ephemeral=True)
+        await interaction.message.delete()
+
+
+# ---------------------------------------------------------------------------
+# PRESTIGE BOOST SELECT-MENU VIEW
+# ---------------------------------------------------------------------------
+class PrestigeOrderView(ui.View):
+    """Two-field form for prestige orders."""
+
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.prestige_spec: str | None = None
+        self.payment:       str | None = None
+
+        # ── Select: prestige spec ─────────────────────────────────────────
+        pres_select = ui.Select(
+            placeholder="Select prestige spec...",
+            options=[discord.SelectOption(label=p, value=p) for p in PRESTIGE_OPTIONS],
+            custom_id="prest_spec",
+            row=0
+        )
+        pres_select.callback = self._on_spec
+        self.add_item(pres_select)
+
+        # ── Select: payment method ────────────────────────────────────────
+        pay_select = ui.Select(
+            placeholder="Select payment method...",
+            options=[discord.SelectOption(label="PayPal", value="PayPal", emoji="💳")],
+            custom_id="prest_pay",
+            row=1
+        )
+        pay_select.callback = self._on_pay
+        self.add_item(pay_select)
+
+        # ── Submit ────────────────────────────────────────────────────────
+        submit_btn = ui.Button(
+            label="Submit",
+            style=discord.ButtonStyle.primary,
+            custom_id="prest_submit",
+            row=2,
+            emoji="✅"
+        )
+        submit_btn.callback = self._on_submit
+        self.add_item(submit_btn)
+
+        # ── Cancel ────────────────────────────────────────────────────────
+        cancel_btn = ui.Button(
+            label="Cancel",
+            style=discord.ButtonStyle.secondary,
+            custom_id="prest_cancel",
+            row=2,
+            emoji="✖️"
+        )
+        cancel_btn.callback = self._on_cancel
+        self.add_item(cancel_btn)
+
+    async def _on_spec(self, interaction: discord.Interaction):
+        self.prestige_spec = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_pay(self, interaction: discord.Interaction):
+        self.payment = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_submit(self, interaction: discord.Interaction):
+        missing = []
+        if not self.prestige_spec: missing.append("Prestige Spec")
+        if not self.payment:       missing.append("Payment Method")
+        if missing:
+            await interaction.response.send_message(
+                f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True
+            )
+            return
+        await interaction.response.send_modal(
+            PrestigeOrderModal(self.prestige_spec, self.payment)
+        )
+
+    async def _on_cancel(self, interaction: discord.Interaction):
+        await interaction.response.send_message("❌ Order cancelled.", ephemeral=True)
+        await interaction.message.delete()
+
+
+# ---------------------------------------------------------------------------
+# PANEL BUTTON VIEWS  (one button → ephemeral form message)
+# ---------------------------------------------------------------------------
+class RankedPanelButton(ui.View):
+    """Persistent button on the ranked panel."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Ranked Boost Order", style=discord.ButtonStyle.danger,
+               emoji="🔥", custom_id="ranked_panel_btn_v1")
+    async def open_ranked(self, interaction: discord.Interaction, button: ui.Button):
+        e = base_embed("🔥 Ranked Boost Order", color=PRIMARY)
+        e.description = (
+            "Fill in the fields below and press **Submit** to place your order.\n"
+            "A private ticket will be created for you automatically."
+        )
+        e.add_field(
+            name="⚠️ Notice",
+            value="This form will be submitted to **BrawlMart | Bot**. "
+                  "Do not share passwords or other sensitive information.",
+            inline=False
+        )
+        await interaction.response.send_message(embed=e, view=RankedOrderView(), ephemeral=True)
+
+
+class PrestigePanelButton(ui.View):
+    """Persistent button on the prestige panel."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Prestige Boost Order", style=discord.ButtonStyle.primary,
+               emoji="✨", custom_id="prestige_panel_btn_v1")
+    async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
+        e = base_embed("✨ Prestige Boost Order", color=ACCENT)
+        e.description = (
+            "Fill in the fields below and press **Submit** to place your order.\n"
+            "A private ticket will be created for you automatically."
+        )
+        e.add_field(
+            name="⚠️ Notice",
+            value="This form will be submitted to **BrawlMart | Bot**. "
+                  "Do not share passwords or other sensitive information.",
+            inline=False
+        )
+        await interaction.response.send_message(embed=e, view=PrestigeOrderView(), ephemeral=True)
+
+
+# ---------------------------------------------------------------------------
+# PERSISTENT VIEWS  (existing)
 # ---------------------------------------------------------------------------
 class OrderButton(ui.View):
     def __init__(self):
@@ -564,6 +979,44 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
     await interaction.response.send_message("✅ Order panel posted.", ephemeral=True)
 
 
+@bot.tree.command(name="ranked_panel", description="Post the Ranked Boost order panel in this channel")
+@app_commands.describe(image_url="Optional banner image URL for the panel")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
+    e = base_embed("🔥 Ranked Boost", color=PRIMARY)
+    e.description = (
+        "Want to climb the ranked ladder? Click the button below to place your **Ranked Boost** order!\n\n"
+        "**Pricing** *(depends on starting rank & P11 brawlers)*\n"
+        "🏆 Legendary Boost — from **16€**\n"
+        "🏆 Masters Boost — from **35€**\n"
+        "🏆 Pro Rank — from **200€**\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
+    )
+    if image_url:
+        e.set_image(url=image_url)
+    await interaction.channel.send(embed=e, view=RankedPanelButton())
+    await interaction.response.send_message("✅ Ranked Boost panel posted.", ephemeral=True)
+
+
+@bot.tree.command(name="prestige_panel", description="Post the Prestige Boost order panel in this channel")
+@app_commands.describe(image_url="Optional banner image URL for the panel")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
+    e = base_embed("✨ Prestige Boost", color=ACCENT)
+    e.description = (
+        "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
+        "**Pricing** *(depends on brawler & power level)*\n"
+        "🟣 Prestige 0 → 1 — from **10€**\n"
+        "🔴 Prestige 1 → 2 — from **25€**\n"
+        "🟡 Prestige 2 → 3 — from **70€**\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
+    )
+    if image_url:
+        e.set_image(url=image_url)
+    await interaction.channel.send(embed=e, view=PrestigePanelButton())
+    await interaction.response.send_message("✅ Prestige Boost panel posted.", ephemeral=True)
+
+
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ticket_panel(interaction: discord.Interaction):
@@ -781,7 +1234,9 @@ async def help_cmd(interaction: discord.Interaction):
         "**⚙️ Admin Commands**\n"
         "`/setup` — Configure vouch and ticket channels\n"
         "`/configure_ticket_panel` — Customise ticket panel text\n"
-        "`/order_panel` — Post the order panel\n"
+        "`/order_panel` — Post the generic order panel\n"
+        "`/ranked_panel` — Post the Ranked Boost panel 🔥\n"
+        "`/prestige_panel` — Post the Prestige Boost panel ✨\n"
         "`/ticket_panel` — Post the ticket panel\n"
         "`/vouch_panel` — Send vouch panel to user or channel\n"
         "`/giveaway` — Start a giveaway (supports extra entries & custom ping)\n"
@@ -818,6 +1273,8 @@ async def on_ready():
     bot.add_view(TicketView())
     bot.add_view(TicketCloseView())
     bot.add_view(VouchButtonView())
+    bot.add_view(RankedPanelButton())
+    bot.add_view(PrestigePanelButton())
     # Re-register all active giveaway views so buttons survive restarts
     conn = get_db()
     c    = conn.cursor()

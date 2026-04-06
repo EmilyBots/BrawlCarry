@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands, ui
 import json, os, sqlite3, uuid, random, io, aiohttp, asyncio
 from datetime import datetime, timedelta
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # ---------------------------------------------------------------------------
 # CONFIG
@@ -51,6 +51,7 @@ def init_db():
         rating INT DEFAULT 5,
         feedback TEXT,
         image_url TEXT,
+        method TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS giveaways (
@@ -66,19 +67,38 @@ def init_db():
         ping TEXT,
         ended_at TIMESTAMP
     )""")
-    # Migrate: add new columns if they don't exist yet
-    for col in ("extra_entries TEXT", "ping TEXT"):
-        try:
-            c.execute(f"ALTER TABLE giveaways ADD COLUMN {col}")
-        except Exception:
-            pass
     c.execute("""CREATE TABLE IF NOT EXISTS guild_config (
         guild_id INT PRIMARY KEY,
         vouch_channel_id INT,
         ticket_channel_id INT,
+        completed_channel_id INT,
         ticket_panel_title TEXT,
         ticket_panel_desc TEXT
     )""")
+    # Persistent payment methods per guild
+    c.execute("""CREATE TABLE IF NOT EXISTS payment_methods (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id INT,
+        label TEXT,
+        emoji TEXT,
+        UNIQUE(guild_id, label)
+    )""")
+    # Seed default payment methods so there is always at least one
+    # (will be ignored if already present due to UNIQUE constraint)
+
+    # Migrate: add columns if they don't exist yet
+    migrations = [
+        ("giveaways",    "extra_entries TEXT"),
+        ("giveaways",    "ping TEXT"),
+        ("guild_config", "completed_channel_id INT"),
+        ("vouchers",     "method TEXT"),
+    ]
+    for table, col_def in migrations:
+        try:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -97,7 +117,11 @@ def get_config(guild_id: int):
     conn.close()
     return row
 
-ALLOWED_CONFIG_KEYS = {"vouch_channel_id", "ticket_channel_id", "ticket_panel_title", "ticket_panel_desc"}
+ALLOWED_CONFIG_KEYS = {
+    "vouch_channel_id", "ticket_channel_id",
+    "completed_channel_id",
+    "ticket_panel_title", "ticket_panel_desc"
+}
 
 def set_config(guild_id: int, **kwargs):
     conn = get_db()
@@ -111,10 +135,61 @@ def set_config(guild_id: int, **kwargs):
     conn.close()
 
 # ---------------------------------------------------------------------------
-# WATERMARK UTILITY
+# PAYMENT METHOD HELPERS
 # ---------------------------------------------------------------------------
-def watermark_image(image_bytes: bytes, text: str = "Brawl Carry Vouches") -> bytes:
+DEFAULT_PAYMENT_METHODS = [
+    ("PayPal", "💳"),
+    ("Bank Transfer", "🏦"),
+    ("Crypto", "🪙"),
+]
+
+def get_payment_methods(guild_id: int) -> list[tuple[str, str]]:
+    """Return list of (label, emoji) for a guild. Falls back to defaults if none configured."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT label, emoji FROM payment_methods WHERE guild_id = ? ORDER BY id", (guild_id,))
+    rows = c.fetchall()
+    conn.close()
+    if rows:
+        return [(r["label"], r["emoji"]) for r in rows]
+    return DEFAULT_PAYMENT_METHODS
+
+def add_payment_method(guild_id: int, label: str, emoji: str) -> bool:
+    """Add a payment method. Returns False if it already exists."""
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute(
+            "INSERT INTO payment_methods (guild_id, label, emoji) VALUES (?, ?, ?)",
+            (guild_id, label, emoji)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.IntegrityError:
+        conn.close()
+        return False
+
+def remove_payment_method(guild_id: int, label: str) -> bool:
+    """Remove a payment method by label. Returns False if not found."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM payment_methods WHERE guild_id = ? AND label = ?", (guild_id, label))
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    return affected > 0
+
+# ---------------------------------------------------------------------------
+# WATERMARK UTILITY  (with optional blur)
+# ---------------------------------------------------------------------------
+def watermark_image(image_bytes: bytes, text: str = "Brawl Carry Vouches", blur: bool = False) -> bytes:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+
+    if blur:
+        # Blur the base image before watermarking
+        img = img.filter(ImageFilter.GaussianBlur(radius=6))
+
     w, h = img.size
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
@@ -135,7 +210,7 @@ def watermark_image(image_bytes: bytes, text: str = "Brawl Carry Vouches") -> by
     watermarked.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
-async def fetch_and_watermark(url: str):
+async def fetch_and_watermark(url: str, blur: bool = False):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -143,7 +218,7 @@ async def fetch_and_watermark(url: str):
                     return None
                 raw = await resp.read()
         loop = asyncio.get_event_loop()
-        marked = await loop.run_in_executor(None, watermark_image, raw)
+        marked = await loop.run_in_executor(None, watermark_image, raw, "Brawl Carry Vouches", blur)
         return discord.File(io.BytesIO(marked), filename="proof.jpg")
     except Exception:
         return None
@@ -235,12 +310,12 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
 
         e = base_embed("🚀 New Carry Order", color=PRIMARY)
         e.set_author(name="BrawlCarry | Brawl Stars Boost", icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="👤 Customer", value=interaction.user.mention, inline=True)
-        e.add_field(name="💵 Amount", value=f"**${price_val:.2f}**", inline=True)
-        e.add_field(name="🎮 Type", value="Ranked Boost", inline=True)
-        e.add_field(name="📦 Route", value=f"`{self.from_tier.value}` → `{self.to_tier.value}`", inline=False)
-        e.add_field(name="💳 Payment", value=self.method.value, inline=True)
-        e.add_field(name="🆔 Order ID", value=f"`{order_id}`", inline=True)
+        e.add_field(name="👤 Customer",   value=interaction.user.mention,   inline=True)
+        e.add_field(name="💵 Amount",     value=f"**${price_val:.2f}**",    inline=True)
+        e.add_field(name="🎮 Type",       value="Ranked Boost",             inline=True)
+        e.add_field(name="📦 Route",      value=f"`{self.from_tier.value}` → `{self.to_tier.value}`", inline=False)
+        e.add_field(name="💳 Payment",    value=self.method.value,          inline=True)
+        e.add_field(name="🆔 Order ID",   value=f"`{order_id}`",            inline=True)
 
         wm_file = None
         if img:
@@ -267,6 +342,11 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
     amount = ui.TextInput(
         label="Order Amount (USD)",
         placeholder="44.99",
+        style=discord.TextStyle.short
+    )
+    payment_method = ui.TextInput(
+        label="Payment Method Used",
+        placeholder="PayPal / Bank Transfer / Crypto ...",
         style=discord.TextStyle.short
     )
     feedback = ui.TextInput(
@@ -297,18 +377,19 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
         except ValueError:
             amount_val = 0.0
 
-        img = self.image_url.value.strip() if self.image_url.value else None
-        star_str = "⭐" * stars + f"  ({stars}/5)"
+        img        = self.image_url.value.strip() if self.image_url.value else None
+        method_val = self.payment_method.value.strip()
+        star_str   = "⭐" * stars + f"  ({stars}/5)"
 
         vouch_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
         conn = get_db()
         c = conn.cursor()
         c.execute(
-            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img)
+            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img, method_val)
         )
         conn.commit()
-        guild_id = interaction.guild.id if interaction.guild else None
+        guild_id    = interaction.guild.id if interaction.guild else None
         vouch_ch_id = None
         if guild_id:
             cfg = get_config(guild_id)
@@ -318,16 +399,18 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
 
         e = base_embed("⭐ New Vouch", color=GOLD)
         e.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="👤 Customer", value=interaction.user.mention, inline=True)
-        e.add_field(name="💰 Order Amount", value=f"**${amount_val:.2f}**", inline=True)
-        e.add_field(name="⭐ Rating", value=star_str, inline=True)
-        e.add_field(name="💬 Feedback", value=f"*{self.feedback.value}*", inline=False)
+        e.add_field(name="👤 Customer",     value=interaction.user.mention,        inline=True)
+        e.add_field(name="💰 Order Amount", value=f"**${amount_val:.2f}**",        inline=True)
+        e.add_field(name="💳 Payment",      value=f"**{method_val}**",             inline=True)
+        e.add_field(name="⭐ Rating",       value=star_str,                        inline=True)
+        e.add_field(name="💬 Feedback",     value=f"*{self.feedback.value}*",      inline=False)
         if self.order_id:
             e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
 
+        # Vouches get blurred + watermarked proof
         wm_file = None
         if img:
-            wm_file = await fetch_and_watermark(img)
+            wm_file = await fetch_and_watermark(img, blur=True)
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
@@ -370,7 +453,7 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
 
 
 # ---------------------------------------------------------------------------
-# RANKED BOOST MODAL  (opened after user selects options via Select menus)
+# RANKED BOOST MODAL
 # ---------------------------------------------------------------------------
 class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
     notes = ui.TextInput(
@@ -397,30 +480,8 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0, self.payment)
         )
         conn.commit()
-
-        # Fetch ticket channel and auto-open a ticket
-        guild_id    = interaction.guild.id if interaction.guild else None
-        ticket_ch   = None
-        if guild_id:
-            cfg = get_config(guild_id)
-            if cfg and cfg["ticket_channel_id"]:
-                ticket_ch = interaction.guild.get_channel(cfg["ticket_channel_id"])
-
         conn.close()
 
-        # Build order embed
-        e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
-        e.set_author(name="BrawlCarry | Ranked Boost", icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="👤 Customer",           value=interaction.user.mention,          inline=True)
-        e.add_field(name="🆔 Order ID",            value=f"`{order_id}`",                   inline=True)
-        e.add_field(name="📦 Route",
-                    value=f"`{self.current_rank}` → `{self.desired_rank}`",                 inline=False)
-        e.add_field(name="⚡ Power 11 Brawlers",  value=f"**{self.p11}**",                  inline=True)
-        e.add_field(name="💳 Payment Method",      value=f"**{self.payment}**",              inline=True)
-        if self.notes.value:
-            e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
-
-        # Auto-create ticket channel for this order
         guild  = interaction.guild
         member = interaction.user
         overwrites = {
@@ -458,7 +519,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 
 
 # ---------------------------------------------------------------------------
-# PRESTIGE BOOST MODAL  (opened after user selects options via Select menus)
+# PRESTIGE BOOST MODAL
 # ---------------------------------------------------------------------------
 class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
     notes = ui.TextInput(
@@ -522,77 +583,181 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
 
 # ---------------------------------------------------------------------------
-# RANKED BOOST SELECT-MENU VIEW  (step-by-step form, mirrors the Discord form)
+# ORDER COMPLETE MODAL  (staff fills in completion details)
+# ---------------------------------------------------------------------------
+class OrderCompleteModal(ui.Modal, title="Complete Order"):
+    order_id_input = ui.TextInput(
+        label="Order ID",
+        placeholder="RANKED-XXXXXX / CARRY-XXXXXX / PREST-XXXXXX",
+        style=discord.TextStyle.short
+    )
+    final_price = ui.TextInput(
+        label="Final Price Paid (USD)",
+        placeholder="44.99",
+        style=discord.TextStyle.short
+    )
+    payment_used = ui.TextInput(
+        label="Payment Method Used",
+        placeholder="PayPal / Bank Transfer / Crypto ...",
+        style=discord.TextStyle.short
+    )
+    notes = ui.TextInput(
+        label="Completion Notes (Optional)",
+        placeholder="e.g. Reached Masters III, completed in 2 hours",
+        required=False,
+        style=discord.TextStyle.long,
+        max_length=500
+    )
+    image_url = ui.TextInput(
+        label="Proof Image URL (Optional)",
+        placeholder="https://i.imgur.com/...",
+        required=False,
+        style=discord.TextStyle.short
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        order_id = self.order_id_input.value.strip().upper()
+        conn     = get_db()
+        c        = conn.cursor()
+        c.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        order = c.fetchone()
+
+        if not order:
+            conn.close()
+            await interaction.response.send_message(
+                f"❌ Order `{order_id}` not found in the database.", ephemeral=True
+            )
+            return
+
+        try:
+            price_val = float(self.final_price.value.replace("$", "").strip())
+        except ValueError:
+            price_val = order["price"]
+
+        now = datetime.utcnow()
+        c.execute(
+            "UPDATE orders SET status = 'completed', price = ?, method = ?, completed_at = ? WHERE id = ?",
+            (price_val, self.payment_used.value.strip(), now, order_id)
+        )
+        conn.commit()
+
+        # Fetch completed channel config
+        guild_id      = interaction.guild.id if interaction.guild else None
+        completed_ch  = None
+        customer_user = None
+        if guild_id:
+            cfg = get_config(guild_id)
+            if cfg and cfg["completed_channel_id"]:
+                completed_ch = interaction.guild.get_channel(cfg["completed_channel_id"])
+        if order["user_id"]:
+            customer_user = interaction.guild.get_member(order["user_id"])
+        conn.close()
+
+        img = self.image_url.value.strip() if self.image_url.value else None
+
+        # Build completed order embed
+        e = base_embed("✅ Order Completed", color=SUCCESS)
+        e.set_author(name="BrawlCarry | Order Completed", icon_url=interaction.user.display_avatar.url)
+        e.add_field(name="🆔 Order ID",     value=f"`{order_id}`",                                        inline=True)
+        e.add_field(name="👤 Customer",     value=customer_user.mention if customer_user else f"<@{order['user_id']}>", inline=True)
+        e.add_field(name="💵 Amount Paid",  value=f"**${price_val:.2f}**",                                inline=True)
+        e.add_field(name="💳 Payment",      value=f"**{self.payment_used.value.strip()}**",               inline=True)
+        e.add_field(name="📦 Route",        value=f"`{order['from_tier']}` → `{order['to_tier']}`",       inline=True)
+        e.add_field(name="✅ Completed By", value=interaction.user.mention,                               inline=True)
+        e.add_field(name="🕐 Completed At", value=f"<t:{int(now.timestamp())}:F>",                        inline=False)
+        if self.notes.value:
+            e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
+
+        wm_file = None
+        if img:
+            wm_file = await fetch_and_watermark(img)
+            if wm_file:
+                e.set_image(url="attachment://proof.jpg")
+
+        await interaction.response.send_message("✅ Order marked as completed!", ephemeral=True)
+
+        if completed_ch:
+            if wm_file:
+                await completed_ch.send(embed=e, file=wm_file)
+            else:
+                await completed_ch.send(embed=e)
+        else:
+            # Fallback: post in current channel and warn
+            if wm_file:
+                await interaction.channel.send(embed=e, file=wm_file)
+            else:
+                await interaction.channel.send(embed=e)
+            await interaction.followup.send(
+                "⚠️ No completed-orders channel configured. Use `/setup` to set one.", ephemeral=True
+            )
+
+        # DM the customer
+        if customer_user:
+            try:
+                dm_e = base_embed("✅ Your Order is Complete!", color=SUCCESS)
+                dm_e.description = (
+                    f"Great news! Your order **`{order_id}`** has been completed.\n\n"
+                    f"📦 **Route:** `{order['from_tier']}` → `{order['to_tier']}`\n"
+                    f"💵 **Amount:** ${price_val:.2f}\n"
+                    f"💳 **Payment:** {self.payment_used.value.strip()}\n\n"
+                    "Thank you for choosing BrawlCarry! Consider leaving a vouch ⭐"
+                )
+                await customer_user.send(embed=dm_e)
+            except discord.Forbidden:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# RANKED BOOST SELECT-MENU VIEW  (dynamic payment methods)
 # ---------------------------------------------------------------------------
 class RankedOrderView(ui.View):
-    """Multi-step select-menu form that collects all fields, then opens a modal for notes."""
-
-    def __init__(self):
+    def __init__(self, guild_id: int):
         super().__init__(timeout=300)
         self.current_rank: str | None = None
         self.desired_rank: str | None = None
         self.p11:          str | None = None
         self.payment:      str | None = None
 
-        # ── Select: current rank ──────────────────────────────────────────
         current_select = ui.Select(
             placeholder="Select your current rank...",
             options=[discord.SelectOption(label=r, value=r) for r in CURRENT_RANKS],
-            custom_id="ranked_current",
-            row=0
+            custom_id="ranked_current", row=0
         )
         current_select.callback = self._on_current
         self.add_item(current_select)
 
-        # ── Select: desired rank ──────────────────────────────────────────
         desired_select = ui.Select(
             placeholder="Select your desired rank...",
             options=[discord.SelectOption(label=r, value=r) for r in DESIRED_RANKS],
-            custom_id="ranked_desired",
-            row=1
+            custom_id="ranked_desired", row=1
         )
         desired_select.callback = self._on_desired
         self.add_item(desired_select)
 
-        # ── Select: P11 brawlers ──────────────────────────────────────────
         p11_select = ui.Select(
             placeholder="Select number of Power 11 brawlers...",
             options=[discord.SelectOption(label=n, value=n) for n in P11_OPTIONS],
-            custom_id="ranked_p11",
-            row=2
+            custom_id="ranked_p11", row=2
         )
         p11_select.callback = self._on_p11
         self.add_item(p11_select)
 
-        # ── Select: payment method ────────────────────────────────────────
+        methods = get_payment_methods(guild_id)
         pay_select = ui.Select(
             placeholder="Select payment method...",
-            options=[discord.SelectOption(label="PayPal", value="PayPal", emoji="💳")],
-            custom_id="ranked_pay",
-            row=3
+            options=[discord.SelectOption(label=lbl, value=lbl, emoji=emo) for lbl, emo in methods],
+            custom_id="ranked_pay", row=3
         )
         pay_select.callback = self._on_pay
         self.add_item(pay_select)
 
-        # ── Submit button ─────────────────────────────────────────────────
-        submit_btn = ui.Button(
-            label="Submit",
-            style=discord.ButtonStyle.primary,
-            custom_id="ranked_submit",
-            row=4,
-            emoji="✅"
-        )
+        submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary,
+                               custom_id="ranked_submit", row=4, emoji="✅")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
-        # ── Cancel button ─────────────────────────────────────────────────
-        cancel_btn = ui.Button(
-            label="Cancel",
-            style=discord.ButtonStyle.secondary,
-            custom_id="ranked_cancel",
-            row=4,
-            emoji="✖️"
-        )
+        cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary,
+                               custom_id="ranked_cancel", row=4, emoji="✖️")
         cancel_btn.callback = self._on_cancel
         self.add_item(cancel_btn)
 
@@ -633,55 +798,38 @@ class RankedOrderView(ui.View):
 
 
 # ---------------------------------------------------------------------------
-# PRESTIGE BOOST SELECT-MENU VIEW
+# PRESTIGE BOOST SELECT-MENU VIEW  (dynamic payment methods)
 # ---------------------------------------------------------------------------
 class PrestigeOrderView(ui.View):
-    """Two-field form for prestige orders."""
-
-    def __init__(self):
+    def __init__(self, guild_id: int):
         super().__init__(timeout=300)
         self.prestige_spec: str | None = None
         self.payment:       str | None = None
 
-        # ── Select: prestige spec ─────────────────────────────────────────
         pres_select = ui.Select(
             placeholder="Select prestige spec...",
             options=[discord.SelectOption(label=p, value=p) for p in PRESTIGE_OPTIONS],
-            custom_id="prest_spec",
-            row=0
+            custom_id="prest_spec", row=0
         )
         pres_select.callback = self._on_spec
         self.add_item(pres_select)
 
-        # ── Select: payment method ────────────────────────────────────────
+        methods = get_payment_methods(guild_id)
         pay_select = ui.Select(
             placeholder="Select payment method...",
-            options=[discord.SelectOption(label="PayPal", value="PayPal", emoji="💳")],
-            custom_id="prest_pay",
-            row=1
+            options=[discord.SelectOption(label=lbl, value=lbl, emoji=emo) for lbl, emo in methods],
+            custom_id="prest_pay", row=1
         )
         pay_select.callback = self._on_pay
         self.add_item(pay_select)
 
-        # ── Submit ────────────────────────────────────────────────────────
-        submit_btn = ui.Button(
-            label="Submit",
-            style=discord.ButtonStyle.primary,
-            custom_id="prest_submit",
-            row=2,
-            emoji="✅"
-        )
+        submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary,
+                               custom_id="prest_submit", row=2, emoji="✅")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
-        # ── Cancel ────────────────────────────────────────────────────────
-        cancel_btn = ui.Button(
-            label="Cancel",
-            style=discord.ButtonStyle.secondary,
-            custom_id="prest_cancel",
-            row=2,
-            emoji="✖️"
-        )
+        cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary,
+                               custom_id="prest_cancel", row=2, emoji="✖️")
         cancel_btn.callback = self._on_cancel
         self.add_item(cancel_btn)
 
@@ -712,10 +860,9 @@ class PrestigeOrderView(ui.View):
 
 
 # ---------------------------------------------------------------------------
-# PANEL BUTTON VIEWS  (one button → ephemeral form message)
+# PANEL BUTTON VIEWS
 # ---------------------------------------------------------------------------
 class RankedPanelButton(ui.View):
-    """Persistent button on the ranked panel."""
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -733,11 +880,12 @@ class RankedPanelButton(ui.View):
                   "Do not share passwords or other sensitive information.",
             inline=False
         )
-        await interaction.response.send_message(embed=e, view=RankedOrderView(), ephemeral=True)
+        await interaction.response.send_message(
+            embed=e, view=RankedOrderView(interaction.guild_id), ephemeral=True
+        )
 
 
 class PrestigePanelButton(ui.View):
-    """Persistent button on the prestige panel."""
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -755,11 +903,13 @@ class PrestigePanelButton(ui.View):
                   "Do not share passwords or other sensitive information.",
             inline=False
         )
-        await interaction.response.send_message(embed=e, view=PrestigeOrderView(), ephemeral=True)
+        await interaction.response.send_message(
+            embed=e, view=PrestigeOrderView(interaction.guild_id), ephemeral=True
+        )
 
 
 # ---------------------------------------------------------------------------
-# PERSISTENT VIEWS  (existing)
+# PERSISTENT VIEWS
 # ---------------------------------------------------------------------------
 class OrderButton(ui.View):
     def __init__(self):
@@ -935,28 +1085,84 @@ class TicketCloseView(ui.View):
 @bot.tree.command(name="setup", description="Configure bot settings for this server")
 @app_commands.describe(
     vouch_channel="Channel where vouch posts will be sent",
-    ticket_channel="Channel where the ticket panel will live"
+    ticket_channel="Channel where the ticket panel will live",
+    completed_channel="Channel where completed orders will be posted"
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
     interaction: discord.Interaction,
     vouch_channel: discord.TextChannel = None,
-    ticket_channel: discord.TextChannel = None
+    ticket_channel: discord.TextChannel = None,
+    completed_channel: discord.TextChannel = None
 ):
     updates = {}
     if vouch_channel:
         updates["vouch_channel_id"] = vouch_channel.id
     if ticket_channel:
         updates["ticket_channel_id"] = ticket_channel.id
+    if completed_channel:
+        updates["completed_channel_id"] = completed_channel.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
     e = base_embed("⚙️ Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
     if vouch_channel:
-        e.add_field(name="⭐ Vouch Channel", value=vouch_channel.mention, inline=True)
+        e.add_field(name="⭐ Vouch Channel",     value=vouch_channel.mention,     inline=True)
     if ticket_channel:
-        e.add_field(name="🎫 Ticket Channel", value=ticket_channel.mention, inline=True)
+        e.add_field(name="🎫 Ticket Channel",    value=ticket_channel.mention,    inline=True)
+    if completed_channel:
+        e.add_field(name="✅ Completed Channel", value=completed_channel.mention, inline=True)
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="order_complete", description="Mark an order as completed and post to the completed-orders channel")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def order_complete(interaction: discord.Interaction):
+    await interaction.response.send_modal(OrderCompleteModal())
+
+
+@bot.tree.command(name="add_payment_method", description="Add a payment method to the order forms")
+@app_commands.describe(
+    label="Payment method name (e.g. LTC, Revolut)",
+    emoji="Emoji to display next to it (e.g. 🪙)"
+)
+@app_commands.checks.has_permissions(manage_channels=True)
+async def add_payment_method(interaction: discord.Interaction, label: str, emoji: str = "💳"):
+    success = add_payment_method(interaction.guild.id, label.strip(), emoji.strip())
+    if success:
+        e = base_embed("✅ Payment Method Added", color=SUCCESS)
+        e.description = f"{emoji} **{label}** has been added to the payment options.\n\nIt will appear in all new order forms immediately."
+    else:
+        e = base_embed("⚠️ Already Exists", color=GOLD)
+        e.description = f"**{label}** is already a configured payment method."
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="remove_payment_method", description="Remove a payment method from the order forms")
+@app_commands.describe(label="Exact name of the payment method to remove")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def remove_payment_method_cmd(interaction: discord.Interaction, label: str):
+    success = remove_payment_method(interaction.guild.id, label.strip())
+    if success:
+        e = base_embed("✅ Payment Method Removed", color=SUCCESS)
+        e.description = f"**{label}** has been removed from the payment options."
+    else:
+        e = base_embed("❌ Not Found", color=DANGER)
+        e.description = f"**{label}** was not found in the configured payment methods."
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="list_payment_methods", description="View all configured payment methods")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def list_payment_methods(interaction: discord.Interaction):
+    methods = get_payment_methods(interaction.guild.id)
+    e = base_embed("💳 Payment Methods", color=PRIMARY)
+    if methods:
+        e.description = "\n".join(f"{emo} **{lbl}**" for lbl, emo in methods)
+    else:
+        e.description = "No payment methods configured. Using defaults: PayPal, Bank Transfer, Crypto."
+    e.set_footer(text=f"{FOOTER_BRAND} | Use /add_payment_method or /remove_payment_method to manage")
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -1120,10 +1326,7 @@ async def giveaway(
     e.timestamp = datetime.utcnow()
 
     ping_content = ping if (ping and ping.lower() != "none") else ""
-    if ping_content:
-        ping_content += " **🎉 NEW GIVEAWAY!**"
-    else:
-        ping_content = "**🎉 NEW GIVEAWAY!**"
+    ping_content = (ping_content + " **🎉 NEW GIVEAWAY!**").strip() if ping_content else "**🎉 NEW GIVEAWAY!**"
 
     await interaction.channel.send(
         content=ping_content,
@@ -1232,7 +1435,7 @@ async def help_cmd(interaction: discord.Interaction):
     e = base_embed("📋 BrawlCarry Bot — Commands", color=PRIMARY)
     e.description = (
         "**⚙️ Admin Commands**\n"
-        "`/setup` — Configure vouch and ticket channels\n"
+        "`/setup` — Configure vouch, ticket, and completed-orders channels\n"
         "`/configure_ticket_panel` — Customise ticket panel text\n"
         "`/order_panel` — Post the generic order panel\n"
         "`/ranked_panel` — Post the Ranked Boost panel 🔥\n"
@@ -1242,6 +1445,11 @@ async def help_cmd(interaction: discord.Interaction):
         "`/giveaway` — Start a giveaway (supports extra entries & custom ping)\n"
         "`/end_giveaway` — End a giveaway and draw winners\n"
         "`/backup_link` — DM all members the backup server link\n\n"
+        "**✅ Staff Commands**\n"
+        "`/order_complete` — Mark an order as completed, posts to completed-orders channel\n"
+        "`/add_payment_method` — Add a payment method to order forms\n"
+        "`/remove_payment_method` — Remove a payment method from order forms\n"
+        "`/list_payment_methods` — View all configured payment methods\n\n"
         "**👤 User Commands**\n"
         "`/stats` — View your carry statistics\n"
         "`/help` — Show this menu"

@@ -413,7 +413,6 @@ class TicketSelect(ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label="Carry Order",     value="carry",   emoji="\U0001f3ae", description="Place or inquire about a ranked boost order"),
-            discord.SelectOption(label="Payment Issues",  value="payment", emoji="\U0001f4b3", description="Payment not received or billing questions"),
             discord.SelectOption(label="General Support", value="other",   emoji="\u2139\ufe0f",  description="Any other questions or concerns"),
         ]
         super().__init__(
@@ -425,7 +424,6 @@ class TicketSelect(ui.Select):
     async def callback(self, interaction: discord.Interaction):
         category_map = {
             "carry":   ("\U0001f3ae Carry Order",    PRIMARY),
-            "payment": ("\U0001f4b3 Payment Issue",  GOLD),
             "other":   ("\u2139\ufe0f General Support", SUCCESS),
         }
         label, color = category_map.get(self.values[0], ("Ticket", PRIMARY))
@@ -539,9 +537,8 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
     e.description = (
         "## \U0001f3ae Place Your Carry Order\n\n"
         "> Click the button below to fill out your order details.\n"
-        "> Our boosters will be assigned immediately after payment.\n\n"
         "**What we offer:**\n"
-        "- \U0001f947 Rank boosting (any tier)\n"
+        "- \U0001f947 Brawl Stars boost, eg. Ranked\n"
         "- \u26a1 Fast completion\n"
         "- \u2b50 5-star rated service"
     )

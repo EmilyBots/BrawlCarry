@@ -8,14 +8,14 @@ from PIL import Image, ImageDraw, ImageFont
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
-PRIMARY  = 0x9B59B6   # purple (matches BrawlMart brand in screenshots)
-GOLD     = 0xF1C40F
-SUCCESS  = 0x2ECC71
-DANGER   = 0xE74C3C
-DARK     = 0x0A0E1A
-ACCENT   = 0xA855F7
+PRIMARY      = 0x9B59B6
+GOLD         = 0xF1C40F
+SUCCESS      = 0x2ECC71
+DANGER       = 0xE74C3C
+DARK         = 0x0A0E1A
+ACCENT       = 0xA855F7
 
-FOOTER_BRAND = "Powered by Iceyz BrawlMart\u2122"
+FOOTER_BRAND = "Powered by Brawl Carry\u2122"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -81,7 +81,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_config(guild_id: int) -> sqlite3.Row:
+def get_config(guild_id: int):
     conn = get_db()
     c = conn.cursor()
     c.execute("SELECT * FROM guild_config WHERE guild_id = ?", (guild_id,))
@@ -102,34 +102,28 @@ def set_config(guild_id: int, **kwargs):
 # WATERMARK UTILITY
 # ---------------------------------------------------------------------------
 async def watermark_image(image_bytes: bytes, text: str = "Iceyz Vouches") -> bytes:
-    """Tile a diagonal watermark across the image and return new bytes."""
     img = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
     w, h = img.size
-
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
-
     try:
         font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", max(16, w // 18))
     except Exception:
         font = ImageFont.load_default()
-
     bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
-
     step_x = tw + 60
     step_y = th + 40
     for y in range(-h, h * 2, step_y):
         for x in range(-w, w * 2, step_x):
             draw.text((x, y), text, font=font, fill=(255, 255, 255, 55))
-
     watermarked = Image.alpha_composite(img, overlay).convert("RGB")
     buf = io.BytesIO()
     watermarked.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
 
-async def fetch_and_watermark(url: str) -> discord.File | None:
+async def fetch_and_watermark(url: str):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -142,9 +136,9 @@ async def fetch_and_watermark(url: str) -> discord.File | None:
         return None
 
 # ---------------------------------------------------------------------------
-# EMBED HELPERS
+# EMBED HELPER
 # ---------------------------------------------------------------------------
-def base_embed(title: str, color: int = PRIMARY, description: str = None) -> discord.Embed:
+def base_embed(title: str = None, color: int = PRIMARY, description: str = None) -> discord.Embed:
     e = discord.Embed(title=title, color=color, description=description)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
@@ -186,7 +180,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
             price_val = float(self.price.value.replace("$", "").strip())
         except ValueError:
             await interaction.response.send_message(
-                ":x: Invalid price. Please enter a number like `44.99`.", ephemeral=True
+                "\u274c Invalid price. Please enter a number like `44.99`.", ephemeral=True
             )
             return
 
@@ -201,7 +195,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
         conn.commit()
         conn.close()
 
-        e = base_embed("**\U0001f680 RANKED ORDER**", color=PRIMARY)
+        e = base_embed("\U0001f680 RANKED ORDER", color=PRIMARY)
         e.add_field(name="\U0001f91d Buyer", value=f"\u21b3 {interaction.user.mention}", inline=False)
         e.add_field(name="\U0001f4b5 Order Amount (USD) \U0001f4b2", value=f"\u21b3 **${price_val:.2f}**", inline=False)
         e.add_field(name="\U0001f680 Order Type", value="\u21b3 Ranked b\U0001f15eost", inline=False)
@@ -285,15 +279,13 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
                 vouch_ch_id = cfg["vouch_channel_id"]
         conn.close()
 
-        e = base_embed("**\u2b50 CUSTOMER VOUCH**", color=GOLD)
+        e = base_embed("\u2b50 CUSTOMER VOUCH", color=GOLD)
         e.add_field(name="\U0001f91d Customer", value=f"\u21b3 {interaction.user.mention}", inline=False)
         e.add_field(name="\U0001f4b0 Order Amount", value=f"\u21b3 **${amount_val:.2f}**", inline=False)
         e.add_field(name="\U0001f4dd Feedback", value=f"\u21b3 *{self.feedback.value}*", inline=False)
         e.add_field(name=f"\u2b50 Rating ({stars}/5)", value=star_str, inline=False)
         if self.order_id:
-            e = discord.Embed(color=PRIMARY, description=f"{title}\n{desc}")
-            e.set_footer(text=FOOTER_BRAND)
-            e.timestamp = datetime.utcnow()
+            e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
 
         wm_file = None
         if img:
@@ -305,7 +297,6 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
             "\u2705 Your vouch has been submitted. Thank you!", ephemeral=True
         )
 
-        # Post to vouch channel
         if vouch_ch_id:
             ch = interaction.guild.get_channel(vouch_ch_id) if interaction.guild else None
             if ch:
@@ -317,13 +308,13 @@ class VouchModal(ui.Modal, title="Submit Your Vouch"):
 
 class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
     panel_title = ui.TextInput(
-        label="Panel Title",
-        placeholder="Support Tickets",
+        label="Panel Title (markdown supported)",
+        placeholder="## Support Center",
         default="## \U0001f3ab Support Center",
         style=discord.TextStyle.short
     )
     panel_desc = ui.TextInput(
-        label="Panel Description (discord markdown supported)",
+        label="Panel Description (markdown supported)",
         placeholder="Select a category below to open a ticket.",
         default="Select the category that best matches your request.\nOur team will be with you shortly.\n\n> \U0001f4cc Tickets are private and handled by staff only.",
         style=discord.TextStyle.long
@@ -338,7 +329,6 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
         await interaction.response.send_message(
             "\u2705 Ticket panel configuration saved.", ephemeral=True
         )
-
 
 # ---------------------------------------------------------------------------
 # PERSISTENT VIEWS
@@ -383,7 +373,6 @@ class GiveawayView(ui.View):
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
-        # Find by id prefix match in case stored differently
         c.execute("SELECT * FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         if not ga:
@@ -459,7 +448,7 @@ class TicketSelect(ui.Select):
             topic=f"{label} | Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"
         )
 
-        e = base_embed(f"**{label}**", color=color)
+        e = base_embed(f"{label}", color=color)
         e.description = (
             f"Welcome, {member.mention}!\n\n"
             f"> \U0001f4cc **Category:** {label}\n"
@@ -487,7 +476,7 @@ class TicketCloseView(ui.View):
 
     @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="\U0001f512", custom_id="ticket_close_v2")
     async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("**\U0001f512 Ticket Closing**", color=DANGER)
+        e = base_embed("\U0001f512 Ticket Closing", color=DANGER)
         e.description = "This ticket will be deleted in **5 seconds**."
         await interaction.response.send_message(embed=e)
         import asyncio
@@ -499,12 +488,10 @@ class TicketCloseView(ui.View):
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
-        # Only staff (manage_channels) can send vouch panel
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("\u274c Staff only.", ephemeral=True)
             return
-
-        e = base_embed("**\u2b50 Submit Your Vouch**", color=GOLD)
+        e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
         e.description = (
             "Thank you for your order!\n\n"
             "> \U0001f4f8 Attach a screenshot as proof\n"
@@ -514,12 +501,10 @@ class TicketCloseView(ui.View):
         )
         await interaction.response.send_message(embed=e, view=VouchButtonView())
 
-
 # ---------------------------------------------------------------------------
 # SLASH COMMANDS
 # ---------------------------------------------------------------------------
 
-# /setup
 @bot.tree.command(name="setup", description="Configure bot settings for this server")
 @app_commands.describe(
     vouch_channel="Channel where vouch posts will be sent",
@@ -539,22 +524,20 @@ async def setup(
     if updates:
         set_config(interaction.guild.id, **updates)
 
-    e = base_embed("**\u2699\ufe0f Server Configuration**", color=SUCCESS)
+    e = base_embed("\u2699\ufe0f Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
     if vouch_channel:
         e.add_field(name="\u2b50 Vouch Channel", value=vouch_channel.mention, inline=True)
     if ticket_channel:
         e.add_field(name="\U0001f3ab Ticket Channel", value=ticket_channel.mention, inline=True)
-
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
-# /order_panel
 @bot.tree.command(name="order_panel", description="Post the order creation panel in this channel")
 @app_commands.describe(image_url="Optional banner image URL for the panel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("**\U0001f680 Ranked Boost Orders**", color=PRIMARY)
+    e = base_embed("\U0001f680 Ranked Boost Orders", color=PRIMARY)
     e.description = (
         "## \U0001f3ae Place Your Carry Order\n\n"
         "> Click the button below to fill out your order details.\n"
@@ -570,7 +553,6 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
     await interaction.response.send_message(embed=e, view=OrderButton())
 
 
-# /ticket_panel
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ticket_panel(interaction: discord.Interaction):
@@ -583,12 +565,12 @@ async def ticket_panel(interaction: discord.Interaction):
                 "Our team will be with you shortly.\n\n"
                 "> \U0001f4cc Tickets are private and handled by staff only."
             ))
-
-    e = base_embed(title, color=PRIMARY, description=desc)
+    e = discord.Embed(color=PRIMARY, description=f"{title}\n{desc}")
+    e.set_footer(text=FOOTER_BRAND)
+    e.timestamp = datetime.utcnow()
     await interaction.response.send_message(embed=e, view=TicketView())
 
 
-# /configure_ticket_panel
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
 @app_commands.checks.has_permissions(administrator=True)
 async def configure_ticket_panel(interaction: discord.Interaction):
@@ -602,12 +584,11 @@ async def configure_ticket_panel(interaction: discord.Interaction):
     await interaction.response.send_modal(modal)
 
 
-# /vouch_panel  (send standalone vouch button to channel or DM a user)
 @bot.tree.command(name="vouch_panel", description="Send a vouch request panel to a user or in this channel")
 @app_commands.describe(user="DM the vouch panel to this user", order_id="Order ID to attach")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def vouch_panel(interaction: discord.Interaction, user: discord.User = None, order_id: str = None):
-    e = base_embed("**\u2b50 Submit Your Vouch**", color=GOLD)
+    e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
     e.description = (
         "Thank you for your order!\n\n"
         "> \U0001f4f8 Attach a screenshot as proof\n"
@@ -619,7 +600,6 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
         e.set_footer(text=f"{FOOTER_BRAND} | Order: {order_id}")
 
     view = VouchButtonView(order_id=order_id)
-
     if user:
         try:
             await user.send(embed=e, view=view)
@@ -634,7 +614,6 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
         await interaction.response.send_message(embed=e, view=view)
 
 
-# /giveaway
 @bot.tree.command(name="giveaway", description="Start a new giveaway")
 @app_commands.describe(
     prize="Prize name",
@@ -664,7 +643,7 @@ async def giveaway(
     conn.close()
 
     end_ts = int(ends_at.timestamp())
-    e = base_embed(f"**\U0001f389 GIVEAWAY \U0001f389**", color=PRIMARY)
+    e = base_embed("\U0001f389 GIVEAWAY \U0001f389", color=PRIMARY)
     e.description = f"## \U0001f381 {prize}"
     e.add_field(name="\u2139\ufe0f Description:", value=description, inline=False)
     e.add_field(name="\u23f0 Ends", value=f"in {hours} hour{'s' if hours != 1 else ''} ( <t:{end_ts}:F> )", inline=False)
@@ -674,7 +653,6 @@ async def giveaway(
     if image_url:
         e.set_image(url=image_url)
     e.set_footer(text=f"{FOOTER_BRAND} | Giveaway ID: {ga_id}")
-
     await interaction.response.send_message(
         "@everyone **NEW GIVEAWAY!**",
         embed=e,
@@ -683,7 +661,6 @@ async def giveaway(
     )
 
 
-# /end_giveaway
 @bot.tree.command(name="end_giveaway", description="End a giveaway and pick winners")
 @app_commands.describe(giveaway_id="Giveaway ID (shown in footer)")
 @app_commands.checks.has_permissions(manage_channels=True)
@@ -710,7 +687,7 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn.close()
 
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
-    e = base_embed("**\U0001f389 GIVEAWAY ENDED**", color=SUCCESS)
+    e = base_embed("\U0001f389 GIVEAWAY ENDED", color=SUCCESS)
     e.description = f"## \U0001f381 {ga['prize']}"
     e.add_field(name="\U0001f3c6 Winners", value=winner_mentions, inline=False)
     e.add_field(name="\U0001f465 Total Participants", value=f"**{len(participants):,}**", inline=True)
@@ -722,7 +699,6 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     )
 
 
-# /backup_link
 @bot.tree.command(name="backup_link", description="DM all members the backup server link")
 @app_commands.describe(link="Backup server invite link")
 @app_commands.checks.has_permissions(administrator=True)
@@ -732,7 +708,7 @@ async def backup_link(interaction: discord.Interaction, link: str):
     for member in interaction.guild.members:
         if not member.bot:
             try:
-                e = base_embed("**\u26a0\ufe0f BACKUP SERVER**", color=DANGER)
+                e = base_embed("\u26a0\ufe0f BACKUP SERVER", color=DANGER)
                 e.description = (
                     "If the main server becomes unavailable, join our backup:\n\n"
                     f"> **{link}**"
@@ -742,13 +718,12 @@ async def backup_link(interaction: discord.Interaction, link: str):
             except Exception:
                 failed += 1
 
-    e = base_embed("**\U0001f4e8 Backup Link Sent**", color=SUCCESS)
+    e = base_embed("\U0001f4e8 Backup Link Sent", color=SUCCESS)
     e.add_field(name="\u2705 Delivered", value=f"**{sent}**", inline=True)
     e.add_field(name="\u274c Failed", value=f"**{failed}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
 
-# /stats
 @bot.tree.command(name="stats", description="View carry statistics for a user")
 @app_commands.describe(user="User to look up (defaults to you)")
 async def stats(interaction: discord.Interaction, user: discord.User = None):
@@ -760,14 +735,11 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
         (target.id,)
     )
     row = c.fetchone()
-    c.execute(
-        "SELECT COUNT(*) as vc FROM vouchers WHERE used_by = ?",
-        (target.id,)
-    )
+    c.execute("SELECT COUNT(*) as vc FROM vouchers WHERE used_by = ?", (target.id,))
     vc = c.fetchone()
     conn.close()
 
-    e = base_embed(f"**\U0001f4ca {target.display_name}**", color=PRIMARY)
+    e = base_embed(f"\U0001f4ca {target.display_name}", color=PRIMARY)
     e.set_thumbnail(url=target.display_avatar.url)
     e.add_field(name="\U0001f3ae Total Carries", value=f"**{row['count'] or 0}**", inline=True)
     e.add_field(name="\U0001f4b5 Total Spent", value=f"**${row['total']:.2f}**" if row["total"] else "**$0.00**", inline=True)
@@ -775,10 +747,9 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
-# /help
 @bot.tree.command(name="help", description="View all available bot commands")
 async def help_cmd(interaction: discord.Interaction):
-    e = base_embed("**\U0001f4cb BrawlMart Bot Commands**", color=PRIMARY)
+    e = base_embed("\U0001f4cb BrawlMart Bot Commands", color=PRIMARY)
     e.description = (
         "## \u2699\ufe0f Admin Commands\n"
         "> `/setup` \u2014 Configure vouch and ticket channels\n"
@@ -795,7 +766,6 @@ async def help_cmd(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 
-
 # ---------------------------------------------------------------------------
 # ERROR HANDLER
 # ---------------------------------------------------------------------------
@@ -810,7 +780,6 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     else:
         await interaction.response.send_message(msg, ephemeral=True)
 
-
 # ---------------------------------------------------------------------------
 # STARTUP
 # ---------------------------------------------------------------------------
@@ -822,7 +791,6 @@ async def on_ready():
     bot.add_view(TicketView())
     bot.add_view(TicketCloseView())
     bot.add_view(VouchButtonView())
-
 
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")

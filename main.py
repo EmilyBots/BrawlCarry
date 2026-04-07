@@ -42,6 +42,7 @@ def init_db():
         image_url TEXT,
         ticket_channel_id INT,
         booster_id INT,
+        booster_earnings REAL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
     )""")
@@ -79,6 +80,8 @@ def init_db():
         ticket_panel_desc TEXT,
         ranked_panel_channel_id INT,
         prestige_panel_channel_id INT,
+        ranked_ticket_channel_id INT,
+        prestige_ticket_channel_id INT,
         owner_id INT
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS payment_methods (
@@ -88,29 +91,21 @@ def init_db():
         emoji TEXT,
         UNIQUE(guild_id, label)
     )""")
-    # NEW: claim approval tracking
-    c.execute("""CREATE TABLE IF NOT EXISTS claim_requests (
-        id TEXT PRIMARY KEY,
-        order_id TEXT,
-        booster_id INT,
-        guild_id INT,
-        message_id INT,
-        channel_id INT,
-        status TEXT DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )""")
 
     migrations = [
-        ("giveaways",      "extra_entries TEXT"),
-        ("giveaways",      "ping TEXT"),
-        ("guild_config",   "completed_channel_id INT"),
-        ("guild_config",   "ticket_category_id INT"),
-        ("vouchers",       "method TEXT"),
-        ("guild_config",   "ranked_panel_channel_id INT"),
-        ("guild_config",   "prestige_panel_channel_id INT"),
-        ("guild_config",   "owner_id INT"),
-        ("orders",         "ticket_channel_id INT"),
-        ("orders",         "booster_id INT"),
+        ("giveaways",    "extra_entries TEXT"),
+        ("giveaways",    "ping TEXT"),
+        ("guild_config", "completed_channel_id INT"),
+        ("guild_config", "ticket_category_id INT"),
+        ("vouchers",     "method TEXT"),
+        ("guild_config", "ranked_panel_channel_id INT"),
+        ("guild_config", "prestige_panel_channel_id INT"),
+        ("guild_config", "ranked_ticket_channel_id INT"),
+        ("guild_config", "prestige_ticket_channel_id INT"),
+        ("guild_config", "owner_id INT"),
+        ("orders",       "ticket_channel_id INT"),
+        ("orders",       "booster_id INT"),
+        ("orders",       "booster_earnings REAL"),
     ]
     for table, col_def in migrations:
         try:
@@ -141,6 +136,7 @@ ALLOWED_CONFIG_KEYS = {
     "completed_channel_id", "ticket_category_id",
     "ticket_panel_title", "ticket_panel_desc",
     "ranked_panel_channel_id", "prestige_panel_channel_id",
+    "ranked_ticket_channel_id", "prestige_ticket_channel_id",
     "owner_id",
 }
 
@@ -209,9 +205,11 @@ async def create_ticket_thread(
     topic_embed: discord.Embed,
     view: "ui.View",
     cfg,
+    override_channel_id: int = None,   # ranked_ticket_channel_id / prestige_ticket_channel_id
 ) -> discord.Thread | discord.TextChannel:
-    ticket_ch_id  = cfg["ticket_channel_id"]  if cfg else None
-    category_id   = cfg["ticket_category_id"] if cfg else None
+    # Use override channel if provided, else fall back to generic ticket_channel_id
+    ticket_ch_id = override_channel_id or (cfg["ticket_channel_id"] if cfg else None)
+    category_id  = cfg["ticket_category_id"] if cfg else None
 
     if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
@@ -331,6 +329,25 @@ RANK_EMOJI = {
     "Pro":       "<:Pro:1490768368024682506>",
 }
 
+# ---------------------------------------------------------------------------
+# PRESTIGE OPTIONS & EMOJIS
+# Replace the emoji IDs below with the ones from your Discord Developer Portal
+# ---------------------------------------------------------------------------
+PRESTIGE_OPTIONS = [
+    "Prestige 0 -> Prestige 1",
+    "Prestige 1 -> Prestige 2",
+    "Prestige 2 -> Prestige 3",
+]
+
+PRESTIGE_EMOJI = {
+    "Prestige 0 -> Prestige 1": "<:Prestige1:1491103698116677693>",
+    "Prestige 1 -> Prestige 2": "<:Prestige2:1491103696153477161>",
+    "Prestige 2 -> Prestige 3": "<:Prestige3:1491103694433816688>",
+}
+
+def prestige_emoji(spec: str) -> str:
+    return PRESTIGE_EMOJI.get(spec, "✨")
+
 def rank_emoji(rank_name: str) -> str:
     for prefix, emoji in RANK_EMOJI.items():
         if rank_name.startswith(prefix):
@@ -338,7 +355,6 @@ def rank_emoji(rank_name: str) -> str:
     return ""
 
 P11_OPTIONS      = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
-PRESTIGE_OPTIONS = ["Prestige 0 -> Prestige 1", "Prestige 1 -> Prestige 2", "Prestige 2 -> Prestige 3"]
 
 RATING_OPTIONS = [
     discord.SelectOption(label="5 Stars", value="5", emoji="⭐", description="Excellent service"),
@@ -349,141 +365,26 @@ RATING_OPTIONS = [
 ]
 
 # ---------------------------------------------------------------------------
-# CLAIM APPROVAL VIEW  (sent to owner via DM or approval channel)
+# DIRECT BOOSTER CLAIM VIEW  (posted in the panel/booster channel after owner publishes)
 # ---------------------------------------------------------------------------
-class ClaimApprovalView(ui.View):
+class BoosterClaimView(ui.View):
     """
-    Sent to the guild owner (or approval channel) when a booster clicks Claim.
-    Approve  → booster is added to the customer's ticket thread.
-    Deny     → booster is notified, order stays open.
-    """
-    def __init__(self, claim_id: str, order_id: str, booster_id: int, guild_id: int, ticket_channel_id: int | None):
-        super().__init__(timeout=None)
-        self.claim_id          = claim_id
-        self.order_id          = order_id
-        self.booster_id        = booster_id
-        self.guild_id          = guild_id
-        self.ticket_channel_id = ticket_channel_id
-
-    @ui.button(label="✅ Approve", style=discord.ButtonStyle.success, custom_id="claim_approve_v1")
-    async def approve(self, interaction: discord.Interaction, button: ui.Button):
-        await self._handle(interaction, approved=True)
-
-    @ui.button(label="❌ Deny", style=discord.ButtonStyle.danger, custom_id="claim_deny_v1")
-    async def deny(self, interaction: discord.Interaction, button: ui.Button):
-        await self._handle(interaction, approved=False)
-
-    async def _handle(self, interaction: discord.Interaction, approved: bool):
-        # Mark buttons disabled
-        for item in self.children:
-            item.disabled = True
-        await interaction.message.edit(view=self)
-
-        conn = get_db()
-        c    = conn.cursor()
-        c.execute("SELECT * FROM claim_requests WHERE id = ?", (self.claim_id,))
-        claim = c.fetchone()
-        if not claim or claim["status"] != "pending":
-            conn.close()
-            await interaction.response.send_message("⚠️ This claim has already been handled.", ephemeral=True)
-            return
-
-        new_status = "approved" if approved else "denied"
-        c.execute("UPDATE claim_requests SET status = ? WHERE id = ?", (new_status, self.claim_id))
-        if approved:
-            c.execute(
-                "UPDATE orders SET booster_id = ?, status = 'claimed' WHERE id = ?",
-                (self.booster_id, self.order_id)
-            )
-        conn.commit()
-        conn.close()
-
-        guild   = bot.get_guild(self.guild_id)
-        booster = guild.get_member(self.booster_id) if guild else None
-
-        if approved:
-            # Add booster to the ticket thread/channel
-            if self.ticket_channel_id and guild:
-                ticket_ch = guild.get_channel(self.ticket_channel_id)
-                if ticket_ch:
-                    try:
-                        if isinstance(ticket_ch, discord.Thread):
-                            await ticket_ch.add_user(booster)
-                        elif isinstance(ticket_ch, discord.TextChannel):
-                            await ticket_ch.set_permissions(
-                                booster,
-                                view_channel=True,
-                                send_messages=True,
-                                read_message_history=True,
-                            )
-                        notify_e = base_embed("🟠 Booster Assigned", color=SUCCESS)
-                        notify_e.description = (
-                            f"{booster.mention} has been assigned as the booster for order `{self.order_id}`.\n"
-                            "Please coordinate here to complete the boost!"
-                        )
-                        await ticket_ch.send(embed=notify_e)
-                    except Exception as ex:
-                        print(f"[WARN] Could not add booster to ticket: {ex}")
-
-            # DM the booster
-            if booster:
-                try:
-                    dm_e = base_embed("✅ Claim Approved!", color=SUCCESS)
-                    dm_e.description = (
-                        f"Your claim for order **`{self.order_id}`** has been **approved**!\n\n"
-                        "You have been added to the customer's ticket. Good luck! 🏆"
-                    )
-                    await booster.send(embed=dm_e)
-                except discord.Forbidden:
-                    pass
-
-            await interaction.response.send_message(
-                f"✅ Claim approved. {booster.mention if booster else f'<@{self.booster_id}>'} "
-                f"has been added to the ticket for order `{self.order_id}`.",
-                ephemeral=True
-            )
-        else:
-            # DM the booster about denial
-            if booster:
-                try:
-                    dm_e = base_embed("❌ Claim Denied", color=DANGER)
-                    dm_e.description = (
-                        f"Your claim for order **`{self.order_id}`** was **denied** by the owner.\n"
-                        "The order remains open for other boosters."
-                    )
-                    await booster.send(embed=dm_e)
-                except discord.Forbidden:
-                    pass
-
-            await interaction.response.send_message(
-                f"❌ Claim denied. {booster.mention if booster else f'<@{self.booster_id}>'} "
-                f"has been notified.",
-                ephemeral=True
-            )
-
-
-# ---------------------------------------------------------------------------
-# ORDER ACTIONS VIEW  (on the public order embed in the panel channel)
-# ---------------------------------------------------------------------------
-class OrderActionsView(ui.View):
-    """
-    Shown on the order card in the ranked/prestige panel channel.
-    Claim Your Boost → sends approval request to owner.
+    Posted in the booster/panel channel after the owner publishes an order.
+    Clicking Claim immediately adds the booster to the customer's ticket.
     """
     def __init__(self, order_id: str, ticket_channel_id: int | None = None):
         super().__init__(timeout=None)
         self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
 
-    @ui.button(label="🟠 Claim Your Boost", style=discord.ButtonStyle.primary, custom_id="order_claim_btn_v2")
+    @ui.button(label="🟠 Claim This Boost", style=discord.ButtonStyle.primary, custom_id="booster_claim_direct_v1")
     async def claim(self, interaction: discord.Interaction, button: ui.Button):
-        guild  = interaction.guild
+        guild   = interaction.guild
         booster = interaction.user
 
-        # Check if already claimed
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT status, booster_id FROM orders WHERE id = ?", (self.order_id,))
+        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
         order = c.fetchone()
         conn.close()
 
@@ -496,106 +397,200 @@ class OrderActionsView(ui.View):
             )
             return
 
-        # Check for pending claim from this user
+        # Mark order as claimed
         conn = get_db()
         c    = conn.cursor()
         c.execute(
-            "SELECT id FROM claim_requests WHERE order_id = ? AND booster_id = ? AND status = 'pending'",
-            (self.order_id, booster.id)
-        )
-        existing = c.fetchone()
-        conn.close()
-        if existing:
-            await interaction.response.send_message(
-                "⏳ You already have a pending claim request for this order. "
-                "Please wait for the owner to approve or deny it.",
-                ephemeral=True
-            )
-            return
-
-        # Get owner
-        cfg      = get_config(guild.id)
-        owner_id = cfg["owner_id"] if cfg and cfg["owner_id"] else None
-
-        # Save ticket_channel_id from order if not passed directly
-        ticket_ch_id = self.ticket_channel_id
-        if not ticket_ch_id:
-            conn = get_db()
-            c    = conn.cursor()
-            c.execute("SELECT ticket_channel_id FROM orders WHERE id = ?", (self.order_id,))
-            row = c.fetchone()
-            conn.close()
-            ticket_ch_id = row["ticket_channel_id"] if row else None
-
-        claim_id = f"CLM-{uuid.uuid4().hex[:8].upper()}"
-
-        # Build the approval embed
-        approval_e = base_embed("🔔 Boost Claim Request", color=GOLD)
-        approval_e.description = (
-            f"**{booster.display_name}** (`{booster.id}`) wants to claim an order.\n\n"
-            f"🆔 **Order ID:** `{self.order_id}`\n"
-            f"🔑 **Claim ID:** `{claim_id}`\n\n"
-            "Press **✅ Approve** to add them to the customer's ticket, "
-            "or **❌ Deny** to reject the claim."
-        )
-        approval_e.set_author(name=booster.display_name, icon_url=booster.display_avatar.url)
-
-        approval_view = ClaimApprovalView(
-            claim_id=claim_id,
-            order_id=self.order_id,
-            booster_id=booster.id,
-            guild_id=guild.id,
-            ticket_channel_id=ticket_ch_id,
-        )
-
-        sent_approval = False
-
-        # Try to DM owner first
-        if owner_id:
-            owner = guild.get_member(owner_id)
-            if owner:
-                try:
-                    await owner.send(embed=approval_e, view=approval_view)
-                    sent_approval = True
-                except discord.Forbidden:
-                    pass
-
-        # Fallback: post in the ticket channel with manage_channels perm filter
-        if not sent_approval and cfg and cfg["ticket_channel_id"]:
-            ch = guild.get_channel(cfg["ticket_channel_id"])
-            if ch:
-                try:
-                    await ch.send(
-                        content="@here ⚠️ **Claim approval needed** — admins please review:",
-                        embed=approval_e,
-                        view=approval_view
-                    )
-                    sent_approval = True
-                except Exception:
-                    pass
-
-        # Last resort: post in current channel
-        if not sent_approval:
-            await interaction.channel.send(
-                content="⚠️ **Claim approval needed:**",
-                embed=approval_e,
-                view=approval_view
-            )
-
-        # Save claim to DB
-        conn = get_db()
-        c    = conn.cursor()
-        c.execute(
-            "INSERT INTO claim_requests (id, order_id, booster_id, guild_id, status) VALUES (?, ?, ?, ?, 'pending')",
-            (claim_id, self.order_id, booster.id, guild.id)
+            "UPDATE orders SET booster_id = ?, status = 'claimed' WHERE id = ?",
+            (booster.id, self.order_id)
         )
         conn.commit()
         conn.close()
 
+        # Disable the button on the original message
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(view=self)
+
+        # Resolve ticket channel (stored on the view or fallback to order row)
+        ticket_ch_id = self.ticket_channel_id or order["ticket_channel_id"]
+
+        if ticket_ch_id and guild:
+            ticket_ch = guild.get_channel(ticket_ch_id)
+            if ticket_ch:
+                try:
+                    if isinstance(ticket_ch, discord.Thread):
+                        await ticket_ch.add_user(booster)
+                    elif isinstance(ticket_ch, discord.TextChannel):
+                        await ticket_ch.set_permissions(
+                            booster,
+                            view_channel=True,
+                            send_messages=True,
+                            read_message_history=True,
+                        )
+                    notify_e = base_embed("🟠 Booster Assigned", color=SUCCESS)
+                    notify_e.description = (
+                        f"{booster.mention} has claimed order `{self.order_id}` and has been added to this ticket.\n"
+                        "Please coordinate here to complete the boost! 🏆"
+                    )
+                    await ticket_ch.send(embed=notify_e)
+                except Exception as ex:
+                    print(f"[WARN] Could not add booster to ticket: {ex}")
+
+        # DM the booster
+        try:
+            dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
+            dm_e.description = (
+                f"You've successfully claimed order **`{self.order_id}`**!\n\n"
+                "You have been added to the customer's ticket. Good luck! 🏆"
+            )
+            await booster.send(embed=dm_e)
+        except discord.Forbidden:
+            pass
+
         await interaction.response.send_message(
-            "📨 Your claim request has been sent to the owner for approval.\n"
-            "You'll receive a DM once it's reviewed!",
+            f"✅ You've claimed order `{self.order_id}`! Check the customer's ticket.",
             ephemeral=True
+        )
+
+
+# ---------------------------------------------------------------------------
+# PUBLISH TO BOOSTERS MODAL  (owner fills in booster earnings before posting)
+# ---------------------------------------------------------------------------
+class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
+    booster_earnings = ui.TextInput(
+        label="Booster Earnings (USD)",
+        placeholder="e.g. 12.00",
+        style=discord.TextStyle.short
+    )
+    extra_notes = ui.TextInput(
+        label="Extra Notes for Boosters (Optional)",
+        placeholder="Any special info boosters should know...",
+        required=False,
+        style=discord.TextStyle.long,
+        max_length=300
+    )
+
+    def __init__(self, order_id: str, ticket_channel_id: int | None, panel_channel_id: int | None, order_type: str):
+        super().__init__()
+        self.order_id         = order_id
+        self.ticket_channel_id = ticket_channel_id
+        self.panel_channel_id  = panel_channel_id
+        self.order_type        = order_type  # "ranked" or "prestige"
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            earnings = float(self.booster_earnings.value.replace("$", "").strip())
+        except ValueError:
+            await interaction.response.send_message(
+                "❌ Invalid earnings amount. Please enter a number like `12.00`.", ephemeral=True
+            )
+            return
+
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
+        order = c.fetchone()
+        if not order:
+            conn.close()
+            await interaction.response.send_message("❌ Order not found.", ephemeral=True)
+            return
+
+        # Save booster earnings
+        c.execute("UPDATE orders SET booster_earnings = ? WHERE id = ?", (earnings, self.order_id))
+        conn.commit()
+        conn.close()
+
+        # Resolve the claiming (panel) channel
+        guild         = interaction.guild
+        panel_ch_id   = self.panel_channel_id
+        if not panel_ch_id:
+            cfg = get_config(guild.id)
+            if cfg:
+                panel_ch_id = (
+                    cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
+                    else cfg["prestige_panel_channel_id"]
+                )
+
+        panel_ch = guild.get_channel(panel_ch_id) if panel_ch_id else None
+        if not panel_ch:
+            await interaction.response.send_message(
+                "❌ Panel channel not found. Make sure it is configured via `/setup`.", ephemeral=True
+            )
+            return
+
+        color = PRIMARY if self.order_type == "ranked" else ACCENT
+        title = "🔥 Ranked Boost Available" if self.order_type == "ranked" else "✨ Prestige Boost Available"
+
+        claim_e = base_embed(title, color=color)
+        claim_e.set_author(
+            name="BrawlCarry | Boost Available",
+            icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
+        )
+        claim_e.add_field(name="📦 Route",      value=f"`{order['from_tier']}` → `{order['to_tier']}`", inline=True)
+        claim_e.add_field(name="💰 You Earn",   value=f"**${earnings:.2f}**", inline=True)
+        claim_e.add_field(name="💳 Payment",    value=order["method"] or "—", inline=True)
+        claim_e.add_field(name="🆔 Order ID",   value=f"`{self.order_id}`", inline=True)
+        claim_e.add_field(name="🕐 Posted",     value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+
+        if self.order_type == "ranked":
+            # Pull P11 from the order notes if stored (stored in to_tier field for ranked view)
+            pass  # P11 is already part of from_tier/to_tier display
+
+        if self.extra_notes.value:
+            claim_e.add_field(name="📝 Notes", value=self.extra_notes.value, inline=False)
+
+        claim_e.set_footer(text=f"{FOOTER_BRAND} | Click the button below to claim this order")
+
+        await panel_ch.send(
+            embed=claim_e,
+            view=BoosterClaimView(self.order_id, ticket_channel_id=self.ticket_channel_id)
+        )
+
+        await interaction.response.send_message(
+            f"✅ Order `{self.order_id}` published to {panel_ch.mention} with **${earnings:.2f}** booster earnings.",
+            ephemeral=True
+        )
+
+
+# ---------------------------------------------------------------------------
+# ORDER ACTIONS VIEW  (posted on the order card in the ticket/order channel)
+# Staff-only: owner/admin clicks "Publish to Boosters" to release the order
+# ---------------------------------------------------------------------------
+class OrderActionsView(ui.View):
+    """
+    Shown on the order card inside the customer's ticket channel.
+    Staff click 'Publish to Boosters' to release it with a set earnings amount.
+    """
+    def __init__(self, order_id: str, ticket_channel_id: int | None = None, order_type: str = "ranked"):
+        super().__init__(timeout=None)
+        self.order_id          = order_id
+        self.ticket_channel_id = ticket_channel_id
+        self.order_type        = order_type
+
+    @ui.button(label="📢 Publish to Boosters", style=discord.ButtonStyle.success, custom_id="order_publish_btn_v1")
+    async def publish(self, interaction: discord.Interaction, button: ui.Button):
+        if not interaction.user.guild_permissions.manage_channels:
+            await interaction.response.send_message(
+                "❌ Only staff can publish orders to boosters.", ephemeral=True
+            )
+            return
+
+        cfg = get_config(interaction.guild.id)
+        panel_ch_id = None
+        if cfg:
+            panel_ch_id = (
+                cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
+                else cfg["prestige_panel_channel_id"]
+            )
+
+        await interaction.response.send_modal(
+            PublishToBoostersModal(
+                order_id=self.order_id,
+                ticket_channel_id=self.ticket_channel_id,
+                panel_channel_id=panel_ch_id,
+                order_type=self.order_type,
+            )
         )
 
 
@@ -642,7 +637,7 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
-        view = OrderActionsView(order_id)
+        view = OrderActionsView(order_id, order_type="ranked")
         if wm_file:
             await interaction.channel.send(embed=e, view=view, file=wm_file)
         else:
@@ -805,6 +800,9 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         member = interaction.user
         cfg    = get_config(guild.id)
 
+        # Use ranked-specific ticket channel if configured
+        ranked_ticket_ch_id = cfg["ranked_ticket_channel_id"] if cfg else None
+
         welcome = base_embed("🔥 Ranked Boost Ticket", color=PRIMARY)
         welcome.description = (
             f"Welcome, {member.mention}! 🎮\n\n"
@@ -819,36 +817,37 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
         ticket = await create_ticket_thread(
-            guild=guild, member=member,
+            guild=guild,
+            member=member,
             name=f"ranked-{member.name[:12].lower()}",
-            topic_embed=welcome, view=TicketCloseView(), cfg=cfg,
+            topic_embed=welcome,
+            view=TicketCloseView(),
+            cfg=cfg,
+            override_channel_id=ranked_ticket_ch_id,
         )
 
-        # Store ticket channel id in the order so claim approval can add the booster
+        # Store ticket channel id in the order
         conn = get_db()
         c    = conn.cursor()
         c.execute("UPDATE orders SET ticket_channel_id = ? WHERE id = ?", (ticket.id, order_id))
         conn.commit()
         conn.close()
 
-        # Post the claimable order card in the ranked panel channel
-        ranked_ch_id = cfg["ranked_panel_channel_id"] if cfg else None
-        if ranked_ch_id:
-            ranked_ch = guild.get_channel(ranked_ch_id)
-            if ranked_ch:
-                order_e = base_embed("🔥 New Ranked Boost Available", color=PRIMARY)
-                order_e.set_author(name="BrawlCarry | Boost Available", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-                order_e.add_field(name="📦 Route",    value=f"`{self.current_rank}` → `{self.desired_rank}`", inline=True)
-                order_e.add_field(name="⚡ P11",      value=self.p11,  inline=True)
-                order_e.add_field(name="💳 Payment",  value=self.payment, inline=True)
-                order_e.add_field(name="🆔 Order ID", value=f"`{order_id}`", inline=True)
-                order_e.add_field(name="🕐 Posted",   value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-                order_e.set_footer(text=f"{FOOTER_BRAND} | Click Claim to take this order")
+        # Post the order card inside the ticket so staff can publish it
+        order_e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
+        order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
+        order_e.add_field(name="👤 Customer",  value=member.mention, inline=True)
+        order_e.add_field(name="📦 Route",     value=f"`{self.current_rank}` → `{self.desired_rank}`", inline=True)
+        order_e.add_field(name="⚡ P11",       value=self.p11, inline=True)
+        order_e.add_field(name="💳 Payment",   value=self.payment, inline=True)
+        order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`", inline=True)
+        order_e.add_field(name="🕐 Placed",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
-                await ranked_ch.send(
-                    embed=order_e,
-                    view=OrderActionsView(order_id, ticket_channel_id=ticket.id)
-                )
+        await ticket.send(
+            embed=order_e,
+            view=OrderActionsView(order_id, ticket_channel_id=ticket.id, order_type="ranked")
+        )
 
         await interaction.response.send_message(
             f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
@@ -883,6 +882,9 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         member = interaction.user
         cfg    = get_config(guild.id)
 
+        # Use prestige-specific ticket channel if configured
+        prestige_ticket_ch_id = cfg["prestige_ticket_channel_id"] if cfg else None
+
         welcome = base_embed("✨ Prestige Boost Ticket", color=ACCENT)
         welcome.description = (
             f"Welcome, {member.mention}! ✨\n\n"
@@ -896,9 +898,13 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
         ticket = await create_ticket_thread(
-            guild=guild, member=member,
+            guild=guild,
+            member=member,
             name=f"prestige-{member.name[:12].lower()}",
-            topic_embed=welcome, view=TicketCloseView(), cfg=cfg,
+            topic_embed=welcome,
+            view=TicketCloseView(),
+            cfg=cfg,
+            override_channel_id=prestige_ticket_ch_id,
         )
 
         # Store ticket channel id
@@ -908,23 +914,20 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         conn.commit()
         conn.close()
 
-        # Post the claimable order card in the prestige panel channel
-        prestige_ch_id = cfg["prestige_panel_channel_id"] if cfg else None
-        if prestige_ch_id:
-            prestige_ch = guild.get_channel(prestige_ch_id)
-            if prestige_ch:
-                order_e = base_embed("✨ New Prestige Boost Available", color=ACCENT)
-                order_e.set_author(name="BrawlCarry | Boost Available", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-                order_e.add_field(name="🏆 Prestige",  value=self.prestige_spec, inline=True)
-                order_e.add_field(name="💳 Payment",   value=self.payment,       inline=True)
-                order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`",    inline=True)
-                order_e.add_field(name="🕐 Posted",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-                order_e.set_footer(text=f"{FOOTER_BRAND} | Click Claim to take this order")
+        # Post the order card inside the ticket so staff can publish it
+        order_e = base_embed("✨ New Prestige Boost Order", color=ACCENT)
+        order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
+        order_e.add_field(name="👤 Customer",  value=member.mention, inline=True)
+        order_e.add_field(name="🏆 Prestige",  value=self.prestige_spec, inline=True)
+        order_e.add_field(name="💳 Payment",   value=self.payment, inline=True)
+        order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`", inline=True)
+        order_e.add_field(name="🕐 Placed",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
-                await prestige_ch.send(
-                    embed=order_e,
-                    view=OrderActionsView(order_id, ticket_channel_id=ticket.id)
-                )
+        await ticket.send(
+            embed=order_e,
+            view=OrderActionsView(order_id, ticket_channel_id=ticket.id, order_type="prestige")
+        )
 
         await interaction.response.send_message(
             f"✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
@@ -1061,7 +1064,11 @@ class RankedOrderView(ui.View):
         desired_select.callback = self._on_desired
         self.add_item(desired_select)
 
-        p11_select = ui.Select(placeholder="Select number of Power 11 brawlers...", options=[discord.SelectOption(label=n, value=n) for n in P11_OPTIONS], custom_id="ranked_p11", row=2)
+        p11_select = ui.Select(
+            placeholder="Select number of Power 11 brawlers...",
+            options=[discord.SelectOption(label=n, value=n) for n in P11_OPTIONS],
+            custom_id="ranked_p11", row=2
+        )
         p11_select.callback = self._on_p11
         self.add_item(p11_select)
 
@@ -1112,7 +1119,20 @@ class PrestigeOrderView(ui.View):
         self.prestige_spec = None
         self.payment       = None
 
-        pres_select = ui.Select(placeholder="Select prestige spec...", options=[discord.SelectOption(label=p, value=p) for p in PRESTIGE_OPTIONS], custom_id="prest_spec", row=0)
+        pres_options = []
+        for p in PRESTIGE_OPTIONS:
+            emo = prestige_emoji(p)
+            opt = discord.SelectOption(label=p, value=p)
+            # Only set emoji if it's a real custom emoji (not a placeholder)
+            if "REPLACE_WITH" not in emo:
+                opt.emoji = emo
+            pres_options.append(opt)
+
+        pres_select = ui.Select(
+            placeholder="Select prestige spec...",
+            options=pres_options,
+            custom_id="prest_spec", row=0
+        )
         pres_select.callback = self._on_spec
         self.add_item(pres_select)
 
@@ -1190,6 +1210,11 @@ class OrderButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
+    @ui.button(label="Place Order", style=discord.ButtonStyle.primary, emoji="🎮", custom_id="order_btn_v2")
+    async def order(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.send_modal(OrderModal())
+
+
 class VouchButtonView(ui.View):
     def __init__(self, order_id: str = None):
         super().__init__(timeout=None)
@@ -1257,43 +1282,37 @@ class GiveawayView(ui.View):
 
 
 # ---------------------------------------------------------------------------
-# TICKET VIEWS
+# TICKET VIEWS  (General Support only — no carry order option)
 # ---------------------------------------------------------------------------
-class TicketSelect(ui.Select):
+class TicketView(ui.View):
+    """Single-button ticket panel — General Support only."""
     def __init__(self):
-        options = [
-            discord.SelectOption(label="Carry Order",     value="carry", emoji="🎮", description="Place or inquire about a Brawl Stars boost order"),
-            discord.SelectOption(label="General Support", value="other", emoji="ℹ️",  description="Any other questions or concerns"),
-        ]
-        super().__init__(placeholder="📩 Select a category to open a ticket...", options=options, custom_id="ticket_select_v2")
+        super().__init__(timeout=None)
 
-    async def callback(self, interaction: discord.Interaction):
-        category_map = {
-            "carry": ("🎮 Carry Order",    PRIMARY),
-            "other": ("ℹ️ General Support", SUCCESS),
-        }
-        label, color = category_map.get(self.values[0], ("Ticket", PRIMARY))
+    @ui.button(label="General Support", style=discord.ButtonStyle.primary, emoji="ℹ️", custom_id="ticket_general_btn_v1")
+    async def open_support(self, interaction: discord.Interaction, button: ui.Button):
         guild  = interaction.guild
         member = interaction.user
         cfg    = get_config(guild.id)
 
-        e = base_embed(label, color=color)
+        e = base_embed("ℹ️ General Support", color=SUCCESS)
         e.description = (
             f"Welcome, {member.mention}!\n\n"
-            f"📋 **Category:** {label}\n"
+            f"📋 **Category:** General Support\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Staff will be with you shortly. Please describe your request in detail."
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        ticket = await create_ticket_thread(guild=guild, member=member, name=f"ticket-{member.name[:12].lower()}", topic_embed=e, view=TicketCloseView(), cfg=cfg)
-        await interaction.response.send_message(f"✅ Ticket created: {ticket.mention}", ephemeral=True)
-
-
-class TicketView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(TicketSelect())
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"support-{member.name[:12].lower()}",
+            topic_embed=e,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+        await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
 
 
 class TicketCloseView(ui.View):
@@ -1329,68 +1348,20 @@ class TicketCloseView(ui.View):
 
 
 # ---------------------------------------------------------------------------
-# AUTO-PANEL HELPERS  — post the ranked/prestige panels on startup if configured
-# ---------------------------------------------------------------------------
-async def ensure_auto_panels(guild: discord.Guild, cfg):
-    """Posts the order-intake panels into the configured channels if not already there."""
-    ranked_ch_id   = cfg["ranked_panel_channel_id"]   if cfg else None
-    prestige_ch_id = cfg["prestige_panel_channel_id"] if cfg else None
-
-    if ranked_ch_id:
-        ch = guild.get_channel(ranked_ch_id)
-        if ch:
-            # Check if bot already has a panel in this channel (avoid duplicates on restart)
-            has_panel = False
-            async for msg in ch.history(limit=20):
-                if msg.author == bot.user and msg.embeds and "Ranked Boost" in (msg.embeds[0].title or ""):
-                    has_panel = True
-                    break
-            if not has_panel:
-                e = base_embed("🔥 Ranked Boost", color=PRIMARY)
-                e.description = (
-                    "Want to climb the ranked ladder? Click the button below to place your **Ranked Boost** order!\n\n"
-                    "**Pricing** *(depends on starting rank & P11 brawlers)*\n"
-                    "🏆 Legendary Boost — from **16€**\n"
-                    "🏆 Masters Boost — from **35€**\n"
-                    "🏆 Pro Rank — from **200€**\n\n"
-                    "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
-                )
-                await ch.send(embed=e, view=RankedPanelButton())
-
-    if prestige_ch_id:
-        ch = guild.get_channel(prestige_ch_id)
-        if ch:
-            has_panel = False
-            async for msg in ch.history(limit=20):
-                if msg.author == bot.user and msg.embeds and "Prestige Boost" in (msg.embeds[0].title or ""):
-                    has_panel = True
-                    break
-            if not has_panel:
-                e = base_embed("✨ Prestige Boost", color=ACCENT)
-                e.description = (
-                    "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
-                    "**Pricing** *(depends on brawler & power level)*\n"
-                    "🟣 Prestige 0 → 1 — from **10€**\n"
-                    "🔴 Prestige 1 → 2 — from **25€**\n"
-                    "🟡 Prestige 2 → 3 — from **70€**\n\n"
-                    "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
-                )
-                await ch.send(embed=e, view=PrestigePanelButton())
-
-
-# ---------------------------------------------------------------------------
 # SLASH COMMANDS
 # ---------------------------------------------------------------------------
 
 @bot.tree.command(name="setup", description="Configure bot settings for this server")
 @app_commands.describe(
     vouch_channel="Channel where vouch posts will be sent",
-    ticket_channel="Text channel where private ticket threads will be created",
-    ticket_category="Category where ticket text-channels will be placed (fallback)",
+    ticket_channel="Fallback text channel for ticket threads (General Support)",
+    ticket_category="Fallback category for ticket text-channels",
     completed_channel="Channel where completed orders will be posted",
-    ranked_panel_channel="Channel where new Ranked Boost order cards are posted (for boosters to claim)",
-    prestige_panel_channel="Channel where new Prestige Boost order cards are posted (for boosters to claim)",
-    owner="The server owner/admin who approves booster claim requests"
+    ranked_ticket_channel="Text channel where Ranked Boost ticket threads are created",
+    prestige_ticket_channel="Text channel where Prestige Boost ticket threads are created",
+    ranked_panel_channel="Channel where booster claiming cards for Ranked orders are posted",
+    prestige_panel_channel="Channel where booster claiming cards for Prestige orders are posted",
+    owner="The server owner/admin who manages the bot"
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
@@ -1399,48 +1370,48 @@ async def setup(
     ticket_channel: discord.abc.GuildChannel = None,
     ticket_category: discord.CategoryChannel = None,
     completed_channel: discord.TextChannel = None,
+    ranked_ticket_channel: discord.TextChannel = None,
+    prestige_ticket_channel: discord.TextChannel = None,
     ranked_panel_channel: discord.TextChannel = None,
     prestige_panel_channel: discord.TextChannel = None,
     owner: discord.Member = None,
 ):
     updates = {}
-    if vouch_channel:          updates["vouch_channel_id"]          = vouch_channel.id
-    if ticket_channel:         updates["ticket_channel_id"]         = ticket_channel.id
-    if ticket_category:        updates["ticket_category_id"]        = ticket_category.id
-    if completed_channel:      updates["completed_channel_id"]      = completed_channel.id
-    if ranked_panel_channel:   updates["ranked_panel_channel_id"]   = ranked_panel_channel.id
-    if prestige_panel_channel: updates["prestige_panel_channel_id"] = prestige_panel_channel.id
-    if owner:                  updates["owner_id"]                  = owner.id
+    if vouch_channel:            updates["vouch_channel_id"]            = vouch_channel.id
+    if ticket_channel:           updates["ticket_channel_id"]           = ticket_channel.id
+    if ticket_category:          updates["ticket_category_id"]          = ticket_category.id
+    if completed_channel:        updates["completed_channel_id"]        = completed_channel.id
+    if ranked_ticket_channel:    updates["ranked_ticket_channel_id"]    = ranked_ticket_channel.id
+    if prestige_ticket_channel:  updates["prestige_ticket_channel_id"]  = prestige_ticket_channel.id
+    if ranked_panel_channel:     updates["ranked_panel_channel_id"]     = ranked_panel_channel.id
+    if prestige_panel_channel:   updates["prestige_panel_channel_id"]   = prestige_panel_channel.id
+    if owner:                    updates["owner_id"]                    = owner.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
     e = base_embed("⚙️ Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
-    if vouch_channel:          e.add_field(name="⭐ Vouch Channel",          value=vouch_channel.mention,          inline=True)
-    if ticket_channel:         e.add_field(name="🎫 Ticket Channel",         value=ticket_channel.mention,         inline=True)
-    if ticket_category:        e.add_field(name="📂 Ticket Category",        value=ticket_category.mention,        inline=True)
-    if completed_channel:      e.add_field(name="✅ Completed Channel",       value=completed_channel.mention,      inline=True)
-    if ranked_panel_channel:   e.add_field(name="🔥 Ranked Panel Channel",   value=ranked_panel_channel.mention,   inline=True)
-    if prestige_panel_channel: e.add_field(name="✨ Prestige Panel Channel", value=prestige_panel_channel.mention, inline=True)
-    if owner:                  e.add_field(name="👑 Approval Owner",         value=owner.mention,                  inline=True)
+    if vouch_channel:           e.add_field(name="⭐ Vouch Channel",              value=vouch_channel.mention,           inline=True)
+    if ticket_channel:          e.add_field(name="🎫 Fallback Ticket Channel",    value=ticket_channel.mention,          inline=True)
+    if ticket_category:         e.add_field(name="📂 Ticket Category",            value=ticket_category.mention,         inline=True)
+    if completed_channel:       e.add_field(name="✅ Completed Channel",          value=completed_channel.mention,       inline=True)
+    if ranked_ticket_channel:   e.add_field(name="🔥 Ranked Ticket Channel",      value=ranked_ticket_channel.mention,   inline=True)
+    if prestige_ticket_channel: e.add_field(name="✨ Prestige Ticket Channel",    value=prestige_ticket_channel.mention, inline=True)
+    if ranked_panel_channel:    e.add_field(name="📢 Ranked Claiming Channel",    value=ranked_panel_channel.mention,    inline=True)
+    if prestige_panel_channel:  e.add_field(name="📢 Prestige Claiming Channel",  value=prestige_panel_channel.mention,  inline=True)
+    if owner:                   e.add_field(name="👑 Owner",                      value=owner.mention,                   inline=True)
 
     e.add_field(
-        name="ℹ️ Claim Flow",
+        name="ℹ️ Order Flow",
         value=(
-            "When a customer places a Ranked or Prestige order:\n"
-            "1️⃣ A private ticket is created for the customer\n"
-            "2️⃣ An order card is posted in the respective panel channel\n"
-            "3️⃣ Boosters click **🟠 Claim Your Boost** on the card\n"
-            "4️⃣ The owner receives an approval DM\n"
-            "5️⃣ On approval, the booster is auto-added to the ticket"
+            "1️⃣ Customer clicks **Ranked/Prestige Boost** button → ticket opens in the dedicated channel\n"
+            "2️⃣ An order card appears inside the ticket\n"
+            "3️⃣ Staff click **📢 Publish to Boosters** → set earnings → card appears in the claiming channel\n"
+            "4️⃣ A booster clicks **🟠 Claim This Boost** → immediately added to the customer's ticket"
         ),
         inline=False
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
-
-    # Post auto-panels immediately after setup
-    cfg = get_config(interaction.guild.id)
-    await ensure_auto_panels(interaction.guild, cfg)
 
 
 @bot.tree.command(name="order_complete", description="Mark an order as completed")
@@ -1549,7 +1520,7 @@ async def ticket_panel(interaction: discord.Interaction):
     cfg   = get_config(interaction.guild.id)
     title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "🎫 Support Center"
     desc  = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
-             else "Select the category that best matches your request.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.")
+             else "Need help? Click the button below to open a support ticket.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.")
     e = discord.Embed(title=title, color=PRIMARY, description=desc)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
@@ -1668,12 +1639,16 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn.close()
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
     e = discord.Embed(title=f"🎁 {ga['prize']} — Giveaway Ended", color=SUCCESS)
-    e.add_field(name="🏆 Winners",          value=winner_mentions,           inline=False)
-    e.add_field(name="👥 Total Participants",value=f"**{len(participants):,}**", inline=True)
-    e.add_field(name="🆔 Giveaway ID",       value=f"`{giveaway_id}`",       inline=True)
+    e.add_field(name="🏆 Winners",           value=winner_mentions,              inline=False)
+    e.add_field(name="👥 Total Participants", value=f"**{len(participants):,}**", inline=True)
+    e.add_field(name="🆔 Giveaway ID",       value=f"`{giveaway_id}`",           inline=True)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
-    await interaction.channel.send(content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!", embed=e, allowed_mentions=discord.AllowedMentions(users=True))
+    await interaction.channel.send(
+        content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
+        embed=e,
+        allowed_mentions=discord.AllowedMentions(users=True)
+    )
     await interaction.response.send_message("✅ Giveaway ended.", ephemeral=True)
 
 
@@ -1725,12 +1700,12 @@ async def help_cmd(interaction: discord.Interaction):
     e = base_embed("📋 BrawlCarry Bot — Commands", color=PRIMARY)
     e.description = (
         "**⚙️ Admin Commands**\n"
-        "`/setup` — Configure all channels, ticket category, owner & auto-panels\n"
-        "`/configure_ticket_panel` — Customise ticket panel text\n"
+        "`/setup` — Configure all channels, ticket categories & owner\n"
+        "`/configure_ticket_panel` — Customise support ticket panel text\n"
         "`/order_panel` — Post the generic order panel\n"
         "`/ranked_panel` — Post the Ranked Boost intake panel 🔥\n"
         "`/prestige_panel` — Post the Prestige Boost intake panel ✨\n"
-        "`/ticket_panel` — Post the ticket panel\n"
+        "`/ticket_panel` — Post the General Support ticket panel\n"
         "`/vouch_panel` — Send vouch panel to user or channel\n"
         "`/giveaway` — Start a giveaway\n"
         "`/end_giveaway` — End a giveaway and draw winners\n"
@@ -1743,17 +1718,16 @@ async def help_cmd(interaction: discord.Interaction):
         "**👤 User Commands**\n"
         "`/stats` — View your carry statistics\n"
         "`/help` — Show this menu\n\n"
-        "**🟠 Claim Flow**\n"
-        "1. Customer places order → ticket created + order card posted in panel channel\n"
-        "2. Booster clicks **🟠 Claim Your Boost** on the order card\n"
-        "3. Owner receives a DM with **✅ Approve / ❌ Deny** buttons\n"
-        "4. On approval → booster is auto-added to the customer's ticket\n"
-        "5. Booster gets a DM confirmation\n\n"
-        "**🎫 Ticket Setup Tips**\n"
-        "• Set `ticket_channel` to a **Text Channel** — tickets open as private threads\n"
-        "• Set `ticket_category` as a fallback if no thread channel is configured\n"
-        "• Set `ranked_panel_channel` & `prestige_panel_channel` for auto-order cards\n"
-        "• Set `owner` so claim approvals are sent as DMs automatically"
+        "**📦 Order Flow**\n"
+        "1. Customer clicks **Ranked/Prestige Boost** → ticket opens in the dedicated channel\n"
+        "2. An order card appears in the ticket for staff\n"
+        "3. Staff click **📢 Publish to Boosters** → enter earnings → claiming card posted\n"
+        "4. Booster clicks **🟠 Claim This Boost** → instantly added to the customer's ticket\n\n"
+        "**⚙️ Channel Setup Tips**\n"
+        "• `ranked_ticket_channel` / `prestige_ticket_channel` — separate ticket thread channels per boost type\n"
+        "• `ranked_panel_channel` / `prestige_panel_channel` — where booster claiming cards appear\n"
+        "• `ticket_channel` — fallback for General Support tickets\n"
+        "• `completed_channel` — where completed order receipts are posted"
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -1796,33 +1770,20 @@ async def on_ready():
     for row in c.fetchall():
         bot.add_view(GiveawayView(row["id"]))
 
-    # Re-register pending claim approval views
-    c.execute("SELECT id, order_id, booster_id, guild_id FROM claim_requests WHERE status = 'pending'")
-    for row in c.fetchall():
-        # We can't recover ticket_channel_id from claim_requests directly, pull from orders
-        c2 = conn.cursor()
-        c2.execute("SELECT ticket_channel_id FROM orders WHERE id = ?", (row["order_id"],))
-        o = c2.fetchone()
-        ticket_ch_id = o["ticket_channel_id"] if o else None
-        bot.add_view(ClaimApprovalView(row["id"], row["order_id"], row["booster_id"], row["guild_id"], ticket_ch_id))
-    conn.close()
-
-    # Re-register active order action views (unclaimed orders)
-    conn = get_db()
-    c    = conn.cursor()
+    # Re-register active order action views (unclaimed/claimed orders — staff publish button)
     c.execute("SELECT id, ticket_channel_id FROM orders WHERE status IN ('pending', 'claimed')")
     for row in c.fetchall():
-        bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"]))
-    conn.close()
+        # Re-register both ranked and prestige types; order_type stored implicitly by ID prefix
+        order_type = "prestige" if row["id"].startswith("PREST") else "ranked"
+        bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"], order_type))
 
-    # Auto-post panels for all guilds that have them configured
-    for guild in bot.guilds:
-        cfg = get_config(guild.id)
-        if cfg:
-            try:
-                await ensure_auto_panels(guild, cfg)
-            except Exception as ex:
-                print(f"[WARN] Auto-panel failed for {guild.name}: {ex}")
+    # Re-register booster claim views for unclaimed orders
+    c.execute("SELECT id, ticket_channel_id FROM orders WHERE status = 'pending'")
+    for row in c.fetchall():
+        bot.add_view(BoosterClaimView(row["id"], row["ticket_channel_id"]))
+
+    conn.close()
+    print(f"[OK] Persistent views registered")
 
 
 if __name__ == "__main__":

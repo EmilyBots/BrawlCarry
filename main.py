@@ -1190,11 +1190,6 @@ class OrderButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Place Order", style=discord.ButtonStyle.primary, emoji="🎮", custom_id="order_btn_v2")
-    async def order(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(OrderModal())
-
-
 class VouchButtonView(ui.View):
     def __init__(self, order_id: str = None):
         super().__init__(timeout=None)

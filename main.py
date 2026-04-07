@@ -199,22 +199,17 @@ async def create_ticket_thread(
     ticket_ch_id  = cfg["ticket_channel_id"]  if cfg else None
     category_id   = cfg["ticket_category_id"] if cfg else None
 
-    # ── Option A: Forum channel → forum post (thread) ──────────────────────
+# ── Option A: Private thread inside a text channel ─────────────────────
     if ticket_ch_id:
-        forum = guild.get_channel(ticket_ch_id)
-        if isinstance(forum, discord.ForumChannel):
-            # Apply per-member permission overwrite on the forum itself
-            # (Forum threads inherit the forum's overwrites; we can't set
-            #  per-thread overwrites directly, so we lock then unlock.)
-            thread_with_msg = await forum.create_thread(
+        text_ch = guild.get_channel(ticket_ch_id)
+        if isinstance(text_ch, discord.TextChannel):
+            thread = await text_ch.create_thread(
                 name=name,
-                embed=topic_embed,
-                view=view,
+                type=discord.ChannelType.private_thread,
                 reason=f"Ticket opened by {member}",
             )
-            thread = thread_with_msg.thread
-            # Mention the member so they can find it
-            await thread.send(content=member.mention, delete_after=1)
+            await thread.add_user(member)
+            await thread.send(content=member.mention, embed=topic_embed, view=view)
             return thread
 
     # ── Option B: Text channel inside the configured category ───────────────
@@ -1225,7 +1220,7 @@ class TicketCloseView(ui.View):
 @bot.tree.command(name="setup", description="Configure bot settings for this server")
 @app_commands.describe(
     vouch_channel="Channel where vouch posts will be sent",
-    ticket_channel="Forum channel (or text channel) where tickets will be created",
+    ticket_channel="Text channel where private ticket threads will be created",
     ticket_category="Category where ticket text-channels will be placed (ignored if using a Forum channel)",
     completed_channel="Channel where completed orders will be posted"
 )
@@ -1254,8 +1249,7 @@ async def setup(
     if vouch_channel:
         e.add_field(name="⭐ Vouch Channel",     value=vouch_channel.mention,     inline=True)
     if ticket_channel:
-        ch_type = "Forum" if isinstance(ticket_channel, discord.ForumChannel) else "Text"
-        e.add_field(name=f"🎫 Ticket Channel ({ch_type})", value=ticket_channel.mention, inline=True)
+        e.add_field(name="🎫 Ticket Channel (Threads)", value=ticket_channel.mention, inline=True)
     if ticket_category:
         e.add_field(name="📂 Ticket Category",   value=ticket_category.mention,   inline=True)
     if completed_channel:
@@ -1601,9 +1595,8 @@ async def help_cmd(interaction: discord.Interaction):
         "`/stats` -- View your carry statistics\n"
         "`/help` -- Show this menu\n\n"
         "**🎫 Ticket Setup Tips**\n"
-        "• For **thread-based tickets**: set `ticket_channel` to a **Forum Channel** in `/setup`\n"
-        "• For **category-based tickets**: set `ticket_category` to a **Category** in `/setup`\n"
-        "• Both options work simultaneously — Forum takes priority"
+        "• Set `ticket_channel` to a **Text Channel** in `/setup` — tickets open as private threads inside it\n"
+        "• Set `ticket_category` to a **Category** as a fallback if the thread channel is not configured"
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 

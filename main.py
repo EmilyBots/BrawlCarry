@@ -355,6 +355,7 @@ def rank_emoji(rank_name: str) -> str:
     return ""
 
 P11_OPTIONS      = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
+P11_EMOJI        = "<:P11:1491455088429109258>"
 
 RATING_OPTIONS = [
     discord.SelectOption(label="5 Stars", value="5", emoji="⭐", description="Excellent service"),
@@ -808,7 +809,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             f"Welcome, {member.mention}! 🎮\n\n"
             f"📋 **Order:** `{order_id}`\n"
             f"📦 **Route:** `{self.current_rank}` → `{self.desired_rank}`\n"
-            f"⚡ **P11 Brawlers:** {self.p11}\n"
+            f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
             f"💳 **Payment:** {self.payment}\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your order. "
@@ -838,7 +839,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
         order_e.add_field(name="👤 Customer",  value=member.mention, inline=True)
         order_e.add_field(name="📦 Route",     value=f"`{self.current_rank}` → `{self.desired_rank}`", inline=True)
-        order_e.add_field(name="⚡ P11",       value=self.p11, inline=True)
+        order_e.add_field(name="⚡ P11",       value=f"{P11_EMOJI} {self.p11}", inline=True)
         order_e.add_field(name="💳 Payment",   value=self.payment, inline=True)
         order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`", inline=True)
         order_e.add_field(name="🕐 Placed",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
@@ -1066,7 +1067,7 @@ class RankedOrderView(ui.View):
 
         p11_select = ui.Select(
             placeholder="Select number of Power 11 brawlers...",
-            options=[discord.SelectOption(label=n, value=n) for n in P11_OPTIONS],
+            options=[discord.SelectOption(label=n, value=n, emoji=P11_EMOJI) for n in P11_OPTIONS],
             custom_id="ranked_p11", row=2
         )
         p11_select.callback = self._on_p11

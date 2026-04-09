@@ -15,7 +15,7 @@ DANGER       = 0xE74C3C
 DARK         = 0x0A0E1A
 ACCENT       = 0xA855F7
 
-FOOTER_BRAND = "Powered by Brawl Carry™"
+FOOTER_BRAND = "Powered by Brawl Carry(tm)"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -43,6 +43,8 @@ def init_db():
         ticket_channel_id INT,
         booster_id INT,
         booster_earnings REAL,
+        order_type TEXT,
+        service_type TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP
     )""")
@@ -55,6 +57,8 @@ def init_db():
         feedback TEXT,
         image_url TEXT,
         method TEXT,
+        order_kind TEXT,
+        service_type TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS giveaways (
@@ -106,6 +110,10 @@ def init_db():
         ("orders",       "ticket_channel_id INT"),
         ("orders",       "booster_id INT"),
         ("orders",       "booster_earnings REAL"),
+        ("orders",       "order_type TEXT"),
+        ("orders",       "service_type TEXT"),
+        ("vouchers",     "order_kind TEXT"),
+        ("vouchers",     "service_type TEXT"),
     ]
     for table, col_def in migrations:
         try:
@@ -157,8 +165,8 @@ def set_config(guild_id: int, **kwargs):
 PAYPAL_EMOJI = "<:Paypal:1490768356960243764>"
 DEFAULT_PAYMENT_METHODS = [
     ("PayPal",        PAYPAL_EMOJI),
-    ("Bank Transfer", "🏦"),
-    ("Crypto",        "🪙"),
+    ("Bank Transfer", "\U0001f3e6"),
+    ("Crypto",        "\U0001fa99"),
 ]
 
 def get_payment_methods(guild_id: int) -> list:
@@ -203,11 +211,10 @@ async def create_ticket_thread(
     member: discord.Member,
     name: str,
     topic_embed: discord.Embed,
-    view: "ui.View",
+    view,
     cfg,
-    override_channel_id: int = None,   # ranked_ticket_channel_id / prestige_ticket_channel_id
-) -> discord.Thread | discord.TextChannel:
-    # Use override channel if provided, else fall back to generic ticket_channel_id
+    override_channel_id: int = None,
+):
     ticket_ch_id = override_channel_id or (cfg["ticket_channel_id"] if cfg else None)
     category_id  = cfg["ticket_category_id"] if cfg else None
 
@@ -331,7 +338,6 @@ RANK_EMOJI = {
 
 # ---------------------------------------------------------------------------
 # PRESTIGE OPTIONS & EMOJIS
-# Replace the emoji IDs below with the ones from your Discord Developer Portal
 # ---------------------------------------------------------------------------
 PRESTIGE_OPTIONS = [
     "Prestige 0 -> Prestige 1",
@@ -346,7 +352,7 @@ PRESTIGE_EMOJI = {
 }
 
 def prestige_emoji(spec: str) -> str:
-    return PRESTIGE_EMOJI.get(spec, "✨")
+    return PRESTIGE_EMOJI.get(spec, "\u2728")
 
 def rank_emoji(rank_name: str) -> str:
     for prefix, emoji in RANK_EMOJI.items():
@@ -354,31 +360,44 @@ def rank_emoji(rank_name: str) -> str:
             return emoji
     return ""
 
-P11_OPTIONS      = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
-P11_EMOJI        = "<:P11:1491455088429109258>"
+P11_OPTIONS = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
+P11_EMOJI   = "<:P11:1491455088429109258>"
+
+# Prestige trophy bracket options
+TROPHY_OPTIONS = [
+    "0 - 500",
+    "501 - 1000",
+    "1001 - 1500",
+    "1501 - 2000",
+    "2001 - 2500",
+    "2501 - 3000",
+    "3001+",
+]
+
+# Service type options (boost vs carry)
+SERVICE_OPTIONS = [
+    discord.SelectOption(label="Boost",  value="boost",  emoji="\U0001f7e2", description="Play on your account — standard price"),
+    discord.SelectOption(label="Carry",  value="carry",  emoji="\U0001f534", description="Play alongside you — 2x price"),
+]
 
 RATING_OPTIONS = [
-    discord.SelectOption(label="5 Stars", value="5", emoji="⭐", description="Excellent service"),
-    discord.SelectOption(label="4 Stars", value="4", emoji="⭐", description="Great service"),
-    discord.SelectOption(label="3 Stars", value="3", emoji="⭐", description="Good service"),
-    discord.SelectOption(label="2 Stars", value="2", emoji="⭐", description="Average service"),
-    discord.SelectOption(label="1 Star",  value="1", emoji="⭐", description="Below expectations"),
+    discord.SelectOption(label="5 Stars", value="5", emoji="\u2b50", description="Excellent service"),
+    discord.SelectOption(label="4 Stars", value="4", emoji="\u2b50", description="Great service"),
+    discord.SelectOption(label="3 Stars", value="3", emoji="\u2b50", description="Good service"),
+    discord.SelectOption(label="2 Stars", value="2", emoji="\u2b50", description="Average service"),
+    discord.SelectOption(label="1 Star",  value="1", emoji="\u2b50", description="Below expectations"),
 ]
 
 # ---------------------------------------------------------------------------
-# DIRECT BOOSTER CLAIM VIEW  (posted in the panel/booster channel after owner publishes)
+# DIRECT BOOSTER CLAIM VIEW
 # ---------------------------------------------------------------------------
 class BoosterClaimView(ui.View):
-    """
-    Posted in the booster/panel channel after the owner publishes an order.
-    Clicking Claim immediately adds the booster to the customer's ticket.
-    """
-    def __init__(self, order_id: str, ticket_channel_id: int | None = None):
+    def __init__(self, order_id: str, ticket_channel_id: int = None):
         super().__init__(timeout=None)
         self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
 
-    @ui.button(label="🟠 Claim This Boost", style=discord.ButtonStyle.primary, custom_id="booster_claim_direct_v1")
+    @ui.button(label="Claim This Boost", style=discord.ButtonStyle.primary, emoji="\U0001f7e0", custom_id="booster_claim_direct_v1")
     async def claim(self, interaction: discord.Interaction, button: ui.Button):
         guild   = interaction.guild
         booster = interaction.user
@@ -390,15 +409,14 @@ class BoosterClaimView(ui.View):
         conn.close()
 
         if not order:
-            await interaction.response.send_message("❌ Order not found.", ephemeral=True)
+            await interaction.response.send_message("\u274c Order not found.", ephemeral=True)
             return
         if order["status"] == "claimed":
             await interaction.response.send_message(
-                "❌ This order has already been claimed by another booster.", ephemeral=True
+                "\u274c This order has already been claimed by another booster.", ephemeral=True
             )
             return
 
-        # Mark order as claimed
         conn = get_db()
         c    = conn.cursor()
         c.execute(
@@ -408,12 +426,10 @@ class BoosterClaimView(ui.View):
         conn.commit()
         conn.close()
 
-        # Disable the button on the original message
         for item in self.children:
             item.disabled = True
         await interaction.message.edit(view=self)
 
-        # Resolve ticket channel (stored on the view or fallback to order row)
         ticket_ch_id = self.ticket_channel_id or order["ticket_channel_id"]
 
         if ticket_ch_id and guild:
@@ -429,38 +445,37 @@ class BoosterClaimView(ui.View):
                             send_messages=True,
                             read_message_history=True,
                         )
-                    notify_e = base_embed("🟠 Booster Assigned", color=SUCCESS)
+                    notify_e = base_embed("\U0001f7e0 Booster Assigned", color=SUCCESS)
                     notify_e.description = (
                         f"{booster.mention} has claimed order `{self.order_id}` and has been added to this ticket.\n"
-                        "Please coordinate here to complete the boost! 🏆"
+                        "Please coordinate here to complete the boost! \U0001f3c6"
                     )
                     await ticket_ch.send(embed=notify_e)
                 except Exception as ex:
                     print(f"[WARN] Could not add booster to ticket: {ex}")
 
-        # DM the booster
         try:
-            dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
+            dm_e = base_embed("\u2705 Boost Claimed!", color=SUCCESS)
             dm_e.description = (
                 f"You've successfully claimed order **`{self.order_id}`**!\n\n"
-                "You have been added to the customer's ticket. Good luck! 🏆"
+                "You have been added to the customer's ticket. Good luck! \U0001f3c6"
             )
             await booster.send(embed=dm_e)
         except discord.Forbidden:
             pass
 
         await interaction.response.send_message(
-            f"✅ You've claimed order `{self.order_id}`! Check the customer's ticket.",
+            f"\u2705 You've claimed order `{self.order_id}`! Check the customer's ticket.",
             ephemeral=True
         )
 
 
 # ---------------------------------------------------------------------------
-# PUBLISH TO BOOSTERS MODAL  (owner fills in booster earnings before posting)
+# PUBLISH TO BOOSTERS MODAL
 # ---------------------------------------------------------------------------
 class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
     booster_earnings = ui.TextInput(
-        label="Booster Earnings (USD)",
+        label="Booster Earnings (EUR)",
         placeholder="e.g. 12.00",
         style=discord.TextStyle.short
     )
@@ -472,19 +487,19 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         max_length=300
     )
 
-    def __init__(self, order_id: str, ticket_channel_id: int | None, panel_channel_id: int | None, order_type: str):
+    def __init__(self, order_id: str, ticket_channel_id: int = None, panel_channel_id: int = None, order_type: str = "ranked"):
         super().__init__()
-        self.order_id         = order_id
+        self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
         self.panel_channel_id  = panel_channel_id
-        self.order_type        = order_type  # "ranked" or "prestige"
+        self.order_type        = order_type
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
-            earnings = float(self.booster_earnings.value.replace("$", "").strip())
+            earnings = float(self.booster_earnings.value.replace("\u20ac", "").strip())
         except ValueError:
             await interaction.response.send_message(
-                "❌ Invalid earnings amount. Please enter a number like `12.00`.", ephemeral=True
+                "\u274c Invalid earnings amount. Please enter a number like `12.00`.", ephemeral=True
             )
             return
 
@@ -494,17 +509,15 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         order = c.fetchone()
         if not order:
             conn.close()
-            await interaction.response.send_message("❌ Order not found.", ephemeral=True)
+            await interaction.response.send_message("\u274c Order not found.", ephemeral=True)
             return
 
-        # Save booster earnings
         c.execute("UPDATE orders SET booster_earnings = ? WHERE id = ?", (earnings, self.order_id))
         conn.commit()
         conn.close()
 
-        # Resolve the claiming (panel) channel
-        guild         = interaction.guild
-        panel_ch_id   = self.panel_channel_id
+        guild       = interaction.guild
+        panel_ch_id = self.panel_channel_id
         if not panel_ch_id:
             cfg = get_config(guild.id)
             if cfg:
@@ -516,30 +529,42 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         panel_ch = guild.get_channel(panel_ch_id) if panel_ch_id else None
         if not panel_ch:
             await interaction.response.send_message(
-                "❌ Panel channel not found. Make sure it is configured via `/setup`.", ephemeral=True
+                "\u274c Panel channel not found. Make sure it is configured via `/setup`.", ephemeral=True
             )
             return
 
-        color = PRIMARY if self.order_type == "ranked" else ACCENT
-        title = "🔥 Ranked Boost Available" if self.order_type == "ranked" else "✨ Prestige Boost Available"
+        color      = PRIMARY if self.order_type == "ranked" else ACCENT
+        title_str  = "\U0001f525 Ranked Boost Available" if self.order_type == "ranked" else "\u2728 Prestige Boost Available"
+        svc_type   = order["service_type"] or "boost"
+        svc_label  = "Carry \U0001f534" if svc_type == "carry" else "Boost \U0001f7e2"
 
-        claim_e = base_embed(title, color=color)
+        # Build order details label
+        from_tier  = order["from_tier"] or "?"
+        to_tier    = order["to_tier"] or "?"
+        if self.order_type == "ranked":
+            fe = rank_emoji(from_tier)
+            te = rank_emoji(to_tier)
+            details = f"{fe} `{from_tier}` \u2192 {te} `{to_tier}`"
+        else:
+            pe = prestige_emoji(f"{from_tier} -> {to_tier}")
+            details = f"{pe} `{from_tier}` \u2192 `{to_tier}`"
+
+        pay_emoji  = _payment_emoji(order["method"], guild.id)
+
+        claim_e = base_embed(title_str, color=color)
         claim_e.set_author(
             name="BrawlCarry | Boost Available",
             icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
         )
-        claim_e.add_field(name="📦 Route",      value=f"`{order['from_tier']}` → `{order['to_tier']}`", inline=True)
-        claim_e.add_field(name="💰 You Earn",   value=f"**${earnings:.2f}**", inline=True)
-        claim_e.add_field(name="💳 Payment",    value=order["method"] or "—", inline=True)
-        claim_e.add_field(name="🆔 Order ID",   value=f"`{self.order_id}`", inline=True)
-        claim_e.add_field(name="🕐 Posted",     value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-
-        if self.order_type == "ranked":
-            # Pull P11 from the order notes if stored (stored in to_tier field for ranked view)
-            pass  # P11 is already part of from_tier/to_tier display
+        claim_e.add_field(name="\U0001f4e6 Order Details", value=details,                               inline=True)
+        claim_e.add_field(name="\U0001f4b0 You Earn",      value=f"**\u20ac{earnings:.2f}**",          inline=True)
+        claim_e.add_field(name=f"{pay_emoji} Payment",     value=order["method"] or "---",             inline=True)
+        claim_e.add_field(name="\U0001f6e0 Service",       value=svc_label,                            inline=True)
+        claim_e.add_field(name="\U0001f194 Order ID",      value=f"`{self.order_id}`",                 inline=True)
+        claim_e.add_field(name="\U0001f550 Posted",        value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
 
         if self.extra_notes.value:
-            claim_e.add_field(name="📝 Notes", value=self.extra_notes.value, inline=False)
+            claim_e.add_field(name="\U0001f4dd Notes", value=self.extra_notes.value, inline=False)
 
         claim_e.set_footer(text=f"{FOOTER_BRAND} | Click the button below to claim this order")
 
@@ -549,31 +574,26 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         )
 
         await interaction.response.send_message(
-            f"✅ Order `{self.order_id}` published to {panel_ch.mention} with **${earnings:.2f}** booster earnings.",
+            f"\u2705 Order `{self.order_id}` published to {panel_ch.mention} with **\u20ac{earnings:.2f}** booster earnings.",
             ephemeral=True
         )
 
 
 # ---------------------------------------------------------------------------
-# ORDER ACTIONS VIEW  (posted on the order card in the ticket/order channel)
-# Staff-only: owner/admin clicks "Publish to Boosters" to release the order
+# ORDER ACTIONS VIEW
 # ---------------------------------------------------------------------------
 class OrderActionsView(ui.View):
-    """
-    Shown on the order card inside the customer's ticket channel.
-    Staff click 'Publish to Boosters' to release it with a set earnings amount.
-    """
-    def __init__(self, order_id: str, ticket_channel_id: int | None = None, order_type: str = "ranked"):
+    def __init__(self, order_id: str, ticket_channel_id: int = None, order_type: str = "ranked"):
         super().__init__(timeout=None)
         self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
         self.order_type        = order_type
 
-    @ui.button(label="📢 Publish to Boosters", style=discord.ButtonStyle.success, custom_id="order_publish_btn_v1")
+    @ui.button(label="Publish to Boosters", style=discord.ButtonStyle.success, emoji="\U0001f4e2", custom_id="order_publish_btn_v1")
     async def publish(self, interaction: discord.Interaction, button: ui.Button):
         if not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "❌ Only staff can publish orders to boosters.", ephemeral=True
+                "\u274c Only staff can publish orders to boosters.", ephemeral=True
             )
             return
 
@@ -596,20 +616,33 @@ class OrderActionsView(ui.View):
 
 
 # ---------------------------------------------------------------------------
+# HELPER: resolve payment emoji from guild config
+# ---------------------------------------------------------------------------
+def _payment_emoji(method_label: str, guild_id: int) -> str:
+    if not method_label:
+        return "\U0001f4b3"
+    methods = get_payment_methods(guild_id)
+    for lbl, emo in methods:
+        if lbl.lower() == method_label.lower():
+            return emo
+    return "\U0001f4b3"
+
+
+# ---------------------------------------------------------------------------
 # MODALS
 # ---------------------------------------------------------------------------
 class OrderModal(ui.Modal, title="Create Carry Order"):
     from_tier = ui.TextInput(label="From (Current Rank / Prestige / Tier)", placeholder="e.g. Diamond III", style=discord.TextStyle.short)
     to_tier   = ui.TextInput(label="To (Target Rank / Prestige / Tier)",   placeholder="e.g. Masters I",   style=discord.TextStyle.short)
-    price     = ui.TextInput(label="Agreed Price (USD)",                    placeholder="44.99",             style=discord.TextStyle.short)
+    price     = ui.TextInput(label="Agreed Price (EUR)",                    placeholder="44.99",             style=discord.TextStyle.short)
     method    = ui.TextInput(label="Payment Method",                        placeholder="PayPal / Bank Transfer / Crypto ...", style=discord.TextStyle.short)
     image_url = ui.TextInput(label="Proof Image URL (optional)", placeholder="https://i.imgur.com/...", required=False, style=discord.TextStyle.short)
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
-            price_val = float(self.price.value.replace("$", "").strip())
+            price_val = float(self.price.value.replace("\u20ac", "").strip())
         except ValueError:
-            await interaction.response.send_message("❌ Invalid price. Please enter a number like `44.99`.", ephemeral=True)
+            await interaction.response.send_message("\u274c Invalid price. Please enter a number like `44.99`.", ephemeral=True)
             return
 
         conn     = get_db()
@@ -623,14 +656,18 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
         conn.commit()
         conn.close()
 
-        e = base_embed("🚀 New Carry Order", color=PRIMARY)
+        fe  = rank_emoji(self.from_tier.value)
+        te  = rank_emoji(self.to_tier.value)
+        pay_emo = _payment_emoji(self.method.value, interaction.guild_id)
+
+        e = base_embed("\U0001f680 New Carry Order", color=PRIMARY)
         e.set_author(name="BrawlCarry | Brawl Stars Boost", icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="👤 Customer", value=interaction.user.mention, inline=True)
-        e.add_field(name="💵 Amount",   value=f"**${price_val:.2f}**",  inline=True)
-        e.add_field(name="🎮 Type",     value="Ranked Boost",           inline=True)
-        e.add_field(name="📦 Route",    value=f"`{self.from_tier.value}` → `{self.to_tier.value}`", inline=False)
-        e.add_field(name="💳 Payment",  value=self.method.value,        inline=True)
-        e.add_field(name="🆔 Order ID", value=f"`{order_id}`",          inline=True)
+        e.add_field(name="\U0001f464 Customer",       value=interaction.user.mention,                                    inline=True)
+        e.add_field(name="\U0001f4b6 Amount",          value=f"**\u20ac{price_val:.2f}**",                              inline=True)
+        e.add_field(name="\U0001f3ae Type",            value="Ranked Boost",                                             inline=True)
+        e.add_field(name="\U0001f4e6 Order Details",   value=f"{fe} `{self.from_tier.value}` \u2192 {te} `{self.to_tier.value}`", inline=False)
+        e.add_field(name=f"{pay_emo} Payment",         value=self.method.value,                                          inline=True)
+        e.add_field(name="\U0001f194 Order ID",        value=f"`{order_id}`",                                            inline=True)
 
         wm_file = None
         if img:
@@ -643,39 +680,41 @@ class OrderModal(ui.Modal, title="Create Carry Order"):
             await interaction.channel.send(embed=e, view=view, file=wm_file)
         else:
             await interaction.channel.send(embed=e, view=view)
-        await interaction.response.send_message("✅ Order submitted!", ephemeral=True)
+        await interaction.response.send_message("\u2705 Order submitted!", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
 # VOUCH DETAIL MODAL
 # ---------------------------------------------------------------------------
 class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
-    amount   = ui.TextInput(label="Order Amount (USD)", placeholder="44.99", style=discord.TextStyle.short)
+    amount   = ui.TextInput(label="Order Amount (EUR)", placeholder="44.99", style=discord.TextStyle.short)
     feedback = ui.TextInput(label="Your Feedback", placeholder="Fast service, very professional...", style=discord.TextStyle.long, max_length=500)
     image_url = ui.TextInput(label="Proof Image URL (optional)", placeholder="https://i.imgur.com/...", required=False, style=discord.TextStyle.short)
 
-    def __init__(self, rating: int, payment_method: str, order_id: str = None):
+    def __init__(self, rating: int, payment_method: str, order_kind: str = "ranked", service_type: str = "boost"):
         super().__init__()
         self.rating         = rating
         self.payment_method = payment_method
-        self.order_id       = order_id
+        self.order_kind     = order_kind    # "ranked" or "prestige"
+        self.service_type   = service_type  # "boost" or "carry"
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
-            amount_val = float(self.amount.value.replace("$", "").strip())
+            amount_val = float(self.amount.value.replace("\u20ac", "").strip())
         except ValueError:
             amount_val = 0.0
 
         stars    = self.rating
-        star_str = "⭐" * stars + f"  ({stars}/5)"
+        star_str = "\u2b50" * stars + f"  ({stars}/5)"
         img      = self.image_url.value.strip() if self.image_url.value else None
 
         vouch_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
         conn = get_db()
         c = conn.cursor()
         c.execute(
-            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img, self.payment_method)
+            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method, order_kind, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img,
+             self.payment_method, self.order_kind, self.service_type)
         )
         conn.commit()
         guild_id    = interaction.guild.id if interaction.guild else None
@@ -686,15 +725,36 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
                 vouch_ch_id = cfg["vouch_channel_id"]
         conn.close()
 
-        e = base_embed("⭐ New Vouch", color=GOLD)
-        e.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="👤 Customer",     value=interaction.user.mention,     inline=True)
-        e.add_field(name="💰 Order Amount", value=f"**${amount_val:.2f}**",     inline=True)
-        e.add_field(name="💳 Payment",      value=f"**{self.payment_method}**", inline=True)
-        e.add_field(name="⭐ Rating",       value=star_str,                     inline=True)
-        e.add_field(name="💬 Feedback",     value=f"*{self.feedback.value}*",   inline=False)
-        if self.order_id:
-            e.set_footer(text=f"{FOOTER_BRAND} | Order: {self.order_id}")
+        # Build service label
+        if self.order_kind == "prestige":
+            svc_icon  = prestige_emoji("Prestige 0 -> Prestige 1")  # generic prestige icon
+            kind_label = "Prestige Boost" if self.service_type == "boost" else "Prestige Carry"
+        else:
+            kind_label = "Ranked Boost" if self.service_type == "boost" else "Ranked Carry"
+            svc_icon  = "\U0001f525"
+
+        svc_color = GOLD
+        pay_emoji = _payment_emoji(self.payment_method, guild_id or 0)
+
+        # Star graphic
+        filled   = "\u2b50"
+        empty    = "\u2b1c"
+        star_vis = filled * stars + empty * (5 - stars)
+
+        e = discord.Embed(color=svc_color)
+        e.set_author(
+            name=f"{interaction.user.display_name}",
+            icon_url=interaction.user.display_avatar.url
+        )
+        e.title = f"\u2b50 New Vouch  |  {star_vis}"
+        e.add_field(name="\U0001f464 Customer",        value=interaction.user.mention,         inline=True)
+        e.add_field(name=f"\U0001f4b0 Amount Paid",    value=f"**\u20ac{amount_val:.2f}**",   inline=True)
+        e.add_field(name=f"{pay_emoji} Payment",       value=f"**{self.payment_method}**",     inline=True)
+        e.add_field(name=f"{svc_icon} Service",        value=f"**{kind_label}**",              inline=True)
+        e.add_field(name="\u2b50 Rating",              value=star_str,                         inline=True)
+        e.add_field(name="\U0001f4ac Feedback",        value=f"> {self.feedback.value}",       inline=False)
+        e.set_footer(text=FOOTER_BRAND)
+        e.timestamp = datetime.utcnow()
 
         wm_file = None
         if img:
@@ -702,7 +762,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
-        await interaction.response.send_message("✅ Your vouch has been submitted. Thank you!", ephemeral=True)
+        await interaction.response.send_message("\u2705 Your vouch has been submitted. Thank you!", ephemeral=True)
 
         if vouch_ch_id and interaction.guild:
             ch = interaction.guild.get_channel(vouch_ch_id)
@@ -717,12 +777,13 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
 # VOUCH SELECTOR VIEW
 # ---------------------------------------------------------------------------
 class VouchSelectorView(ui.View):
-    def __init__(self, guild_id: int, order_id: str = None):
+    def __init__(self, guild_id: int, order_kind: str = "ranked"):
         super().__init__(timeout=180)
-        self.guild_id = guild_id
-        self.order_id = order_id
-        self.rating   = None
-        self.payment  = None
+        self.guild_id    = guild_id
+        self.order_kind  = order_kind
+        self.rating      = None
+        self.payment     = None
+        self.service_type = None
 
         rating_select = ui.Select(placeholder="Select your rating...", options=RATING_OPTIONS, custom_id="vouch_rating", row=0)
         rating_select.callback = self._on_rating
@@ -737,7 +798,15 @@ class VouchSelectorView(ui.View):
         pay_select.callback = self._on_pay
         self.add_item(pay_select)
 
-        submit_btn = ui.Button(label="Continue", style=discord.ButtonStyle.success, custom_id="vouch_continue", row=2, emoji="✅")
+        svc_select = ui.Select(
+            placeholder="Was this a Boost or Carry?",
+            options=SERVICE_OPTIONS,
+            custom_id="vouch_svc", row=2
+        )
+        svc_select.callback = self._on_svc
+        self.add_item(svc_select)
+
+        submit_btn = ui.Button(label="Continue", style=discord.ButtonStyle.success, custom_id="vouch_continue", row=3, emoji="\u2705")
         submit_btn.callback = self._on_submit
         self.add_item(submit_btn)
 
@@ -749,28 +818,35 @@ class VouchSelectorView(ui.View):
         self.payment = interaction.data["values"][0]
         await interaction.response.defer()
 
+    async def _on_svc(self, interaction: discord.Interaction):
+        self.service_type = interaction.data["values"][0]
+        await interaction.response.defer()
+
     async def _on_submit(self, interaction: discord.Interaction):
         missing = []
-        if not self.rating:  missing.append("Rating")
-        if not self.payment: missing.append("Payment Method")
+        if not self.rating:       missing.append("Rating")
+        if not self.payment:      missing.append("Payment Method")
+        if not self.service_type: missing.append("Boost or Carry")
         if missing:
-            await interaction.response.send_message(f"❌ Please select: **{', '.join(missing)}**", ephemeral=True)
+            await interaction.response.send_message(f"\u274c Please select: **{', '.join(missing)}**", ephemeral=True)
             return
-        await interaction.response.send_modal(VouchDetailModal(self.rating, self.payment, self.order_id))
+        await interaction.response.send_modal(
+            VouchDetailModal(self.rating, self.payment, self.order_kind, self.service_type)
+        )
 
 
 class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
-    panel_title = ui.TextInput(label="Panel Title", placeholder="🎫 Support Center", default="🎫 Support Center", style=discord.TextStyle.short)
+    panel_title = ui.TextInput(label="Panel Title", placeholder="\U0001f3ab Support Center", default="\U0001f3ab Support Center", style=discord.TextStyle.short)
     panel_desc  = ui.TextInput(
         label="Panel Description",
         placeholder="Select a category below to open a ticket.",
-        default="Select the category that best matches your request.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.",
+        default="Select the category that best matches your request.\nOur team will be with you shortly.\n\n\U0001f4cc Tickets are private and handled by staff only.",
         style=discord.TextStyle.long
     )
 
     async def on_submit(self, interaction: discord.Interaction):
         set_config(interaction.guild.id, ticket_panel_title=self.panel_title.value, ticket_panel_desc=self.panel_desc.value)
-        await interaction.response.send_message("✅ Ticket panel configuration saved.", ephemeral=True)
+        await interaction.response.send_message("\u2705 Ticket panel configuration saved.", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -779,20 +855,22 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
 class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
     notes = ui.TextInput(label="Additional Notes (Optional)", placeholder="Any special requests or information...", required=False, style=discord.TextStyle.long, max_length=500)
 
-    def __init__(self, current_rank: str, desired_rank: str, p11: str, payment: str):
+    def __init__(self, current_rank: str, desired_rank: str, p11: str, payment: str, service_type: str):
         super().__init__()
         self.current_rank = current_rank
         self.desired_rank = desired_rank
         self.p11          = p11
         self.payment      = payment
+        self.service_type = service_type
 
     async def on_submit(self, interaction: discord.Interaction):
         conn     = get_db()
         c        = conn.cursor()
         order_id = f"RANKED-{uuid.uuid4().hex[:6].upper()}"
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method) VALUES (?, ?, ?, ?, ?, ?)",
-            (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0, self.payment)
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0,
+             self.payment, "ranked", self.service_type)
         )
         conn.commit()
         conn.close()
@@ -801,17 +879,22 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         member = interaction.user
         cfg    = get_config(guild.id)
 
-        # Use ranked-specific ticket channel if configured
         ranked_ticket_ch_id = cfg["ranked_ticket_channel_id"] if cfg else None
 
-        welcome = base_embed("🔥 Ranked Boost Ticket", color=PRIMARY)
+        fe        = rank_emoji(self.current_rank)
+        te        = rank_emoji(self.desired_rank)
+        pay_emoji = _payment_emoji(self.payment, guild.id)
+        svc_label = "Carry \U0001f534 (2x price)" if self.service_type == "carry" else "Boost \U0001f7e2"
+
+        welcome = base_embed("\U0001f525 Ranked Boost Ticket", color=PRIMARY)
         welcome.description = (
-            f"Welcome, {member.mention}! 🎮\n\n"
-            f"📋 **Order:** `{order_id}`\n"
-            f"📦 **Route:** `{self.current_rank}` → `{self.desired_rank}`\n"
-            f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
-            f"💳 **Payment:** {self.payment}\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            f"Welcome, {member.mention}! \U0001f3ae\n\n"
+            f"\U0001f4cb **Order:** `{order_id}`\n"
+            f"\U0001f4e6 **Order Details:** {fe} `{self.current_rank}` \u2192 {te} `{self.desired_rank}`\n"
+            f"\u26a1 **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
+            f"\U0001f6e0 **Service:** {svc_label}\n"
+            f"{pay_emoji} **Payment:** {self.payment}\n"
+            f"\U0001f550 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your order. "
             "Please have your payment ready!"
         )
@@ -827,22 +910,21 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             override_channel_id=ranked_ticket_ch_id,
         )
 
-        # Store ticket channel id in the order
         conn = get_db()
         c    = conn.cursor()
         c.execute("UPDATE orders SET ticket_channel_id = ? WHERE id = ?", (ticket.id, order_id))
         conn.commit()
         conn.close()
 
-        # Post the order card inside the ticket so staff can publish it
-        order_e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
+        order_e = base_embed("\U0001f525 New Ranked Boost Order", color=PRIMARY)
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-        order_e.add_field(name="👤 Customer",  value=member.mention, inline=True)
-        order_e.add_field(name="📦 Route",     value=f"`{self.current_rank}` → `{self.desired_rank}`", inline=True)
-        order_e.add_field(name="⚡ P11",       value=f"{P11_EMOJI} {self.p11}", inline=True)
-        order_e.add_field(name="💳 Payment",   value=self.payment, inline=True)
-        order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`", inline=True)
-        order_e.add_field(name="🕐 Placed",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        order_e.add_field(name="\U0001f464 Customer",      value=member.mention,                                          inline=True)
+        order_e.add_field(name="\U0001f4e6 Order Details", value=f"{fe} `{self.current_rank}` \u2192 {te} `{self.desired_rank}`", inline=True)
+        order_e.add_field(name="\u26a1 P11",               value=f"{P11_EMOJI} {self.p11}",                               inline=True)
+        order_e.add_field(name="\U0001f6e0 Service",       value=svc_label,                                               inline=True)
+        order_e.add_field(name=f"{pay_emoji} Payment",     value=self.payment,                                            inline=True)
+        order_e.add_field(name="\U0001f194 Order ID",      value=f"`{order_id}`",                                         inline=True)
+        order_e.add_field(name="\U0001f550 Placed",        value=f"<t:{int(datetime.utcnow().timestamp())}:R>",           inline=True)
         order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
         await ticket.send(
@@ -851,7 +933,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         )
 
         await interaction.response.send_message(
-            f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
+            f"\u2705 Your Ranked Boost order has been placed!\n\U0001f4e9 Ticket opened: {ticket.mention}",
             ephemeral=True
         )
 
@@ -862,19 +944,23 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
     notes = ui.TextInput(label="Additional Notes (Optional)", placeholder="Any special requests or information...", required=False, style=discord.TextStyle.long, max_length=500)
 
-    def __init__(self, prestige_spec: str, payment: str):
+    def __init__(self, prestige_spec: str, trophy_range: str, payment: str, service_type: str):
         super().__init__()
         self.prestige_spec = prestige_spec
+        self.trophy_range  = trophy_range
         self.payment       = payment
+        self.service_type  = service_type
 
     async def on_submit(self, interaction: discord.Interaction):
         conn     = get_db()
         c        = conn.cursor()
         order_id = f"PREST-{uuid.uuid4().hex[:6].upper()}"
+        from_p   = self.prestige_spec.split("->")[0].strip()
+        to_p     = self.prestige_spec.split("->")[-1].strip()
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method) VALUES (?, ?, ?, ?, ?, ?)",
-            (order_id, interaction.user.id, self.prestige_spec.split("->")[0].strip(),
-             self.prestige_spec.split("->")[-1].strip(), 0.0, self.payment)
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (order_id, interaction.user.id, from_p, to_p, 0.0,
+             self.payment, "prestige", self.service_type)
         )
         conn.commit()
         conn.close()
@@ -883,16 +969,21 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         member = interaction.user
         cfg    = get_config(guild.id)
 
-        # Use prestige-specific ticket channel if configured
         prestige_ticket_ch_id = cfg["prestige_ticket_channel_id"] if cfg else None
 
-        welcome = base_embed("✨ Prestige Boost Ticket", color=ACCENT)
+        pe        = prestige_emoji(self.prestige_spec)
+        pay_emoji = _payment_emoji(self.payment, guild.id)
+        svc_label = "Carry \U0001f534 (2x price)" if self.service_type == "carry" else "Boost \U0001f7e2"
+
+        welcome = base_embed("\u2728 Prestige Boost Ticket", color=ACCENT)
         welcome.description = (
-            f"Welcome, {member.mention}! ✨\n\n"
-            f"📋 **Order:** `{order_id}`\n"
-            f"🏆 **Prestige:** {self.prestige_spec}\n"
-            f"💳 **Payment:** {self.payment}\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            f"Welcome, {member.mention}! \u2728\n\n"
+            f"\U0001f4cb **Order:** `{order_id}`\n"
+            f"{pe} **Prestige:** {self.prestige_spec}\n"
+            f"\U0001f3c6 **Current Trophies:** {self.trophy_range}\n"
+            f"\U0001f6e0 **Service:** {svc_label}\n"
+            f"{pay_emoji} **Payment:** {self.payment}\n"
+            f"\U0001f550 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your prestige boost. "
             "Please have your payment ready!"
         )
@@ -908,21 +999,21 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             override_channel_id=prestige_ticket_ch_id,
         )
 
-        # Store ticket channel id
         conn = get_db()
         c    = conn.cursor()
         c.execute("UPDATE orders SET ticket_channel_id = ? WHERE id = ?", (ticket.id, order_id))
         conn.commit()
         conn.close()
 
-        # Post the order card inside the ticket so staff can publish it
-        order_e = base_embed("✨ New Prestige Boost Order", color=ACCENT)
+        order_e = base_embed("\u2728 New Prestige Boost Order", color=ACCENT)
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-        order_e.add_field(name="👤 Customer",  value=member.mention, inline=True)
-        order_e.add_field(name="🏆 Prestige",  value=self.prestige_spec, inline=True)
-        order_e.add_field(name="💳 Payment",   value=self.payment, inline=True)
-        order_e.add_field(name="🆔 Order ID",  value=f"`{order_id}`", inline=True)
-        order_e.add_field(name="🕐 Placed",    value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        order_e.add_field(name="\U0001f464 Customer",     value=member.mention,        inline=True)
+        order_e.add_field(name=f"{pe} Prestige",          value=self.prestige_spec,    inline=True)
+        order_e.add_field(name="\U0001f3c6 Trophies",     value=self.trophy_range,     inline=True)
+        order_e.add_field(name="\U0001f6e0 Service",      value=svc_label,             inline=True)
+        order_e.add_field(name=f"{pay_emoji} Payment",    value=self.payment,          inline=True)
+        order_e.add_field(name="\U0001f194 Order ID",     value=f"`{order_id}`",       inline=True)
+        order_e.add_field(name="\U0001f550 Placed",       value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
         order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
         await ticket.send(
@@ -931,7 +1022,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         )
 
         await interaction.response.send_message(
-            f"✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
+            f"\u2705 Your Prestige Boost order has been placed!\n\U0001f4e9 Ticket opened: {ticket.mention}",
             ephemeral=True
         )
 
@@ -941,7 +1032,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 # ---------------------------------------------------------------------------
 class OrderCompleteModal(ui.Modal, title="Complete Order"):
     order_id_input = ui.TextInput(label="Order ID",                   placeholder="RANKED-XXXXXX / CARRY-XXXXXX / PREST-XXXXXX", style=discord.TextStyle.short)
-    final_price    = ui.TextInput(label="Final Price Paid (USD)",      placeholder="44.99",                                        style=discord.TextStyle.short)
+    final_price    = ui.TextInput(label="Final Price Paid (EUR)",      placeholder="44.99",                                        style=discord.TextStyle.short)
     payment_used   = ui.TextInput(label="Payment Method Used",         placeholder="PayPal / Bank Transfer / Crypto ...",          style=discord.TextStyle.short)
     notes          = ui.TextInput(label="Completion Notes (Optional)", placeholder="e.g. Reached Masters III, completed in 2 hours", required=False, style=discord.TextStyle.long, max_length=500)
     image_url      = ui.TextInput(label="Proof Image URL (Optional)",  placeholder="https://i.imgur.com/...",                      required=False, style=discord.TextStyle.short)
@@ -955,11 +1046,11 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
 
         if not order:
             conn.close()
-            await interaction.response.send_message(f"❌ Order `{order_id}` not found.", ephemeral=True)
+            await interaction.response.send_message(f"\u274c Order `{order_id}` not found.", ephemeral=True)
             return
 
         try:
-            price_val = float(self.final_price.value.replace("$", "").strip())
+            price_val = float(self.final_price.value.replace("\u20ac", "").strip())
         except ValueError:
             price_val = order["price"]
 
@@ -979,21 +1070,35 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                 completed_ch = interaction.guild.get_channel(cfg["completed_channel_id"])
         if order["user_id"]:
             customer = interaction.guild.get_member(order["user_id"])
-        conn.close()
 
+        svc_type  = order["service_type"] or "boost"
+        ord_type  = order["order_type"] or "ranked"
+        svc_label = "Carry \U0001f534" if svc_type == "carry" else "Boost \U0001f7e2"
+        pay_emoji = _payment_emoji(self.payment_used.value.strip(), guild_id or 0)
+
+        if ord_type == "prestige":
+            pe       = prestige_emoji(f"{order['from_tier']} -> {order['to_tier']}")
+            details  = f"{pe} `{order['from_tier']}` \u2192 `{order['to_tier']}`"
+        else:
+            fe      = rank_emoji(order["from_tier"] or "")
+            te      = rank_emoji(order["to_tier"] or "")
+            details = f"{fe} `{order['from_tier']}` \u2192 {te} `{order['to_tier']}`"
+
+        conn.close()
         img = self.image_url.value.strip() if self.image_url.value else None
 
-        e = base_embed("✅ Order Completed", color=SUCCESS)
+        e = base_embed("\u2705 Order Completed", color=SUCCESS)
         e.set_author(name="BrawlCarry | Order Completed", icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="🆔 Order ID",     value=f"`{order_id}`",                                              inline=True)
-        e.add_field(name="👤 Customer",     value=customer.mention if customer else f"<@{order['user_id']}>",   inline=True)
-        e.add_field(name="💵 Amount Paid",  value=f"**${price_val:.2f}**",                                      inline=True)
-        e.add_field(name="💳 Payment",      value=f"**{self.payment_used.value.strip()}**",                     inline=True)
-        e.add_field(name="📦 Route",        value=f"`{order['from_tier']}` → `{order['to_tier']}`",             inline=True)
-        e.add_field(name="✅ Completed By", value=interaction.user.mention,                                     inline=True)
-        e.add_field(name="🕐 Completed At", value=f"<t:{int(now.timestamp())}:F>",                              inline=False)
+        e.add_field(name="\U0001f194 Order ID",     value=f"`{order_id}`",                                              inline=True)
+        e.add_field(name="\U0001f464 Customer",     value=customer.mention if customer else f"<@{order['user_id']}>",   inline=True)
+        e.add_field(name="\U0001f4b6 Amount Paid",  value=f"**\u20ac{price_val:.2f}**",                                 inline=True)
+        e.add_field(name=f"{pay_emoji} Payment",    value=f"**{self.payment_used.value.strip()}**",                     inline=True)
+        e.add_field(name="\U0001f4e6 Order Details",value=details,                                                       inline=True)
+        e.add_field(name="\U0001f6e0 Service",      value=svc_label,                                                    inline=True)
+        e.add_field(name="\u2705 Completed By",     value=interaction.user.mention,                                     inline=True)
+        e.add_field(name="\U0001f550 Completed At", value=f"<t:{int(now.timestamp())}:F>",                              inline=False)
         if self.notes.value:
-            e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
+            e.add_field(name="\U0001f4dd Notes", value=self.notes.value, inline=False)
 
         wm_file = None
         if img:
@@ -1001,7 +1106,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
-        await interaction.response.send_message("✅ Order marked as completed!", ephemeral=True)
+        await interaction.response.send_message("\u2705 Order marked as completed!", ephemeral=True)
 
         if completed_ch:
             if wm_file:
@@ -1013,17 +1118,17 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                 await interaction.channel.send(embed=e, file=wm_file)
             else:
                 await interaction.channel.send(embed=e)
-            await interaction.followup.send("⚠️ No completed-orders channel configured. Use `/setup` to set one.", ephemeral=True)
+            await interaction.followup.send("\u26a0\ufe0f No completed-orders channel configured. Use `/setup` to set one.", ephemeral=True)
 
         if customer:
             try:
-                dm_e = base_embed("✅ Your Order is Complete!", color=SUCCESS)
+                dm_e = base_embed("\u2705 Your Order is Complete!", color=SUCCESS)
                 dm_e.description = (
                     f"Great news! Your order **`{order_id}`** has been completed.\n\n"
-                    f"📦 **Route:** `{order['from_tier']}` → `{order['to_tier']}`\n"
-                    f"💵 **Amount:** ${price_val:.2f}\n"
-                    f"💳 **Payment:** {self.payment_used.value.strip()}\n\n"
-                    "Thank you for choosing BrawlCarry! Consider leaving a vouch ⭐"
+                    f"\U0001f4e6 **Order Details:** {details}\n"
+                    f"\U0001f4b6 **Amount:** \u20ac{price_val:.2f}\n"
+                    f"{pay_emoji} **Payment:** {self.payment_used.value.strip()}\n\n"
+                    "Thank you for choosing BrawlCarry! Consider leaving a vouch \u2b50"
                 )
                 await customer.send(embed=dm_e)
             except discord.Forbidden:
@@ -1040,6 +1145,7 @@ class RankedOrderView(ui.View):
         self.desired_rank = None
         self.p11          = None
         self.payment      = None
+        self.service_type = None
 
         current_options = []
         for r in CURRENT_RANKS:
@@ -1073,42 +1179,100 @@ class RankedOrderView(ui.View):
         p11_select.callback = self._on_p11
         self.add_item(p11_select)
 
+        svc_select = ui.Select(
+            placeholder="Boost or Carry?",
+            options=SERVICE_OPTIONS,
+            custom_id="ranked_svc", row=3
+        )
+        svc_select.callback = self._on_svc
+        self.add_item(svc_select)
+
+        # Row 4: payment + submit/cancel
         methods   = get_payment_methods(guild_id)
         pay_select = ui.Select(
             placeholder="Select payment method...",
             options=[discord.SelectOption(label=lbl, value=lbl, emoji=emo) for lbl, emo in methods],
-            custom_id="ranked_pay", row=3
+            custom_id="ranked_pay", row=4
         )
         pay_select.callback = self._on_pay
         self.add_item(pay_select)
 
-        submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary, custom_id="ranked_submit", row=4, emoji="✅")
-        submit_btn.callback = self._on_submit
-        self.add_item(submit_btn)
+        # NOTE: Discord limits 5 rows (0-4). Submit/cancel added as additional
+        # buttons would require row 5 which is not allowed.
+        # We attach them as extra callbacks on row 4 using a second Select approach.
+        # Instead, we present submit/cancel inline via a second message or handle
+        # them through a final confirm modal on row 4 button (workaround: use a
+        # "Confirm Order" button that fires the modal after all selections are done).
+        # Since we have 5 rows of selects we use a separate confirm button view.
+        # Actually we need to drop to using the modal flow directly from the last select.
+        # Best approach: replace submit+cancel buttons with row-based approach below.
+        # We will attach confirm as part of the last select's callback by opening modal.
+        # Override: move payment to row 3, svc to row 4, add submit button on row 4.
+        # Re-do the layout:
 
-        cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary, custom_id="ranked_cancel", row=4, emoji="✖️")
-        cancel_btn.callback = self._on_cancel
-        self.add_item(cancel_btn)
+        # Clear and rebuild with correct layout
+        self.clear_items()
+        self.current_rank = None
+        self.desired_rank = None
+        self.p11          = None
+        self.payment      = None
+        self.service_type = None
+
+        current_select2 = ui.Select(placeholder="Your current rank...", options=current_options, custom_id="ranked_current2", row=0)
+        current_select2.callback = self._on_current
+        self.add_item(current_select2)
+
+        desired_select2 = ui.Select(placeholder="Your desired rank...", options=desired_options, custom_id="ranked_desired2", row=1)
+        desired_select2.callback = self._on_desired
+        self.add_item(desired_select2)
+
+        p11_select2 = ui.Select(
+            placeholder="Number of Power 11 brawlers...",
+            options=[discord.SelectOption(label=n, value=n, emoji=P11_EMOJI) for n in P11_OPTIONS],
+            custom_id="ranked_p112", row=2
+        )
+        p11_select2.callback = self._on_p11
+        self.add_item(p11_select2)
+
+        methods = get_payment_methods(guild_id)
+        pay_select2 = ui.Select(
+            placeholder="Payment method...",
+            options=[discord.SelectOption(label=lbl, value=lbl, emoji=emo) for lbl, emo in methods],
+            custom_id="ranked_pay2", row=3
+        )
+        pay_select2.callback = self._on_pay
+        self.add_item(pay_select2)
+
+        svc_select2 = ui.Select(
+            placeholder="Boost or Carry? (Carry = 2x price)",
+            options=SERVICE_OPTIONS,
+            custom_id="ranked_svc2", row=4
+        )
+        svc_select2.callback = self._on_svc_submit
+        self.add_item(svc_select2)
 
     async def _on_current(self, interaction): self.current_rank = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_desired(self, interaction): self.desired_rank = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_p11(self, interaction):     self.p11          = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_pay(self, interaction):     self.payment      = interaction.data["values"][0]; await interaction.response.defer()
 
-    async def _on_submit(self, interaction: discord.Interaction):
+    async def _on_svc(self, interaction):
+        self.service_type = interaction.data["values"][0]
+        await interaction.response.defer()
+
+    async def _on_svc_submit(self, interaction: discord.Interaction):
+        self.service_type = interaction.data["values"][0]
         missing = []
         if not self.current_rank: missing.append("Current Rank")
         if not self.desired_rank: missing.append("Desired Rank")
         if not self.p11:          missing.append("Power 11 Brawlers")
         if not self.payment:      missing.append("Payment Method")
         if missing:
-            await interaction.response.send_message(f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True)
+            await interaction.response.send_message(f"\u274c Please fill in: **{', '.join(missing)}**", ephemeral=True)
             return
-        await interaction.response.send_modal(RankedOrderModal(self.current_rank, self.desired_rank, self.p11, self.payment))
-
-    async def _on_cancel(self, interaction: discord.Interaction):
-        await interaction.response.send_message("❌ Order cancelled.", ephemeral=True)
-        await interaction.message.delete()
+        await interaction.response.send_modal(
+            RankedOrderModal(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type)
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1118,13 +1282,14 @@ class PrestigeOrderView(ui.View):
     def __init__(self, guild_id: int):
         super().__init__(timeout=300)
         self.prestige_spec = None
+        self.trophy_range  = None
         self.payment       = None
+        self.service_type  = None
 
         pres_options = []
         for p in PRESTIGE_OPTIONS:
             emo = prestige_emoji(p)
             opt = discord.SelectOption(label=p, value=p)
-            # Only set emoji if it's a real custom emoji (not a placeholder)
             if "REPLACE_WITH" not in emo:
                 opt.emoji = emo
             pres_options.append(opt)
@@ -1132,60 +1297,72 @@ class PrestigeOrderView(ui.View):
         pres_select = ui.Select(
             placeholder="Select prestige spec...",
             options=pres_options,
-            custom_id="prest_spec", row=0
+            custom_id="prest_spec2", row=0
         )
         pres_select.callback = self._on_spec
         self.add_item(pres_select)
 
-        methods   = get_payment_methods(guild_id)
+        trophy_select = ui.Select(
+            placeholder="Current trophy count on that brawler...",
+            options=[discord.SelectOption(label=t, value=t, emoji="\U0001f3c6") for t in TROPHY_OPTIONS],
+            custom_id="prest_trophy", row=1
+        )
+        trophy_select.callback = self._on_trophy
+        self.add_item(trophy_select)
+
+        methods = get_payment_methods(guild_id)
         pay_select = ui.Select(
-            placeholder="Select payment method...",
+            placeholder="Payment method...",
             options=[discord.SelectOption(label=lbl, value=lbl, emoji=emo) for lbl, emo in methods],
-            custom_id="prest_pay", row=1
+            custom_id="prest_pay2", row=2
         )
         pay_select.callback = self._on_pay
         self.add_item(pay_select)
 
-        submit_btn = ui.Button(label="Submit", style=discord.ButtonStyle.primary, custom_id="prest_submit", row=2, emoji="✅")
-        submit_btn.callback = self._on_submit
-        self.add_item(submit_btn)
+        svc_select = ui.Select(
+            placeholder="Boost or Carry? (Carry = 2x price)",
+            options=SERVICE_OPTIONS,
+            custom_id="prest_svc", row=3
+        )
+        svc_select.callback = self._on_svc_submit
+        self.add_item(svc_select)
 
-        cancel_btn = ui.Button(label="Cancel", style=discord.ButtonStyle.secondary, custom_id="prest_cancel", row=2, emoji="✖️")
-        cancel_btn.callback = self._on_cancel
-        self.add_item(cancel_btn)
+    async def _on_spec(self, interaction):   self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
+    async def _on_trophy(self, interaction): self.trophy_range  = interaction.data["values"][0]; await interaction.response.defer()
+    async def _on_pay(self, interaction):    self.payment       = interaction.data["values"][0]; await interaction.response.defer()
 
-    async def _on_spec(self, interaction): self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
-    async def _on_pay(self, interaction):  self.payment       = interaction.data["values"][0]; await interaction.response.defer()
-
-    async def _on_submit(self, interaction: discord.Interaction):
+    async def _on_svc_submit(self, interaction: discord.Interaction):
+        self.service_type = interaction.data["values"][0]
         missing = []
         if not self.prestige_spec: missing.append("Prestige Spec")
+        if not self.trophy_range:  missing.append("Current Trophies")
         if not self.payment:       missing.append("Payment Method")
         if missing:
-            await interaction.response.send_message(f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True)
+            await interaction.response.send_message(f"\u274c Please fill in: **{', '.join(missing)}**", ephemeral=True)
             return
-        await interaction.response.send_modal(PrestigeOrderModal(self.prestige_spec, self.payment))
-
-    async def _on_cancel(self, interaction: discord.Interaction):
-        await interaction.response.send_message("❌ Order cancelled.", ephemeral=True)
-        await interaction.message.delete()
+        await interaction.response.send_modal(
+            PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.payment, self.service_type)
+        )
 
 
 # ---------------------------------------------------------------------------
-# PANEL BUTTON VIEWS  (persistent — posted once in the order channel)
+# PANEL BUTTON VIEWS  (persistent)
 # ---------------------------------------------------------------------------
 class RankedPanelButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Ranked Boost Order", style=discord.ButtonStyle.danger, emoji="🔥", custom_id="ranked_panel_btn_v1")
+    @ui.button(label="Ranked Boost Order", style=discord.ButtonStyle.danger, emoji="\U0001f525", custom_id="ranked_panel_btn_v1")
     async def open_ranked(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("🔥 Ranked Boost Order", color=PRIMARY)
+        e = base_embed("\U0001f525 Ranked Boost Order", color=PRIMARY)
         e.description = (
-            "Fill in the fields below and press **Submit** to place your order.\n"
-            "A private ticket will be created for you automatically."
+            "Select your ranks, Power 11 count, payment method and service type, then the order form will open automatically.\n\n"
+            "> \U0001f7e2 **Boost** — we play on your account (standard price)\n"
+            "> \U0001f534 **Carry** — we play alongside you (2x price)\n\n"
+            "\u26a0\ufe0f Do not share passwords or sensitive information."
         )
-        e.add_field(name="⚠️ Notice", value="Do not share passwords or sensitive information.", inline=False)
+        e.add_field(name="\U0001f3c6 Rank Emojis",
+                    value=" ".join(v for v in RANK_EMOJI.values()), inline=False)
         await interaction.response.send_message(embed=e, view=RankedOrderView(interaction.guild_id), ephemeral=True)
 
 
@@ -1193,14 +1370,17 @@ class PrestigePanelButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Prestige Boost Order", style=discord.ButtonStyle.primary, emoji="✨", custom_id="prestige_panel_btn_v1")
+    @ui.button(label="Prestige Boost Order", style=discord.ButtonStyle.primary, emoji="\u2728", custom_id="prestige_panel_btn_v1")
     async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("✨ Prestige Boost Order", color=ACCENT)
+        e = base_embed("\u2728 Prestige Boost Order", color=ACCENT)
         e.description = (
-            "Fill in the fields below and press **Submit** to place your order.\n"
-            "A private ticket will be created for you automatically."
+            "Select your prestige spec, current trophies, payment method and service type, then the order form will open automatically.\n\n"
+            "> \U0001f7e2 **Boost** — we play on your account (standard price)\n"
+            "> \U0001f534 **Carry** — we play alongside you (2x price)\n\n"
+            "\u26a0\ufe0f Do not share passwords or sensitive information."
         )
-        e.add_field(name="⚠️ Notice", value="Do not share passwords or sensitive information.", inline=False)
+        pres_icons = " ".join(PRESTIGE_EMOJI.values())
+        e.add_field(name="\u2728 Prestige Icons", value=pres_icons, inline=False)
         await interaction.response.send_message(embed=e, view=PrestigeOrderView(interaction.guild_id), ephemeral=True)
 
 
@@ -1211,25 +1391,25 @@ class OrderButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Place Order", style=discord.ButtonStyle.primary, emoji="🎮", custom_id="order_btn_v2")
+    @ui.button(label="Place Order", style=discord.ButtonStyle.primary, emoji="\U0001f3ae", custom_id="order_btn_v2")
     async def order(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(OrderModal())
 
 
 class VouchButtonView(ui.View):
-    def __init__(self, order_id: str = None):
+    def __init__(self, order_kind: str = "ranked"):
         super().__init__(timeout=None)
-        self.order_id = order_id
+        self.order_kind = order_kind
 
-    @ui.button(label="Submit a Vouch", style=discord.ButtonStyle.success, emoji="⭐", custom_id="vouch_btn_v2")
+    @ui.button(label="Submit a Vouch", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="vouch_btn_v2")
     async def vouch(self, interaction: discord.Interaction, button: ui.Button):
         guild_id = interaction.guild.id if interaction.guild else 0
-        e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+        e = base_embed("\u2b50 Submit Your Vouch", color=GOLD)
         e.description = (
-            "Select your **rating** and **payment method**, then click **Continue** "
+            "Select your **rating**, **payment method** and **service type**, then click **Continue** "
             "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
         )
-        await interaction.response.send_message(embed=e, view=VouchSelectorView(guild_id, order_id=self.order_id), ephemeral=True)
+        await interaction.response.send_message(embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True)
 
 
 class GiveawayView(ui.View):
@@ -1237,27 +1417,27 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
+    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="\U0001f389", custom_id="ga_enter_v2")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
         c.execute("SELECT * FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         if not ga:
-            await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
+            await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
             conn.close()
             return
         participants = json.loads(ga["participants"]) if ga["participants"] else []
         if interaction.user.id in participants:
-            await interaction.response.send_message("❌ You have already entered this giveaway.", ephemeral=True)
+            await interaction.response.send_message("\u274c You have already entered this giveaway.", ephemeral=True)
         else:
             participants.append(interaction.user.id)
             c.execute("UPDATE giveaways SET participants = ? WHERE id = ?", (json.dumps(participants), self.giveaway_id))
             conn.commit()
-            await interaction.response.send_message("✅ You've entered! Good luck 🍀", ephemeral=True)
+            await interaction.response.send_message("\u2705 You've entered! Good luck \U0001f340", ephemeral=True)
         conn.close()
 
-    @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="👥", custom_id="ga_view_v2")
+    @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="\U0001f465", custom_id="ga_view_v2")
     async def view_participants(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
@@ -1265,11 +1445,11 @@ class GiveawayView(ui.View):
         ga = c.fetchone()
         conn.close()
         count = len(json.loads(ga["participants"])) if ga and ga["participants"] else 0
-        e = base_embed("👥 Giveaway Participants", color=PRIMARY)
+        e = base_embed("\U0001f465 Giveaway Participants", color=PRIMARY)
         e.description = f"**{count:,}** participant{'s' if count != 1 else ''} have entered."
         await interaction.response.send_message(embed=e, ephemeral=True)
 
-    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
+    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="\U0001f381", custom_id="ga_extra_v2")
     async def extra(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c = conn.cursor()
@@ -1277,30 +1457,30 @@ class GiveawayView(ui.View):
         ga = c.fetchone()
         conn.close()
         extra = ga["extra_entries"] if ga and ga["extra_entries"] else None
-        e = base_embed("🎁 Extra Entry Methods", color=ACCENT)
+        e = base_embed("\U0001f381 Extra Entry Methods", color=ACCENT)
         e.description = extra if extra else "No extra entry methods configured."
         await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
-# TICKET VIEWS  (General Support only — no carry order option)
+# TICKET VIEWS  (General Support only)
 # ---------------------------------------------------------------------------
 class TicketView(ui.View):
-    """Single-button ticket panel — General Support only."""
+    """Single-button ticket panel -- General Support only."""
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="General Support", style=discord.ButtonStyle.primary, emoji="ℹ️", custom_id="ticket_general_btn_v1")
+    @ui.button(label="General Support", style=discord.ButtonStyle.primary, emoji="\u2139\ufe0f", custom_id="ticket_general_btn_v1")
     async def open_support(self, interaction: discord.Interaction, button: ui.Button):
         guild  = interaction.guild
         member = interaction.user
         cfg    = get_config(guild.id)
 
-        e = base_embed("ℹ️ General Support", color=SUCCESS)
+        e = base_embed("\u2139\ufe0f General Support", color=SUCCESS)
         e.description = (
             f"Welcome, {member.mention}!\n\n"
-            f"📋 **Category:** General Support\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            f"\U0001f4cb **Category:** General Support\n"
+            f"\U0001f550 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Staff will be with you shortly. Please describe your request in detail."
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
@@ -1313,16 +1493,16 @@ class TicketView(ui.View):
             view=TicketCloseView(),
             cfg=cfg,
         )
-        await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
+        await interaction.response.send_message(f"\u2705 Support ticket created: {ticket.mention}", ephemeral=True)
 
 
 class TicketCloseView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="ticket_close_v2")
+    @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="\U0001f512", custom_id="ticket_close_v2")
     async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("🔒 Closing Ticket", color=DANGER)
+        e = base_embed("\U0001f512 Closing Ticket", color=DANGER)
         e.description = "This ticket will be deleted in **5 seconds**."
         await interaction.response.send_message(embed=e)
         await asyncio.sleep(5)
@@ -1331,21 +1511,25 @@ class TicketCloseView(ui.View):
         except Exception:
             pass
 
-    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
+    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
         if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
+            await interaction.response.send_message("\u274c Staff only.", ephemeral=True)
             return
-        e = base_embed("⭐ Leave a Vouch", color=GOLD)
+        # Try to infer order kind from channel name
+        ch_name    = getattr(interaction.channel, "name", "") or ""
+        order_kind = "prestige" if "prestige" in ch_name else "ranked"
+
+        e = base_embed("\u2b50 Leave a Vouch", color=GOLD)
         e.description = (
             "Thank you for your order! We'd love your feedback.\n\n"
-            "📸 Attach a screenshot as proof\n"
-            "⭐ Rate your experience (1-5)\n"
-            "💬 Leave honest feedback\n\n"
+            "\U0001f4f8 Attach a screenshot as proof\n"
+            "\u2b50 Rate your experience (1-5)\n"
+            "\U0001f4ac Leave honest feedback\n\n"
             "Click the button below to submit."
         )
-        await interaction.channel.send(embed=e, view=VouchButtonView())
-        await interaction.response.send_message("✅ Vouch panel sent.", ephemeral=True)
+        await interaction.channel.send(embed=e, view=VouchButtonView(order_kind=order_kind))
+        await interaction.response.send_message("\u2705 Vouch panel sent.", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -1390,25 +1574,25 @@ async def setup(
     if updates:
         set_config(interaction.guild.id, **updates)
 
-    e = base_embed("⚙️ Server Configuration", color=SUCCESS)
+    e = base_embed("\u2699\ufe0f Server Configuration", color=SUCCESS)
     e.description = "Bot settings updated successfully."
-    if vouch_channel:           e.add_field(name="⭐ Vouch Channel",              value=vouch_channel.mention,           inline=True)
-    if ticket_channel:          e.add_field(name="🎫 Fallback Ticket Channel",    value=ticket_channel.mention,          inline=True)
-    if ticket_category:         e.add_field(name="📂 Ticket Category",            value=ticket_category.mention,         inline=True)
-    if completed_channel:       e.add_field(name="✅ Completed Channel",          value=completed_channel.mention,       inline=True)
-    if ranked_ticket_channel:   e.add_field(name="🔥 Ranked Ticket Channel",      value=ranked_ticket_channel.mention,   inline=True)
-    if prestige_ticket_channel: e.add_field(name="✨ Prestige Ticket Channel",    value=prestige_ticket_channel.mention, inline=True)
-    if ranked_panel_channel:    e.add_field(name="📢 Ranked Claiming Channel",    value=ranked_panel_channel.mention,    inline=True)
-    if prestige_panel_channel:  e.add_field(name="📢 Prestige Claiming Channel",  value=prestige_panel_channel.mention,  inline=True)
-    if owner:                   e.add_field(name="👑 Owner",                      value=owner.mention,                   inline=True)
+    if vouch_channel:           e.add_field(name="\u2b50 Vouch Channel",              value=vouch_channel.mention,           inline=True)
+    if ticket_channel:          e.add_field(name="\U0001f3ab Fallback Ticket Channel",value=ticket_channel.mention,          inline=True)
+    if ticket_category:         e.add_field(name="\U0001f4c2 Ticket Category",        value=ticket_category.mention,         inline=True)
+    if completed_channel:       e.add_field(name="\u2705 Completed Channel",          value=completed_channel.mention,       inline=True)
+    if ranked_ticket_channel:   e.add_field(name="\U0001f525 Ranked Ticket Channel",  value=ranked_ticket_channel.mention,   inline=True)
+    if prestige_ticket_channel: e.add_field(name="\u2728 Prestige Ticket Channel",   value=prestige_ticket_channel.mention, inline=True)
+    if ranked_panel_channel:    e.add_field(name="\U0001f4e2 Ranked Claiming Channel",  value=ranked_panel_channel.mention,    inline=True)
+    if prestige_panel_channel:  e.add_field(name="\U0001f4e2 Prestige Claiming Channel",value=prestige_panel_channel.mention,  inline=True)
+    if owner:                   e.add_field(name="\U0001f451 Owner",                  value=owner.mention,                   inline=True)
 
     e.add_field(
-        name="ℹ️ Order Flow",
+        name="\u2139\ufe0f Order Flow",
         value=(
-            "1️⃣ Customer clicks **Ranked/Prestige Boost** button → ticket opens in the dedicated channel\n"
-            "2️⃣ An order card appears inside the ticket\n"
-            "3️⃣ Staff click **📢 Publish to Boosters** → set earnings → card appears in the claiming channel\n"
-            "4️⃣ A booster clicks **🟠 Claim This Boost** → immediately added to the customer's ticket"
+            "1\ufe0f\u20e3 Customer clicks **Ranked/Prestige Boost** button \u2192 ticket opens in the dedicated channel\n"
+            "2\ufe0f\u20e3 An order card appears inside the ticket\n"
+            "3\ufe0f\u20e3 Staff click **\U0001f4e2 Publish to Boosters** \u2192 set earnings \u2192 card appears in the claiming channel\n"
+            "4\ufe0f\u20e3 A booster clicks **\U0001f7e0 Claim This Boost** \u2192 immediately added to the customer's ticket"
         ),
         inline=False
     )
@@ -1424,13 +1608,13 @@ async def order_complete(interaction: discord.Interaction):
 @bot.tree.command(name="add_payment_method", description="Add a payment method to the order forms")
 @app_commands.describe(label="Payment method name (e.g. LTC, Revolut)", emoji="Emoji to display next to it")
 @app_commands.checks.has_permissions(manage_channels=True)
-async def add_payment_method_cmd(interaction: discord.Interaction, label: str, emoji: str = "💳"):
+async def add_payment_method_cmd(interaction: discord.Interaction, label: str, emoji: str = "\U0001f4b3"):
     success = add_payment_method(interaction.guild.id, label.strip(), emoji.strip())
     if success:
-        e = base_embed("✅ Payment Method Added", color=SUCCESS)
+        e = base_embed("\u2705 Payment Method Added", color=SUCCESS)
         e.description = f"{emoji} **{label}** has been added to the payment options."
     else:
-        e = base_embed("⚠️ Already Exists", color=GOLD)
+        e = base_embed("\u26a0\ufe0f Already Exists", color=GOLD)
         e.description = f"**{label}** is already a configured payment method."
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -1441,10 +1625,10 @@ async def add_payment_method_cmd(interaction: discord.Interaction, label: str, e
 async def remove_payment_method_cmd(interaction: discord.Interaction, label: str):
     success = remove_payment_method(interaction.guild.id, label.strip())
     if success:
-        e = base_embed("✅ Payment Method Removed", color=SUCCESS)
+        e = base_embed("\u2705 Payment Method Removed", color=SUCCESS)
         e.description = f"**{label}** has been removed from the payment options."
     else:
-        e = base_embed("❌ Not Found", color=DANGER)
+        e = base_embed("\u274c Not Found", color=DANGER)
         e.description = f"**{label}** was not found in the configured payment methods."
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -1453,7 +1637,7 @@ async def remove_payment_method_cmd(interaction: discord.Interaction, label: str
 @app_commands.checks.has_permissions(manage_channels=True)
 async def list_payment_methods(interaction: discord.Interaction):
     methods = get_payment_methods(interaction.guild.id)
-    e = base_embed("💳 Payment Methods", color=PRIMARY)
+    e = base_embed("\U0001f4b3 Payment Methods", color=PRIMARY)
     e.description = "\n".join(f"{emo} **{lbl}**" for lbl, emo in methods) if methods else "No payment methods configured."
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -1462,71 +1646,79 @@ async def list_payment_methods(interaction: discord.Interaction):
 @app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("🎮 Brawl Stars Boost Orders", color=PRIMARY)
+    e = base_embed("\U0001f3ae Brawl Stars Boost Orders", color=PRIMARY)
     e.description = (
         "Ready to rank up? Click the button below to place your carry order.\n\n"
         "**What we offer:**\n"
-        "🥇 Brawl Stars Ranked Boosting\n"
-        "⚡ Fast & reliable completion\n"
-        "⭐ 5-star rated service\n"
-        "🔒 Secure & confidential"
+        "\U0001f947 Brawl Stars Ranked Boosting\n"
+        "\u26a1 Fast & reliable completion\n"
+        "\u2b50 5-star rated service\n"
+        "\U0001f512 Secure & confidential"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=OrderButton())
-    await interaction.response.send_message("✅ Order panel posted.", ephemeral=True)
+    await interaction.response.send_message("\u2705 Order panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="ranked_panel", description="Post the Ranked Boost order panel in this channel")
 @app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("🔥 Ranked Boost", color=PRIMARY)
+    rank_icons = " ".join(RANK_EMOJI.values())
+    e = base_embed("\U0001f525 Ranked Boost", color=PRIMARY)
     e.description = (
         "Want to climb the ranked ladder? Click the button below to place your **Ranked Boost** order!\n\n"
+        f"{rank_icons}\n\n"
         "**Pricing** *(depends on starting rank & P11 brawlers)*\n"
-        "🏆 Legendary Boost — from **16€**\n"
-        "🏆 Masters Boost — from **35€**\n"
-        "🏆 Pro Rank — from **200€**\n\n"
-        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
+        f"{RANK_EMOJI['Legendary']} Legendary Boost \u2014 from **16\u20ac**\n"
+        f"{RANK_EMOJI['Masters']} Masters Boost \u2014 from **35\u20ac**\n"
+        f"{RANK_EMOJI['Pro']} Pro Rank \u2014 from **200\u20ac**\n\n"
+        "> \U0001f7e2 **Boost** \u2014 we play on your account\n"
+        "> \U0001f534 **Carry** \u2014 we play alongside you (2x price)\n\n"
+        "\u26a1 Fast & reliable | \U0001f512 Secure | \u2b50 5-star rated"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=RankedPanelButton())
-    await interaction.response.send_message("✅ Ranked Boost panel posted.", ephemeral=True)
+    await interaction.response.send_message("\u2705 Ranked Boost panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="prestige_panel", description="Post the Prestige Boost order panel in this channel")
 @app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("✨ Prestige Boost", color=ACCENT)
+    pres_icons = " ".join(PRESTIGE_EMOJI.values())
+    e = base_embed("\u2728 Prestige Boost", color=ACCENT)
     e.description = (
         "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
+        f"{pres_icons}\n\n"
         "**Pricing** *(depends on brawler & power level)*\n"
-        "🟣 Prestige 0 → 1 — from **10€**\n"
-        "🔴 Prestige 1 → 2 — from **25€**\n"
-        "🟡 Prestige 2 → 3 — from **70€**\n\n"
-        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
+        f"{PRESTIGE_EMOJI['Prestige 0 -> Prestige 1']} Prestige 0 \u2192 1 \u2014 from **10\u20ac**\n"
+        f"{PRESTIGE_EMOJI['Prestige 1 -> Prestige 2']} Prestige 1 \u2192 2 \u2014 from **25\u20ac**\n"
+        f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 \u2192 3 \u2014 from **70\u20ac**\n\n"
+        "> \U0001f7e2 **Boost** \u2014 we play on your account\n"
+        "> \U0001f534 **Carry** \u2014 we play alongside you (2x price)\n\n"
+        "\u26a1 Fast & reliable | \U0001f512 Secure | \u2b50 5-star rated"
     )
     if image_url:
         e.set_image(url=image_url)
     await interaction.channel.send(embed=e, view=PrestigePanelButton())
-    await interaction.response.send_message("✅ Prestige Boost panel posted.", ephemeral=True)
+    await interaction.response.send_message("\u2705 Prestige Boost panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ticket_panel(interaction: discord.Interaction):
     cfg   = get_config(interaction.guild.id)
-    title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "🎫 Support Center"
+    title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "\U0001f3ab Support Center"
     desc  = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
-             else "Need help? Click the button below to open a support ticket.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.")
+             else "Need help? Click the button below to open a support ticket.\nOur team will be with you shortly.\n\n\U0001f4cc Tickets are private and handled by staff only.")
     e = discord.Embed(title=title, color=PRIMARY, description=desc)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
     await interaction.channel.send(embed=e, view=TicketView())
-    await interaction.response.send_message("✅ Ticket panel posted.", ephemeral=True)
+    await interaction.response.send_message("\u2705 Ticket panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
@@ -1543,29 +1735,28 @@ async def configure_ticket_panel(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="vouch_panel", description="Send a vouch request panel to a user or in this channel")
-@app_commands.describe(user="DM the vouch panel to this user", order_id="Order ID to attach")
+@app_commands.describe(user="DM the vouch panel to this user", order_kind="ranked or prestige (default: ranked)")
 @app_commands.checks.has_permissions(manage_channels=True)
-async def vouch_panel(interaction: discord.Interaction, user: discord.User = None, order_id: str = None):
-    e = base_embed("⭐ Leave a Vouch", color=GOLD)
+async def vouch_panel(interaction: discord.Interaction, user: discord.User = None, order_kind: str = "ranked"):
+    ok = order_kind.lower() if order_kind.lower() in ("ranked", "prestige") else "ranked"
+    e = base_embed("\u2b50 Leave a Vouch", color=GOLD)
     e.description = (
         "Thank you for your order! We'd love your feedback.\n\n"
-        "📸 Attach a screenshot as proof\n"
-        "⭐ Rate your experience (1-5)\n"
-        "💬 Leave honest feedback\n\n"
+        "\U0001f4f8 Attach a screenshot as proof\n"
+        "\u2b50 Rate your experience (1-5)\n"
+        "\U0001f4ac Leave honest feedback\n\n"
         "Click the button below to submit."
     )
-    if order_id:
-        e.set_footer(text=f"{FOOTER_BRAND} | Order: {order_id}")
-    view = VouchButtonView(order_id=order_id)
+    view = VouchButtonView(order_kind=ok)
     if user:
         try:
             await user.send(embed=e, view=view)
-            await interaction.response.send_message(f"✅ Vouch panel sent to {user.mention}.", ephemeral=True)
+            await interaction.response.send_message(f"\u2705 Vouch panel sent to {user.mention}.", ephemeral=True)
         except discord.Forbidden:
-            await interaction.response.send_message("❌ Could not DM that user. They may have DMs disabled.", ephemeral=True)
+            await interaction.response.send_message("\u274c Could not DM that user. They may have DMs disabled.", ephemeral=True)
     else:
         await interaction.channel.send(embed=e, view=view)
-        await interaction.response.send_message("✅ Vouch panel posted.", ephemeral=True)
+        await interaction.response.send_message("\u2705 Vouch panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="giveaway", description="Start a new giveaway")
@@ -1594,27 +1785,27 @@ async def giveaway(
     conn.close()
 
     end_ts = int(ends_at.timestamp())
-    e = discord.Embed(title=f"🎁 {prize}", color=PRIMARY)
-    e.add_field(name="ℹ️ Description", value=description, inline=False)
-    e.add_field(name="⏰ Ends",        value=f"<t:{end_ts}:F>  (<t:{end_ts}:R>)", inline=False)
-    e.add_field(name="🏆 Winners",     value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
-    e.add_field(name="👥 Participants",value="**0** entered", inline=True)
-    e.add_field(name="🎯 Hosted By",   value=interaction.user.mention, inline=True)
+    e = discord.Embed(title=f"\U0001f381 {prize}", color=PRIMARY)
+    e.add_field(name="\u2139\ufe0f Description", value=description, inline=False)
+    e.add_field(name="\u23f0 Ends",        value=f"<t:{end_ts}:F>  (<t:{end_ts}:R>)", inline=False)
+    e.add_field(name="\U0001f3c6 Winners",  value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
+    e.add_field(name="\U0001f465 Participants", value="**0** entered", inline=True)
+    e.add_field(name="\U0001f3af Hosted By",value=interaction.user.mention, inline=True)
     if extra_entries:
-        e.add_field(name="🎁 Bonus Entries", value="Click **Extra Entries** to see how to earn more!", inline=False)
+        e.add_field(name="\U0001f381 Bonus Entries", value="Click **Extra Entries** to see how to earn more!", inline=False)
     if image_url:
         e.set_image(url=image_url)
     e.set_footer(text=f"{FOOTER_BRAND} | ID: {ga_id}")
     e.timestamp = datetime.utcnow()
 
     ping_content = ping if (ping and ping.lower() != "none") else ""
-    ping_content = (ping_content + " **🎉 NEW GIVEAWAY!**").strip() if ping_content else "**🎉 NEW GIVEAWAY!**"
+    ping_content = (ping_content + " **\U0001f389 NEW GIVEAWAY!**").strip() if ping_content else "**\U0001f389 NEW GIVEAWAY!**"
 
     await interaction.channel.send(
         content=ping_content, embed=e, view=GiveawayView(ga_id),
         allowed_mentions=discord.AllowedMentions(everyone=True, roles=True)
     )
-    await interaction.response.send_message(f"✅ Giveaway started! ID: `{ga_id}`", ephemeral=True)
+    await interaction.response.send_message(f"\u2705 Giveaway started! ID: `{ga_id}`", ephemeral=True)
 
 
 @bot.tree.command(name="end_giveaway", description="End a giveaway and pick winners")
@@ -1627,30 +1818,30 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     ga = c.fetchone()
     if not ga:
         conn.close()
-        await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
+        await interaction.response.send_message("\u274c Giveaway not found.", ephemeral=True)
         return
     participants = json.loads(ga["participants"]) if ga["participants"] else []
     if not participants:
         conn.close()
-        await interaction.response.send_message("❌ No participants to draw from.", ephemeral=True)
+        await interaction.response.send_message("\u274c No participants to draw from.", ephemeral=True)
         return
     winner_ids = random.sample(participants, min(ga["winners"], len(participants)))
     c.execute("UPDATE giveaways SET winner_ids = ? WHERE id = ?", (json.dumps(winner_ids), giveaway_id))
     conn.commit()
     conn.close()
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
-    e = discord.Embed(title=f"🎁 {ga['prize']} — Giveaway Ended", color=SUCCESS)
-    e.add_field(name="🏆 Winners",           value=winner_mentions,              inline=False)
-    e.add_field(name="👥 Total Participants", value=f"**{len(participants):,}**", inline=True)
-    e.add_field(name="🆔 Giveaway ID",       value=f"`{giveaway_id}`",           inline=True)
+    e = discord.Embed(title=f"\U0001f381 {ga['prize']} \u2014 Giveaway Ended", color=SUCCESS)
+    e.add_field(name="\U0001f3c6 Winners",            value=winner_mentions,              inline=False)
+    e.add_field(name="\U0001f465 Total Participants", value=f"**{len(participants):,}**", inline=True)
+    e.add_field(name="\U0001f194 Giveaway ID",        value=f"`{giveaway_id}`",           inline=True)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
     await interaction.channel.send(
-        content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
+        content=f"\U0001f389 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
         embed=e,
         allowed_mentions=discord.AllowedMentions(users=True)
     )
-    await interaction.response.send_message("✅ Giveaway ended.", ephemeral=True)
+    await interaction.response.send_message("\u2705 Giveaway ended.", ephemeral=True)
 
 
 @bot.tree.command(name="backup_link", description="DM all members the backup server link")
@@ -1664,16 +1855,16 @@ async def backup_link(interaction: discord.Interaction, link: str):
     async def send_dm(member):
         async with sem:
             try:
-                e = base_embed("⚠️ Backup Server", color=DANGER)
+                e = base_embed("\u26a0\ufe0f Backup Server", color=DANGER)
                 e.description = f"If the main server becomes unavailable, join our backup:\n\n> **{link}**"
                 await member.send(embed=e)
                 results["sent"] += 1
             except Exception:
                 results["failed"] += 1
     await asyncio.gather(*[send_dm(m) for m in members])
-    e = base_embed("📨 Backup Link Sent", color=SUCCESS)
-    e.add_field(name="✅ Delivered", value=f"**{results['sent']}**",  inline=True)
-    e.add_field(name="❌ Failed",    value=f"**{results['failed']}**", inline=True)
+    e = base_embed("\U0001f4e8 Backup Link Sent", color=SUCCESS)
+    e.add_field(name="\u2705 Delivered", value=f"**{results['sent']}**",  inline=True)
+    e.add_field(name="\u274c Failed",    value=f"**{results['failed']}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
 
@@ -1688,47 +1879,54 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     c.execute("SELECT COUNT(*) as vc FROM vouchers WHERE used_by = ?", (target.id,))
     vc = c.fetchone()
     conn.close()
-    e = base_embed(f"📊 {target.display_name}'s Stats", color=PRIMARY)
+    e = base_embed(f"\U0001f4ca {target.display_name}'s Stats", color=PRIMARY)
     e.set_thumbnail(url=target.display_avatar.url)
-    e.add_field(name="🎮 Total Carries", value=f"**{row['count'] or 0}**", inline=True)
-    e.add_field(name="💵 Total Spent",   value=f"**${row['total']:.2f}**" if row["total"] else "**$0.00**", inline=True)
-    e.add_field(name="⭐ Vouches",       value=f"**{vc['vc'] or 0}**", inline=True)
+    e.add_field(name="\U0001f3ae Total Carries", value=f"**{row['count'] or 0}**", inline=True)
+    e.add_field(name="\U0001f4b6 Total Spent",   value=f"**\u20ac{row['total']:.2f}**" if row["total"] else "**\u20ac0.00**", inline=True)
+    e.add_field(name="\u2b50 Vouches",           value=f"**{vc['vc'] or 0}**", inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
 @bot.tree.command(name="help", description="View all available bot commands")
 async def help_cmd(interaction: discord.Interaction):
-    e = base_embed("📋 BrawlCarry Bot — Commands", color=PRIMARY)
+    rank_icons   = " ".join(RANK_EMOJI.values())
+    pres_icons   = " ".join(PRESTIGE_EMOJI.values())
+    e = base_embed("\U0001f4cb BrawlCarry Bot \u2014 Commands", color=PRIMARY)
     e.description = (
-        "**⚙️ Admin Commands**\n"
-        "`/setup` — Configure all channels, ticket categories & owner\n"
-        "`/configure_ticket_panel` — Customise support ticket panel text\n"
-        "`/order_panel` — Post the generic order panel\n"
-        "`/ranked_panel` — Post the Ranked Boost intake panel 🔥\n"
-        "`/prestige_panel` — Post the Prestige Boost intake panel ✨\n"
-        "`/ticket_panel` — Post the General Support ticket panel\n"
-        "`/vouch_panel` — Send vouch panel to user or channel\n"
-        "`/giveaway` — Start a giveaway\n"
-        "`/end_giveaway` — End a giveaway and draw winners\n"
-        "`/backup_link` — DM all members the backup server link\n\n"
-        "**✅ Staff Commands**\n"
-        "`/order_complete` — Mark an order as completed\n"
-        "`/add_payment_method` — Add a payment method to order forms\n"
-        "`/remove_payment_method` — Remove a payment method from order forms\n"
-        "`/list_payment_methods` — View all configured payment methods\n\n"
-        "**👤 User Commands**\n"
-        "`/stats` — View your carry statistics\n"
-        "`/help` — Show this menu\n\n"
-        "**📦 Order Flow**\n"
-        "1. Customer clicks **Ranked/Prestige Boost** → ticket opens in the dedicated channel\n"
+        f"**Rank Icons:** {rank_icons}\n"
+        f"**Prestige Icons:** {pres_icons}\n\n"
+        "**\u2699\ufe0f Admin Commands**\n"
+        "`/setup` \u2014 Configure all channels, ticket categories & owner\n"
+        "`/configure_ticket_panel` \u2014 Customise support ticket panel text\n"
+        "`/order_panel` \u2014 Post the generic order panel\n"
+        "`/ranked_panel` \u2014 Post the Ranked Boost intake panel \U0001f525\n"
+        "`/prestige_panel` \u2014 Post the Prestige Boost intake panel \u2728\n"
+        "`/ticket_panel` \u2014 Post the General Support ticket panel\n"
+        "`/vouch_panel` \u2014 Send vouch panel to user or channel\n"
+        "`/giveaway` \u2014 Start a giveaway\n"
+        "`/end_giveaway` \u2014 End a giveaway and draw winners\n"
+        "`/backup_link` \u2014 DM all members the backup server link\n\n"
+        "**\u2705 Staff Commands**\n"
+        "`/order_complete` \u2014 Mark an order as completed\n"
+        "`/add_payment_method` \u2014 Add a payment method to order forms\n"
+        "`/remove_payment_method` \u2014 Remove a payment method from order forms\n"
+        "`/list_payment_methods` \u2014 View all configured payment methods\n\n"
+        "**\U0001f464 User Commands**\n"
+        "`/stats` \u2014 View your carry statistics\n"
+        "`/help` \u2014 Show this menu\n\n"
+        "**\U0001f4e6 Order Flow**\n"
+        "1. Customer clicks **Ranked/Prestige Boost** \u2192 ticket opens in the dedicated channel\n"
         "2. An order card appears in the ticket for staff\n"
-        "3. Staff click **📢 Publish to Boosters** → enter earnings → claiming card posted\n"
-        "4. Booster clicks **🟠 Claim This Boost** → instantly added to the customer's ticket\n\n"
-        "**⚙️ Channel Setup Tips**\n"
-        "• `ranked_ticket_channel` / `prestige_ticket_channel` — separate ticket thread channels per boost type\n"
-        "• `ranked_panel_channel` / `prestige_panel_channel` — where booster claiming cards appear\n"
-        "• `ticket_channel` — fallback for General Support tickets\n"
-        "• `completed_channel` — where completed order receipts are posted"
+        "3. Staff click **\U0001f4e2 Publish to Boosters** \u2192 enter earnings \u2192 claiming card posted\n"
+        "4. Booster clicks **\U0001f7e0 Claim This Boost** \u2192 instantly added to the customer's ticket\n\n"
+        "**\U0001f6e0 Service Types**\n"
+        "> \U0001f7e2 **Boost** \u2014 staff play on customer's account (standard price)\n"
+        "> \U0001f534 **Carry** \u2014 staff play alongside customer (2x price)\n\n"
+        "**\u2699\ufe0f Channel Setup Tips**\n"
+        "- `ranked_ticket_channel` / `prestige_ticket_channel` \u2014 separate ticket thread channels per boost type\n"
+        "- `ranked_panel_channel` / `prestige_panel_channel` \u2014 where booster claiming cards appear\n"
+        "- `ticket_channel` \u2014 fallback for General Support tickets\n"
+        "- `completed_channel` \u2014 where completed order receipts are posted"
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 
@@ -1739,9 +1937,9 @@ async def help_cmd(interaction: discord.Interaction):
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.MissingPermissions):
-        msg = "❌ You do not have permission to use this command."
+        msg = "\u274c You do not have permission to use this command."
     else:
-        msg = f"❌ An error occurred: `{error}`"
+        msg = f"\u274c An error occurred: `{error}`"
     if interaction.response.is_done():
         await interaction.followup.send(msg, ephemeral=True)
     else:
@@ -1756,29 +1954,25 @@ async def on_ready():
     await bot.tree.sync()
     print(f"[OK] {bot.user} | Slash commands synced")
 
-    # Register all persistent views
     bot.add_view(OrderButton())
     bot.add_view(TicketView())
     bot.add_view(TicketCloseView())
     bot.add_view(VouchButtonView())
+    bot.add_view(VouchButtonView(order_kind="prestige"))
     bot.add_view(RankedPanelButton())
     bot.add_view(PrestigePanelButton())
 
-    # Re-register active giveaway views
     conn = get_db()
     c    = conn.cursor()
     c.execute("SELECT id FROM giveaways WHERE winner_ids IS NULL OR winner_ids = ''")
     for row in c.fetchall():
         bot.add_view(GiveawayView(row["id"]))
 
-    # Re-register active order action views (unclaimed/claimed orders — staff publish button)
     c.execute("SELECT id, ticket_channel_id FROM orders WHERE status IN ('pending', 'claimed')")
     for row in c.fetchall():
-        # Re-register both ranked and prestige types; order_type stored implicitly by ID prefix
         order_type = "prestige" if row["id"].startswith("PREST") else "ranked"
         bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"], order_type))
 
-    # Re-register booster claim views for unclaimed orders
     c.execute("SELECT id, ticket_channel_id FROM orders WHERE status = 'pending'")
     for row in c.fetchall():
         bot.add_view(BoosterClaimView(row["id"], row["ticket_channel_id"]))

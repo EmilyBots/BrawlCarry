@@ -112,6 +112,10 @@ def init_db():
         ("orders",       "booster_earnings REAL"),
         ("orders",       "order_type TEXT"),
         ("orders",       "service_type TEXT"),
+        ("guild_config", "application_channel_id INT"),
+        ("guild_config", "application_review_channel_id INT"),
+        ("guild_config", "account_sale_channel_id INT"),
+        ("giveaways",    "bonus_role_id INT"),
         ("guild_config", "ticket_log_channel_id INT"),
         ("vouchers",     "order_kind TEXT"),
         ("vouchers",     "service_type TEXT"),
@@ -148,6 +152,9 @@ ALLOWED_CONFIG_KEYS = {
     "ranked_ticket_channel_id", "prestige_ticket_channel_id",
     "owner_id",
     "ticket_log_channel_id",
+    "application_channel_id",
+    "application_review_channel_id",
+    "account_sale_channel_id",
 }
 
 def set_config(guild_id: int, **kwargs):
@@ -223,11 +230,18 @@ async def create_ticket_thread(
     if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
         if isinstance(text_ch, discord.TextChannel):
-            thread = await text_ch.create_thread(
-                name=name,
-                type=discord.ChannelType.private_thread,
-                reason=f"Ticket opened by {member}",
-            )
+try:
+                thread = await text_ch.create_thread(
+                    name=name,
+                    type=discord.ChannelType.private_thread,
+                    reason=f"Ticket opened by {member}",
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                thread = await text_ch.create_thread(
+                    name=name,
+                    type=discord.ChannelType.public_thread,
+                    reason=f"Ticket opened by {member}",
+                )
             await thread.add_user(member)
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             return thread
@@ -347,6 +361,13 @@ PRESTIGE_OPTIONS = [
     "Prestige 2 -> Prestige 3",
 ]
 
+# Edit these prices freely — they are used in /prestige_panel automatically
+PRESTIGE_PRICES = {
+    "Prestige 0 -> Prestige 1": "10",
+    "Prestige 1 -> Prestige 2": "25",
+    "Prestige 2 -> Prestige 3": "70",
+}
+
 PRESTIGE_EMOJI = {
     "Prestige 0 -> Prestige 1": "<:Prestige1:1491103698116677693>",
     "Prestige 1 -> Prestige 2": "<:Prestige2:1491103696153477161>",
@@ -403,6 +424,18 @@ class BoosterClaimView(ui.View):
     async def claim(self, interaction: discord.Interaction, button: ui.Button):
         guild   = interaction.guild
         booster = interaction.user
+
+        # Safely resolve order_id from embed in case instance state was lost after restart
+        order_id = self.order_id
+        if not order_id and interaction.message and interaction.message.embeds:
+            for field in interaction.message.embeds[0].fields:
+                if "Order ID" in field.name:
+                    order_id = field.value.strip("`").strip()
+                    break
+        if not order_id:
+            await interaction.response.send_message("❌ Could not resolve order ID. Contact an admin.", ephemeral=True)
+            return
+        self.order_id = order_id
 
         conn = get_db()
         c    = conn.cursor()
@@ -740,6 +773,8 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         vouch_id = f"VOUCH-{uuid.uuid4().hex[:6].upper()}"
         conn = get_db()
         c = conn.cursor()
+        c.execute("SELECT COUNT(*) as cnt FROM vouchers")
+        vouch_number = c.fetchone()["cnt"] + 1
         c.execute(
             "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method, order_kind, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img,
@@ -775,7 +810,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
             name=f"{interaction.user.display_name}",
             icon_url=interaction.user.display_avatar.url
         )
-        e.title = f"\u2b50 New Vouch  |  {star_vis}"
+        e.title = f"⭐ Vouch N°{vouch_number}  |  {star_vis}"
         e.add_field(name="\U0001f464 Customer",        value=interaction.user.mention,         inline=True)
         e.add_field(name=f"\U0001f4b0 Amount Paid",    value=f"**\u20ac{amount_val:.2f}**",   inline=True)
         e.add_field(name=f"{pay_emoji} Payment",       value=f"**{self.payment_method}**",     inline=True)
@@ -929,15 +964,22 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         )
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        ticket = await create_ticket_thread(
-            guild=guild,
-            member=member,
-            name=f"ranked-{member.name[:12].lower()}",
-            topic_embed=welcome,
-            view=TicketCloseView(),
-            cfg=cfg,
-            override_channel_id=ranked_ticket_ch_id,
-        )
+try:
+            ticket = await create_ticket_thread(
+                guild=guild,
+                member=member,
+                name=f"ranked-{member.name[:12].lower()}",
+                topic_embed=welcome,
+                view=TicketCloseView(),
+                cfg=cfg,
+                override_channel_id=ranked_ticket_ch_id,
+            )
+        except Exception as ticket_err:
+            await interaction.response.send_message(
+                f"❌ Failed to create ticket: `{ticket_err}`\n\nAsk an admin to check `/setup` channel permissions.",
+                ephemeral=True
+            )
+            return
 
         conn = get_db()
         c    = conn.cursor()
@@ -950,9 +992,9 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.add_field(name="\U0001f464 Customer",      value=member.mention,                                          inline=True)
         order_e.add_field(name="\U0001f4e6 Order Details", value=f"{fe} `{self.current_rank}` \u2192 {te} `{self.desired_rank}`", inline=True)
         order_e.add_field(name="\u26a1 P11",               value=f"{P11_EMOJI} {self.p11}",                               inline=True)
-        order_e.add_field(name="\U0001f6e0 Service",       value=svc_label,                                               inline=True)
+        svc_field_name = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
+        order_e.add_field(name=svc_field_name,             value=svc_label,                                               inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment",     value=self.payment,                                            inline=True)
-        order_e.add_field(name="\U0001f194 Order ID",      value=f"`{order_id}`",                                         inline=True)
         order_e.add_field(name="\U0001f550 Placed",        value=f"<t:{int(datetime.utcnow().timestamp())}:R>",           inline=True)
         order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
@@ -1039,9 +1081,9 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.add_field(name="\U0001f464 Customer",     value=member.mention,        inline=True)
         order_e.add_field(name=f"{pe} Prestige",          value=self.prestige_spec,    inline=True)
         order_e.add_field(name="\U0001f3c6 Trophies",     value=self.trophy_range,     inline=True)
-        order_e.add_field(name="\U0001f6e0 Service",      value=svc_label,             inline=True)
+        svc_field_name2 = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
+        order_e.add_field(name=svc_field_name2,           value=svc_label,             inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment",    value=self.payment,          inline=True)
-        order_e.add_field(name="\U0001f194 Order ID",     value=f"`{order_id}`",       inline=True)
         order_e.add_field(name="\U0001f550 Placed",       value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
         order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
 
@@ -1356,6 +1398,142 @@ class PrestigeOrderView(ui.View):
         svc_select.callback = self._on_svc_submit
         self.add_item(svc_select)
 
+    # ---------------------------------------------------------------------------
+# APPLICATION SYSTEM
+# ---------------------------------------------------------------------------
+APPLICATION_ROLES = ["Booster", "Admin", "Reporter"]
+
+class ApplicationModal(ui.Modal):
+    why    = ui.TextInput(label="Why do you want this role?",       style=discord.TextStyle.long,  max_length=500)
+    exp    = ui.TextInput(label="Relevant experience",               style=discord.TextStyle.long,  max_length=500)
+    age    = ui.TextInput(label="Your age",                          style=discord.TextStyle.short, max_length=3)
+    extra  = ui.TextInput(label="Anything else to add? (Optional)",  style=discord.TextStyle.long,  max_length=300, required=False)
+
+    def __init__(self, role: str):
+        super().__init__(title=f"{role} Application")
+        self.role = role
+
+    async def on_submit(self, interaction: discord.Interaction):
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
+
+        review_ch_id = cfg["application_review_channel_id"] if cfg else None
+        review_ch    = guild.get_channel(review_ch_id) if review_ch_id else None
+
+        if not review_ch:
+            await interaction.response.send_message(
+                "❌ Application review channel not configured. Ask an admin to run `/setup`.", ephemeral=True
+            )
+            return
+
+        e = base_embed(f"📝 New {self.role} Application", color=PRIMARY)
+        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+        e.add_field(name="👤 Applicant",    value=member.mention,     inline=True)
+        e.add_field(name="🆔 User ID",      value=f"`{member.id}`",   inline=True)
+        e.add_field(name="🎭 Role Applied", value=f"**{self.role}**", inline=True)
+        e.add_field(name="❓ Why This Role",  value=self.why.value,  inline=False)
+        e.add_field(name="📋 Experience",     value=self.exp.value,  inline=False)
+        e.add_field(name="🎂 Age",            value=self.age.value,  inline=True)
+        if self.extra.value:
+            e.add_field(name="💬 Extra Info", value=self.extra.value, inline=False)
+        e.set_footer(text=f"{FOOTER_BRAND} | Use buttons below to accept or reject")
+
+        await review_ch.send(embed=e, view=ApplicationReviewView(member.id, self.role))
+        await interaction.response.send_message(
+            f"✅ Your **{self.role}** application has been submitted! Staff will review it shortly.", ephemeral=True
+        )
+
+
+class ApplicationReviewView(ui.View):
+    def __init__(self, applicant_id: int, role: str):
+        super().__init__(timeout=None)
+        self.applicant_id = applicant_id
+        self.role         = role
+
+    @ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅", custom_id="app_accept_v1")
+    async def accept(self, interaction: discord.Interaction, button: ui.Button):
+        if not interaction.user.guild_permissions.manage_roles:
+            await interaction.response.send_message("❌ You don't have permission to review applications.", ephemeral=True)
+            return
+        member = interaction.guild.get_member(self.applicant_id)
+        result_text = ""
+        if member:
+            role_obj = discord.utils.get(interaction.guild.roles, name=self.role)
+            if role_obj:
+                try:
+                    await member.add_roles(role_obj, reason=f"Application accepted by {interaction.user}")
+                    result_text = f" Role **{self.role}** has been assigned."
+                except discord.Forbidden:
+                    result_text = f" ⚠️ Could not assign role (missing permissions)."
+            else:
+                result_text = f" ⚠️ Role **{self.role}** not found in server — create it manually."
+            try:
+                dm_e = base_embed("✅ Application Accepted!", color=SUCCESS)
+                dm_e.description = (
+                    f"Congratulations! Your **{self.role}** application in **{interaction.guild.name}** has been accepted.\n\n"
+                    "Welcome to the team! 🎉"
+                )
+                await member.send(embed=dm_e)
+            except discord.Forbidden:
+                pass
+
+        for item in self.children:
+            item.disabled = True
+        orig = interaction.message.embeds[0] if interaction.message.embeds else None
+        if orig:
+            orig.color = SUCCESS
+            orig.title = "✅ ACCEPTED — " + (orig.title or "")
+            orig.add_field(name="✅ Reviewed By", value=interaction.user.mention, inline=True)
+        await interaction.message.edit(embed=orig, view=self)
+        await interaction.response.send_message(f"✅ Application accepted.{result_text}", ephemeral=True)
+
+    @ui.button(label="Reject", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_reject_v1")
+    async def reject(self, interaction: discord.Interaction, button: ui.Button):
+        if not interaction.user.guild_permissions.manage_roles:
+            await interaction.response.send_message("❌ You don't have permission to review applications.", ephemeral=True)
+            return
+        member = interaction.guild.get_member(self.applicant_id)
+        if member:
+            try:
+                dm_e = base_embed("❌ Application Rejected", color=DANGER)
+                dm_e.description = (
+                    f"Unfortunately, your **{self.role}** application in **{interaction.guild.name}** has been rejected.\n\n"
+                    "You may re-apply in the future. Thank you for your interest."
+                )
+                await member.send(embed=dm_e)
+            except discord.Forbidden:
+                pass
+
+        for item in self.children:
+            item.disabled = True
+        orig = interaction.message.embeds[0] if interaction.message.embeds else None
+        if orig:
+            orig.color = DANGER
+            orig.title = "❌ REJECTED — " + (orig.title or "")
+            orig.add_field(name="❌ Reviewed By", value=interaction.user.mention, inline=True)
+        await interaction.message.edit(embed=orig, view=self)
+        await interaction.response.send_message("❌ Application rejected and applicant notified.", ephemeral=True)
+
+
+class ApplicationPanelView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        for role in APPLICATION_ROLES:
+            btn = ui.Button(
+                label=f"Apply for {role}",
+                style=discord.ButtonStyle.primary,
+                emoji="📝",
+                custom_id=f"app_btn_{role.lower()}_v1"
+            )
+            btn.callback = self._make_callback(role)
+            self.add_item(btn)
+
+    def _make_callback(self, role: str):
+        async def callback(interaction: discord.Interaction):
+            await interaction.response.send_modal(ApplicationModal(role))
+        return callback
+
     async def _on_spec(self, interaction):   self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_trophy(self, interaction): self.trophy_range  = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_pay(self, interaction):    self.payment       = interaction.data["values"][0]; await interaction.response.defer()
@@ -1460,10 +1638,18 @@ class GiveawayView(ui.View):
         if interaction.user.id in participants:
             await interaction.response.send_message("\u274c You have already entered this giveaway.", ephemeral=True)
         else:
-            participants.append(interaction.user.id)
+        participants.append(interaction.user.id)
+            # Bonus role = extra entry
+            bonus_role_id = ga["bonus_role_id"] if "bonus_role_id" in ga.keys() else None
+            bonus_msg = ""
+            if bonus_role_id:
+                member_roles = [r.id for r in interaction.user.roles]
+                if bonus_role_id in member_roles:
+                    participants.append(interaction.user.id)
+                    bonus_msg = " You have a bonus role, so you got **2 entries**! 🎉"
             c.execute("UPDATE giveaways SET participants = ? WHERE id = ?", (json.dumps(participants), self.giveaway_id))
             conn.commit()
-            await interaction.response.send_message("\u2705 You've entered! Good luck \U0001f340", ephemeral=True)
+            await interaction.response.send_message(f"✅ You've entered! Good luck 🍀{bonus_msg}", ephemeral=True)
         conn.close()
 
     @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="\U0001f465", custom_id="ga_view_v2")
@@ -1633,7 +1819,11 @@ except Exception:
     ranked_panel_channel="Channel where booster claiming cards for Ranked orders are posted",
     prestige_panel_channel="Channel where booster claiming cards for Prestige orders are posted",
     owner="The server owner/admin who manages the bot",
-    ticket_log_channel="Channel where closed ticket logs and transcripts will be sent"
+    ticket_log_channel="Channel where closed ticket logs and transcripts will be sent",
+    application_channel="Channel where application panels are posted",
+    application_review_channel="Channel where staff review submitted applications",
+    account_sale_channel="Channel where account sale posts are published",
+    account_sale_channel="Channel where account sale posts are published",
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
@@ -1648,6 +1838,9 @@ async def setup(
     prestige_panel_channel: discord.TextChannel = None,
     owner: discord.Member = None,
     ticket_log_channel: discord.TextChannel = None,
+    application_channel: discord.TextChannel = None,
+    application_review_channel: discord.TextChannel = None,
+    account_sale_channel: discord.TextChannel = None,
 ):
     updates = {}
     if vouch_channel:            updates["vouch_channel_id"]            = vouch_channel.id
@@ -1660,6 +1853,9 @@ async def setup(
     if prestige_panel_channel:   updates["prestige_panel_channel_id"]   = prestige_panel_channel.id
     if owner:                    updates["owner_id"]                    = owner.id
     if ticket_log_channel:       updates["ticket_log_channel_id"]       = ticket_log_channel.id
+    if application_channel:        updates["application_channel_id"]        = application_channel.id
+    if application_review_channel: updates["application_review_channel_id"] = application_review_channel.id
+    if account_sale_channel:       updates["account_sale_channel_id"]       = account_sale_channel.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
@@ -1675,6 +1871,9 @@ async def setup(
     if prestige_panel_channel:  e.add_field(name="\U0001f4e2 Prestige Claiming Channel",value=prestige_panel_channel.mention,  inline=True)
     if owner:                   e.add_field(name="\U0001f451 Owner",                  value=owner.mention,                   inline=True)
     if ticket_log_channel:      e.add_field(name="📋 Ticket Log Channel", value=ticket_log_channel.mention, inline=True)
+    if application_channel:        e.add_field(name="📝 Application Channel",        value=application_channel.mention,        inline=True)
+    if application_review_channel: e.add_field(name="🔍 Application Review Channel", value=application_review_channel.mention, inline=True)
+    if account_sale_channel:       e.add_field(name="🛒 Account Sale Channel",        value=account_sale_channel.mention,       inline=True)
 
     e.add_field(
         name="\u2139\ufe0f Order Flow",
@@ -1733,7 +1932,7 @@ async def list_payment_methods(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="order_panel", description="Post the generic order creation panel in this channel")
-@app_commands.describe(image_url="Optional banner image URL")
+@app_commands.describe(image_url="Optional banner image URL",bonus_role="Role that receives an extra entry in this giveaway",)
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
     e = base_embed("\U0001f3ae Brawl Stars Boost Orders", color=PRIMARY)
@@ -1783,13 +1982,16 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
     e.description = (
         "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
         f"{pres_icons}\n\n"
+    e.description = (
+        "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
+        f"{pres_icons}\n\n"
         "**Pricing** *(depends on brawler & power level)*\n"
-        f"{PRESTIGE_EMOJI['Prestige 0 -> Prestige 1']} Prestige 0 \u2192 1 \u2014 from **10\u20ac**\n"
-        f"{PRESTIGE_EMOJI['Prestige 1 -> Prestige 2']} Prestige 1 \u2192 2 \u2014 from **25\u20ac**\n"
-        f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 \u2192 3 \u2014 from **70\u20ac**\n\n"
-        "> \U0001f7e2 **Boost** \u2014 we play on your account\n"
-        "> \U0001f534 **Carry** \u2014 we play alongside you (2x price)\n\n"
-        "\u26a1 Fast & reliable | \U0001f512 Secure | \u2b50 5-star rated"
+        f"{PRESTIGE_EMOJI['Prestige 0 -> Prestige 1']} Prestige 0 → 1 — from **{PRESTIGE_PRICES['Prestige 0 -> Prestige 1']}€**\n"
+        f"{PRESTIGE_EMOJI['Prestige 1 -> Prestige 2']} Prestige 1 → 2 — from **{PRESTIGE_PRICES['Prestige 1 -> Prestige 2']}€**\n"
+        f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 → 3 — from **{PRESTIGE_PRICES['Prestige 2 -> Prestige 3']}€**\n\n"
+        "> 🟢 **Boost** — we play on your account\n"
+        "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     if image_url:
         e.set_image(url=image_url)
@@ -1862,14 +2064,16 @@ async def giveaway(
     interaction: discord.Interaction,
     prize: str, hours: int, winners: int, description: str,
     extra_entries: str = None, ping: str = "@everyone", image_url: str = None
+    bonus_role: discord.Role = None,
 ):
     conn    = get_db()
     c       = conn.cursor()
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
-        "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries, ping, ends_at)
+        "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, ended_at, bonus_role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries, ping, ends_at,
+         bonus_role.id if bonus_role else None)
     )
     conn.commit()
     conn.close()
@@ -1976,7 +2180,118 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     e.add_field(name="\u2b50 Vouches",           value=f"**{vc['vc'] or 0}**", inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
+class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
+    game        = ui.TextInput(label="Game / Account Type",          placeholder="Brawl Stars",                       style=discord.TextStyle.short)
+    description = ui.TextInput(label="Account Description",          placeholder="Masters rank, 50 maxed brawlers...", style=discord.TextStyle.long, max_length=600)
+    price       = ui.TextInput(label="Price (EUR)",                  placeholder="49.99",                              style=discord.TextStyle.short)
+    image_url   = ui.TextInput(label="Screenshot URL",               placeholder="https://i.imgur.com/...",            style=discord.TextStyle.short)
+    contact     = ui.TextInput(label="Contact / Purchase Method",    placeholder="DM this account / open a ticket",    style=discord.TextStyle.short, required=False)
 
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            price_val = float(self.price.value.replace("€", "").strip())
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid price. Enter a number like `49.99`.", ephemeral=True)
+            return
+
+        guild = interaction.guild
+        cfg   = get_config(guild.id)
+        sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
+        sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
+
+        e = base_embed(f"🛒 Account For Sale — {self.game.value}", color=GOLD)
+        e.set_author(name="BrawlCarry | Account Shop", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
+        e.description = self.description.value
+        e.add_field(name="🎮 Game",         value=self.game.value,             inline=True)
+        e.add_field(name="💰 Price",        value=f"**€{price_val:.2f}**",     inline=True)
+        e.add_field(name="📩 To Purchase",  value=self.contact.value or "Open a ticket or DM staff", inline=True)
+        e.set_footer(text=f"{FOOTER_BRAND} | React or DM to purchase")
+
+        wm_file = None
+        img = self.image_url.value.strip()
+        if img:
+            wm_file = await fetch_and_watermark(img)
+            if wm_file:
+                e.set_image(url="attachment://proof.jpg")
+
+        if wm_file:
+            await sale_ch.send(embed=e, file=wm_file)
+        else:
+            await sale_ch.send(embed=e)
+
+        await interaction.response.send_message(f"✅ Account posted in {sale_ch.mention}.", ephemeral=True)
+
+@bot.tree.command(name="assign_role", description="Assign or remove a role from a member")
+@app_commands.describe(
+    member="The member to assign/remove the role to",
+    role="The role to assign or remove",
+    action="assign or remove"
+)
+@app_commands.checks.has_permissions(manage_roles=True)
+async def assign_role(interaction: discord.Interaction, member: discord.Member, role: discord.Role, action: str = "assign"):
+    action = action.lower()
+    if action not in ("assign", "remove"):
+        await interaction.response.send_message("❌ Action must be `assign` or `remove`.", ephemeral=True)
+        return
+    try:
+        if action == "assign":
+            await member.add_roles(role, reason=f"Assigned by {interaction.user}")
+            e = base_embed("✅ Role Assigned", color=SUCCESS)
+            e.description = f"{role.mention} has been assigned to {member.mention}."
+        else:
+            await member.remove_roles(role, reason=f"Removed by {interaction.user}")
+            e = base_embed("✅ Role Removed", color=DANGER)
+            e.description = f"{role.mention} has been removed from {member.mention}."
+        await interaction.response.send_message(embed=e, ephemeral=True)
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to manage that role.", ephemeral=True)
+        
+@bot.tree.command(name="set_prestige_price", description="Update a prestige boost price")
+@app_commands.describe(
+    spec="Which prestige (e.g. Prestige 0 -> Prestige 1)",
+    price="New price in EUR (e.g. 15)"
+)
+@app_commands.checks.has_permissions(manage_channels=True)
+async def set_prestige_price(interaction: discord.Interaction, spec: str, price: str):
+    matched = None
+    for key in PRESTIGE_PRICES:
+        if key.lower().replace(" ", "") == spec.lower().replace(" ", ""):
+            matched = key
+            break
+    if not matched:
+        await interaction.response.send_message(
+            f"❌ Unknown spec. Valid options:\n" + "\n".join(f"`{k}`" for k in PRESTIGE_PRICES),
+            ephemeral=True
+        )
+        return
+    PRESTIGE_PRICES[matched] = price
+    e = base_embed("✅ Prestige Price Updated", color=SUCCESS)
+    e.description = f"**{matched}** is now **€{price}**\n\n⚠️ Re-post `/prestige_panel` to show the new price."
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+@bot.tree.command(name="post_account", description="Post an account for sale in the account-selling channel")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def post_account(interaction: discord.Interaction):
+    await interaction.response.send_modal(AccountSaleModal())
+    
+@bot.tree.command(name="application_panel", description="Post the staff application panel in this channel")
+@app_commands.describe(image_url="Optional banner image URL")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def application_panel(interaction: discord.Interaction, image_url: str = None):
+    e = base_embed("📝 Staff Applications", color=PRIMARY)
+    e.description = (
+        "Interested in joining the BrawlCarry team? Click a button below to submit your application.\n\n"
+        "**Available Positions:**\n"
+        "🟠 **Booster** — Play for customers and earn money\n"
+        "🛡️ **Admin** — Manage the server and support customers\n"
+        "📰 **Reporter** — Report issues, moderate and assist staff\n\n"
+        "Applications are reviewed by staff within 48 hours."
+    )
+    if image_url:
+        e.set_image(url=image_url)
+    await interaction.channel.send(embed=e, view=ApplicationPanelView())
+    await interaction.response.send_message("✅ Application panel posted.", ephemeral=True)
+    
 @bot.tree.command(name="help", description="View all available bot commands")
 async def help_cmd(interaction: discord.Interaction):
     rank_icons   = " ".join(RANK_EMOJI.values())
@@ -2035,6 +2350,61 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     else:
         await interaction.response.send_message(msg, ephemeral=True)
 
+async def giveaway_reminder_loop():
+    await bot.wait_until_ready()
+    reminded_12h = set()
+    reminded_24h = set()
+    while not bot.is_closed():
+        try:
+            conn = get_db()
+            c    = conn.cursor()
+            c.execute("SELECT * FROM giveaways WHERE (winner_ids IS NULL OR winner_ids = '') AND ended_at IS NOT NULL")
+            giveaways = c.fetchall()
+            conn.close()
+            now = datetime.utcnow()
+            for ga in giveaways:
+                ends_at = datetime.strptime(ga["ended_at"], "%Y-%m-%d %H:%M:%S.%f") if "." in ga["ended_at"] else datetime.strptime(ga["ended_at"], "%Y-%m-%d %H:%M:%S")
+                remaining = (ends_at - now).total_seconds()
+                if remaining <= 0:
+                    continue
+                for guild in bot.guilds:
+                    # Try to find the giveaway message channel from guild channels
+                    pass  # Reminders are sent as new messages; channel tracking not stored — see note below
+                if 86400 >= remaining > 82800 and ga["id"] not in reminded_24h:
+                    reminded_24h.add(ga["id"])
+                    for guild in bot.guilds:
+                        for ch in guild.text_channels:
+                            try:
+                                async for msg in ch.history(limit=50):
+                                    if msg.embeds and msg.author == guild.me:
+                                        if any(ga["id"] in (f.value or "") for f in msg.embeds[0].fields):
+                                            e = base_embed("⏰ Giveaway Reminder", color=GOLD)
+                                            e.description = f"🎁 **{ga['prize']}** giveaway ends in **24 hours**!\n<t:{int(ends_at.timestamp())}:R>"
+                                            await ch.send(embed=e)
+                                            raise StopIteration
+                            except StopIteration:
+                                break
+                            except Exception:
+                                continue
+                if 43200 >= remaining > 39600 and ga["id"] not in reminded_12h:
+                    reminded_12h.add(ga["id"])
+                    for guild in bot.guilds:
+                        for ch in guild.text_channels:
+                            try:
+                                async for msg in ch.history(limit=50):
+                                    if msg.embeds and msg.author == guild.me:
+                                        if any(ga["id"] in (f.value or "") for f in msg.embeds[0].fields):
+                                            e = base_embed("⏰ Giveaway Reminder", color=GOLD)
+                                            e.description = f"🎁 **{ga['prize']}** giveaway ends in **12 hours**!\n<t:{int(ends_at.timestamp())}:R>"
+                                            await ch.send(embed=e)
+                                            raise StopIteration
+                            except StopIteration:
+                                break
+                            except Exception:
+                                continue
+        except Exception as ex:
+            print(f"[WARN] Giveaway reminder loop error: {ex}")
+        await asyncio.sleep(3600)
 
 # ---------------------------------------------------------------------------
 # STARTUP
@@ -2051,6 +2421,7 @@ async def on_ready():
     bot.add_view(VouchButtonView(order_kind="prestige"))
     bot.add_view(RankedPanelButton())
     bot.add_view(PrestigePanelButton())
+    bot.add_view(ApplicationPanelView())
 
     conn = get_db()
     c    = conn.cursor()
@@ -2069,6 +2440,9 @@ async def on_ready():
 
     conn.close()
     print(f"[OK] Persistent views registered")
+
+    bot.loop.create_task(giveaway_reminder_loop())
+    print(f"[OK] Giveaway reminder loop started")
 
 
 if __name__ == "__main__":

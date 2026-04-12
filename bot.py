@@ -175,6 +175,8 @@ def init_db():
         ("guild_config", "booster_role_id INT"),
         ("guild_config", "proof_channel_id INT"),
         ("guild_config", "inactive_ticket_hours INT DEFAULT 24"),
+        ("guild_config", "application_ticket_channel_id INT"),
+
     ]
     for table, col_def in migrations:
         try:
@@ -214,6 +216,7 @@ ALLOWED_CONFIG_KEYS = {
     "booster_role_id",
     "proof_channel_id",
     "inactive_ticket_hours",
+    "application_ticket_channel_id",
 }
 
 def set_config(guild_id: int, **kwargs):
@@ -2098,13 +2101,15 @@ class TicketView(ui.View):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
+        app_ticket_ch_id = cfg["application_ticket_channel_id"] if cfg else None
         ticket = await create_ticket_thread(
             guild=guild,
             member=member,
-            name=f"support-{member.name[:12].lower()}",
+            name=f"apply-{member.name[:12].lower()}",
             topic_embed=e,
             view=TicketCloseView(),
             cfg=cfg,
+            override_channel_id=app_ticket_ch_id,
         )
         await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
 
@@ -2342,6 +2347,7 @@ async def on_message(message: discord.Message):
     booster_role="Role given to boosters (used for leaderboard filtering)",
     proof_channel="Channel where proof screenshots are posted",
     inactive_ticket_hours="Hours of inactivity before ticket warning (default: 24)",
+    application_ticket_channel="Channel where application ticket threads are created",
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
@@ -2362,6 +2368,7 @@ async def setup(
     booster_role: discord.Role = None,
     proof_channel: discord.TextChannel = None,
     inactive_ticket_hours: int = None,
+    application_ticket_channel: discord.TextChannel = None,
 ):
     updates = {}
     if vouch_channel:              updates["vouch_channel_id"]              = vouch_channel.id
@@ -2380,6 +2387,7 @@ async def setup(
     if booster_role:               updates["booster_role_id"]               = booster_role.id
     if proof_channel:              updates["proof_channel_id"]              = proof_channel.id
     if inactive_ticket_hours is not None: updates["inactive_ticket_hours"]  = inactive_ticket_hours
+    if application_ticket_channel: updates["application_ticket_channel_id"] = application_ticket_channel.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
@@ -2401,6 +2409,7 @@ async def setup(
     if booster_role:               e.add_field(name="🟠 Booster Role",                value=booster_role.mention,               inline=True)
     if proof_channel:              e.add_field(name="📸 Proof Channel",               value=proof_channel.mention,              inline=True)
     if inactive_ticket_hours:      e.add_field(name="⏰ Inactive Ticket Hours",        value=str(inactive_ticket_hours),         inline=True)
+    if application_ticket_channel:     e.add_field(name="📝 Application Ticket Channel",  value=application_ticket_channel.mention,      inline=True)
 
     e.add_field(
         name="ℹ️ Order Flow",

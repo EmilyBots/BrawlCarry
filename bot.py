@@ -24,6 +24,9 @@ intents.guilds          = True
 intents.dm_messages     = True
 
 bot = commands.Bot(command_prefix="\x00", intents=intents, help_command=None)
+ALLOWED_GUILDS = [
+    int(g.strip()) for g in os.getenv("ALLOWED_GUILDS", "").split(",") if g.strip()
+]
 
 # ---------------------------------------------------------------------------
 # DATABASE
@@ -2380,7 +2383,15 @@ async def help_cmd(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=e, ephemeral=True)
 
-
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if ALLOWED_GUILDS and interaction.guild_id not in ALLOWED_GUILDS:
+        await interaction.response.send_message(
+            "❌ This bot is not authorized to operate in this server.", ephemeral=True
+        )
+        return
+    await bot.process_application_commands(interaction)
+    
 # ---------------------------------------------------------------------------
 # ERROR HANDLER
 # ---------------------------------------------------------------------------

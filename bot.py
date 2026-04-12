@@ -1950,7 +1950,7 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
+@ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
@@ -1961,24 +1961,27 @@ class GiveawayView(ui.View):
             await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
             return
         participants = json.loads(ga["participants"]) if ga["participants"] else []
-        if interaction.user.id in participants:
+        if interaction.user.id in set(participants):
             conn.close()
             await interaction.response.send_message("❌ You have already entered this giveaway.", ephemeral=True)
             return
 
-        participants.append(interaction.user.id)
-        bonus_msg = ""
+        extra_entries_data = json.loads(ga["extra_entries"]) if ga["extra_entries"] else []
+        member_role_ids = {r.id for r in interaction.user.roles}
 
-        bonus_role_id = ga["bonus_role_id"] if "bonus_role_id" in ga.keys() else None
-        if bonus_role_id:
-            member_role_ids = [r.id for r in interaction.user.roles]
-            if bonus_role_id in member_role_ids:
-                participants.append(interaction.user.id)
-                bonus_msg = " You have a bonus role, so you got **2 entries**! 🎉"
+        total_entries = 1
+        for entry_role in extra_entries_data:
+            if entry_role["role_id"] in member_role_ids:
+                total_entries += entry_role["count"]
+
+        for _ in range(total_entries):
+            participants.append(interaction.user.id)
 
         c.execute("UPDATE giveaways SET participants = ? WHERE id = ?", (json.dumps(participants), self.giveaway_id))
         conn.commit()
         conn.close()
+
+        bonus_msg = f" You qualified for bonus roles and got **{total_entries} entries** total! 🎉" if total_entries > 1 else ""
         await interaction.response.send_message(f"✅ You've entered! Good luck 🍀{bonus_msg}", ephemeral=True)
 
     @ui.button(label="Participants", style=discord.ButtonStyle.blurple, emoji="👥", custom_id="ga_view_v2")
@@ -1994,16 +1997,23 @@ class GiveawayView(ui.View):
         e.description = f"**{count:,}** participant{'s' if count != 1 else ''} have entered."
         await interaction.response.send_message(embed=e, ephemeral=True)
 
-    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
+@ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
     async def extra(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
         c.execute("SELECT extra_entries FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         conn.close()
-        extra = ga["extra_entries"] if ga and ga["extra_entries"] else None
-        e = base_embed("🎁 Extra Entry Methods", color=ACCENT)
-        e.description = extra if extra else "No extra entry methods configured."
+        extra_entries_data = json.loads(ga["extra_entries"]) if ga and ga["extra_entries"] else []
+        e = base_embed("🎁 Bonus Entry Roles", color=ACCENT)
+        if not extra_entries_data:
+            e.description = "No bonus roles configured for this giveaway.\nEveryone gets **1 entry**."
+        else:
+            lines = ["**Base:** 1 entry (everyone)\n"]
+            for ed in extra_entries_data:
+                lines.append(f"<@&{ed['role_id']}> → **+{ed['count']} extra entries**")
+            lines.append("\n*Bonuses stack! Having multiple roles gives you all their extra entries combined.*")
+            e.description = "\n".join(lines)
         await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -2509,10 +2519,18 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
     hours="Duration in hours",
     winners="Number of winners",
     description="Giveaway description or rules",
-    extra_entries="Extra entry methods shown when users click the Extra Entries button",
     ping="Who to ping: @everyone, @here, a role mention, or none",
     image_url="Optional banner image URL",
-    bonus_role="Role that gives participants an extra entry",
+    role_1="Bonus role 1", entries_1="Extra entries for role 1",
+    role_2="Bonus role 2", entries_2="Extra entries for role 2",
+    role_3="Bonus role 3", entries_3="Extra entries for role 3",
+    role_4="Bonus role 4", entries_4="Extra entries for role 4",
+    role_5="Bonus role 5", entries_5="Extra entries for role 5",
+    role_6="Bonus role 6", entries_6="Extra entries for role 6",
+    role_7="Bonus role 7", entries_7="Extra entries for role 7",
+    role_8="Bonus role 8", entries_8="Extra entries for role 8",
+    role_9="Bonus role 9", entries_9="Extra entries for role 9",
+    role_10="Bonus role 10", entries_10="Extra entries for role 10",
 )
 @app_commands.checks.has_permissions(manage_channels=True)
 async def giveaway(
@@ -2521,19 +2539,38 @@ async def giveaway(
     hours: int,
     winners: int,
     description: str,
-    extra_entries: str = None,
     ping: str = "@everyone",
     image_url: str = None,
-    bonus_role: discord.Role = None,
+    role_1: discord.Role = None, entries_1: int = 1,
+    role_2: discord.Role = None, entries_2: int = 1,
+    role_3: discord.Role = None, entries_3: int = 1,
+    role_4: discord.Role = None, entries_4: int = 1,
+    role_5: discord.Role = None, entries_5: int = 1,
+    role_6: discord.Role = None, entries_6: int = 1,
+    role_7: discord.Role = None, entries_7: int = 1,
+    role_8: discord.Role = None, entries_8: int = 1,
+    role_9: discord.Role = None, entries_9: int = 1,
+    role_10: discord.Role = None, entries_10: int = 1,
 ):
+    role_pairs = [
+        (role_1, entries_1), (role_2, entries_2), (role_3, entries_3),
+        (role_4, entries_4), (role_5, entries_5), (role_6, entries_6),
+        (role_7, entries_7), (role_8, entries_8), (role_9, entries_9),
+        (role_10, entries_10),
+    ]
+    extra_entries_data = [
+        {"role_id": r.id, "count": max(1, e)}
+        for r, e in role_pairs if r is not None
+    ]
+    extra_entries_json = json.dumps(extra_entries_data) if extra_entries_data else None
+
     conn    = get_db()
     c       = conn.cursor()
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
         "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries, ping,
-         bonus_role.id if bonus_role else None, ends_at)
+        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at)
     )
     conn.commit()
     conn.close()
@@ -2545,10 +2582,9 @@ async def giveaway(
     e.add_field(name="🏆 Winners",     value=f"**{winners}** winner{'s' if winners != 1 else ''}", inline=True)
     e.add_field(name="👥 Participants", value="**0** entered", inline=True)
     e.add_field(name="🎯 Hosted By",   value=interaction.user.mention, inline=True)
-    if bonus_role:
-        e.add_field(name="🎁 Bonus Role", value=f"{bonus_role.mention} gets **2 entries**!", inline=False)
-    if extra_entries:
-        e.add_field(name="🎁 Bonus Entries", value="Click **Extra Entries** to see how to earn more!", inline=False)
+    if extra_entries_data:
+        bonus_lines = "\n".join(f"<@&{ed['role_id']}> → **+{ed['count']} extra entries**" for ed in extra_entries_data)
+        e.add_field(name="🎁 Bonus Entries", value=bonus_lines, inline=False)
     if image_url:
         e.set_image(url=image_url)
     e.set_footer(text=f"{FOOTER_BRAND} | ID: {ga_id}")

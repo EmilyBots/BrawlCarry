@@ -2204,7 +2204,6 @@ async def backup_panel(interaction: discord.Interaction):
         "> `guilds.join` — to add you to the backup server if needed\n\n"
         "⚠️ You only need to do this once."
     )
-    e.add_field(name="✅ Members Secured", value=f"**{count}**", inline=True)
     await interaction.channel.send(embed=e, view=BackupPanelView())
     await interaction.response.send_message("✅ Backup panel posted.", ephemeral=True)
 

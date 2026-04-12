@@ -112,6 +112,7 @@ def init_db():
         ("orders",       "booster_earnings REAL"),
         ("orders",       "order_type TEXT"),
         ("orders",       "service_type TEXT"),
+        ("guild_config", "ticket_log_channel_id INT"),
         ("vouchers",     "order_kind TEXT"),
         ("vouchers",     "service_type TEXT"),
     ]
@@ -146,6 +147,7 @@ ALLOWED_CONFIG_KEYS = {
     "ranked_panel_channel_id", "prestige_panel_channel_id",
     "ranked_ticket_channel_id", "prestige_ticket_channel_id",
     "owner_id",
+    "ticket_log_channel_id",
 }
 
 def set_config(guild_id: int, **kwargs):
@@ -411,6 +413,22 @@ class BoosterClaimView(ui.View):
         if not order:
             await interaction.response.send_message("\u274c Order not found.", ephemeral=True)
             return
+
+        conn_check = get_db()
+c_check = conn_check.cursor()
+c_check.execute(
+    "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = ? AND status = 'claimed'",
+    (booster.id,)
+)
+active_count = c_check.fetchone()["cnt"]
+conn_check.close()
+if active_count >= 2:
+    await interaction.response.send_message(
+        "❌ You already have **2 active orders**. Please complete one before claiming another.",
+        ephemeral=True
+    )
+    return
+    
         if order["status"] == "claimed":
             await interaction.response.send_message(
                 "\u274c This order has already been claimed by another booster.", ephemeral=True
@@ -429,6 +447,17 @@ class BoosterClaimView(ui.View):
         for item in self.children:
             item.disabled = True
         await interaction.message.edit(view=self)
+
+        try:
+    original_embed = interaction.message.embeds[0] if interaction.message.embeds else None
+    if original_embed:
+        original_embed.color = discord.Color.from_str("#2ECC71")
+        original_embed.title = "✅ Order Claimed — " + (original_embed.title or "")
+        original_embed.add_field(name="🟠 Claimed By", value=booster.mention, inline=True)
+        original_embed.add_field(name="⏰ Claimed At", value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        await interaction.message.edit(embed=original_embed, view=self)
+except Exception as ex:
+    print(f"[WARN] Could not edit claim embed: {ex}")
 
         ticket_ch_id = self.ticket_channel_id or order["ticket_channel_id"]
 
@@ -1502,14 +1531,71 @@ class TicketCloseView(ui.View):
 
     @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="\U0001f512", custom_id="ticket_close_v2")
     async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("\U0001f512 Closing Ticket", color=DANGER)
-        e.description = "This ticket will be deleted in **5 seconds**."
-        await interaction.response.send_message(embed=e)
-        await asyncio.sleep(5)
-        try:
-            await interaction.channel.delete(reason=f"Ticket closed by {interaction.user}")
-        except Exception:
-            pass
+e = base_embed("🔒 Closing Ticket", color=DANGER)
+e.description = "This ticket will be closed in **5 seconds**. Generating transcript..."
+await interaction.response.send_message(embed=e)
+
+channel = interaction.channel
+guild   = interaction.guild
+
+transcript_lines = []
+try:
+    async for msg in channel.history(limit=500, oldest_first=True):
+        ts = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        attachments = " | ".join(a.url for a in msg.attachments) if msg.attachments else ""
+        line = f"[{ts}] {msg.author.display_name} ({msg.author.id}): {msg.content}"
+        if attachments:
+            line += f"  [Attachments: {attachments}]"
+        transcript_lines.append(line)
+except Exception as ex:
+    transcript_lines.append(f"[ERROR fetching transcript: {ex}]")
+
+transcript_text = "\n".join(transcript_lines)
+transcript_file = discord.File(
+    io.BytesIO(transcript_text.encode("utf-8")),
+    filename=f"transcript-{channel.name}.txt"
+)
+
+conn = get_db()
+c    = conn.cursor()
+c.execute("SELECT * FROM orders WHERE ticket_channel_id = ? ORDER BY created_at DESC LIMIT 1", (channel.id,))
+order = c.fetchone()
+conn.close()
+
+cfg       = get_config(guild.id) if guild else None
+log_ch_id = cfg["ticket_log_channel_id"] if cfg else None
+log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
+
+if log_ch:
+    log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
+    log_e.add_field(name="📁 Channel",   value=channel.name,             inline=True)
+    log_e.add_field(name="🔒 Closed By", value=interaction.user.mention, inline=True)
+    log_e.add_field(name="⏰ Closed At", value=f"<t:{int(datetime.utcnow().timestamp())}:F>", inline=False)
+
+    if order:
+        booster_mention  = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
+        customer_mention = f"<@{order['user_id']}>"    if order["user_id"]    else "Unknown"
+        if order["order_type"] == "prestige":
+            pe      = prestige_emoji(f"{order['from_tier']} -> {order['to_tier']}")
+            details = f"{pe} `{order['from_tier']}` → `{order['to_tier']}`"
+        else:
+            fe      = rank_emoji(order["from_tier"] or "")
+            te      = rank_emoji(order["to_tier"]   or "")
+            details = f"{fe} `{order['from_tier']}` → {te} `{order['to_tier']}`"
+
+        log_e.add_field(name="🧾 Order ID",     value=f"`{order['id']}`", inline=True)
+        log_e.add_field(name="👤 Customer",      value=customer_mention,  inline=True)
+        log_e.add_field(name="🟠 Booster",       value=booster_mention,   inline=True)
+        log_e.add_field(name="📦 Order Details", value=details,           inline=True)
+        log_e.add_field(name="🔖 Status",        value=order["status"],   inline=True)
+
+    await log_ch.send(embed=log_e, file=transcript_file)
+
+await asyncio.sleep(5)
+try:
+    await channel.delete(reason=f"Ticket closed by {interaction.user}")
+except Exception:
+    pass
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
@@ -1560,6 +1646,7 @@ async def setup(
     ranked_panel_channel: discord.TextChannel = None,
     prestige_panel_channel: discord.TextChannel = None,
     owner: discord.Member = None,
+    ticket_log_channel: discord.TextChannel = None,
 ):
     updates = {}
     if vouch_channel:            updates["vouch_channel_id"]            = vouch_channel.id
@@ -1571,6 +1658,7 @@ async def setup(
     if ranked_panel_channel:     updates["ranked_panel_channel_id"]     = ranked_panel_channel.id
     if prestige_panel_channel:   updates["prestige_panel_channel_id"]   = prestige_panel_channel.id
     if owner:                    updates["owner_id"]                    = owner.id
+    if ticket_log_channel:       updates["ticket_log_channel_id"]       = ticket_log_channel.id
     if updates:
         set_config(interaction.guild.id, **updates)
 
@@ -1585,6 +1673,7 @@ async def setup(
     if ranked_panel_channel:    e.add_field(name="\U0001f4e2 Ranked Claiming Channel",  value=ranked_panel_channel.mention,    inline=True)
     if prestige_panel_channel:  e.add_field(name="\U0001f4e2 Prestige Claiming Channel",value=prestige_panel_channel.mention,  inline=True)
     if owner:                   e.add_field(name="\U0001f451 Owner",                  value=owner.mention,                   inline=True)
+    if ticket_log_channel:      e.add_field(name="📋 Ticket Log Channel", value=ticket_log_channel.mention, inline=True)
 
     e.add_field(
         name="\u2139\ufe0f Order Flow",

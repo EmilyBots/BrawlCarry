@@ -1875,6 +1875,55 @@ class _AppConfirmView(ui.View):
     async def confirm(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(ApplicationModal(self.role))
 
+# ---------------------------------------------------------------------------
+# COMBINED TICKET + APPLICATION PANEL VIEW
+# ---------------------------------------------------------------------------
+class CombinedPanelView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="General Support", style=discord.ButtonStyle.primary, emoji="ℹ️", custom_id="combined_support_v1")
+    async def open_support(self, interaction: discord.Interaction, button: ui.Button):
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
+
+        e = base_embed("ℹ️ General Support", color=SUCCESS)
+        e.description = (
+            f"Welcome, {member.mention}!\n\n"
+            f"📋 **Category:** General Support\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            "Staff will be with you shortly. Please describe your request in detail."
+        )
+        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"support-{member.name[:12].lower()}",
+            topic_embed=e,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+        await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
+
+    @ui.button(label="Apply: Booster", style=discord.ButtonStyle.danger, emoji="🟠", custom_id="combined_app_booster_v1")
+    async def apply_booster(self, interaction: discord.Interaction, button: ui.Button):
+        req = APPLICATION_REQUIREMENTS.get("Booster", "")
+        e = base_embed("📝 Booster Application", color=PRIMARY, description=req)
+        await interaction.response.send_message(embed=e, view=_AppConfirmView("Booster"), ephemeral=True)
+
+    @ui.button(label="Apply: Admin", style=discord.ButtonStyle.primary, emoji="🛡️", custom_id="combined_app_admin_v1")
+    async def apply_admin(self, interaction: discord.Interaction, button: ui.Button):
+        req = APPLICATION_REQUIREMENTS.get("Admin", "")
+        e = base_embed("📝 Admin Application", color=PRIMARY, description=req)
+        await interaction.response.send_message(embed=e, view=_AppConfirmView("Admin"), ephemeral=True)
+
+    @ui.button(label="Apply: Reporter", style=discord.ButtonStyle.secondary, emoji="📰", custom_id="combined_app_reporter_v1")
+    async def apply_reporter(self, interaction: discord.Interaction, button: ui.Button):
+        req = APPLICATION_REQUIREMENTS.get("Reporter", "")
+        e = base_embed("📝 Reporter Application", color=PRIMARY, description=req)
+        await interaction.response.send_message(embed=e, view=_AppConfirmView("Reporter"), ephemeral=True)
 
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)
@@ -2455,19 +2504,35 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
     await interaction.response.send_message("✅ Prestige Boost panel posted.", ephemeral=True)
 
 
-@bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
+@bot.tree.command(name="ticket_panel", description="Post the combined support & application panel in this channel")
+@app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
-async def ticket_panel(interaction: discord.Interaction):
+async def ticket_panel(interaction: discord.Interaction, image_url: str = None):
     cfg   = get_config(interaction.guild.id)
     title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "🎫 Support Center"
     desc  = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
-             else "Need help? Click the button below to open a support ticket.\nOur team will be with you shortly.\n\n📌 Tickets are private and handled by staff only.")
+             else "Need help or want to join the team? Use the buttons below.\n\n📌 Tickets are private and handled by staff only.")
     e = discord.Embed(title=title, color=PRIMARY, description=desc)
+    e.add_field(
+        name="🎫 Support",
+        value="Click **General Support** to open a ticket with our staff.",
+        inline=False
+    )
+    e.add_field(
+        name="📝 Applications",
+        value=(
+            "🟠 **Booster** — Masters III minimum\n"
+            "🛡️ **Admin** — Trustworthy & fluent in English\n"
+            "📰 **Reporter** — Active moderator & issue reporter"
+        ),
+        inline=False
+    )
+    if image_url:
+        e.set_image(url=image_url)
     e.set_footer(text=FOOTER_BRAND)
     e.timestamp = datetime.utcnow()
-    await interaction.channel.send(embed=e, view=TicketView())
-    await interaction.response.send_message("✅ Ticket panel posted.", ephemeral=True)
-
+    await interaction.channel.send(embed=e, view=CombinedPanelView())
+    await interaction.response.send_message("✅ Combined panel posted.", ephemeral=True)
 
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
 @app_commands.checks.has_permissions(administrator=True)
@@ -2961,26 +3026,6 @@ async def set_prestige_price(interaction: discord.Interaction, spec: str, price:
 @app_commands.checks.has_permissions(manage_channels=True)
 async def post_account(interaction: discord.Interaction):
     await interaction.response.send_modal(AccountSaleModal())
-
-
-@bot.tree.command(name="application_panel", description="Post the staff application panel in this channel")
-@app_commands.describe(image_url="Optional banner image URL")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def application_panel(interaction: discord.Interaction, image_url: str = None):
-    e = base_embed("📝 Staff Applications", color=PRIMARY)
-    e.description = (
-        "Interested in joining the BrawlCarry team? Click a button below to submit your application.\n\n"
-        "**Available Positions:**\n"
-        "🟠 **Booster** — Play for customers and earn money *(Masters III minimum)*\n"
-        "🛡️ **Admin** — Manage the server and support customers\n"
-        "📰 **Reporter** — Report issues, moderate and assist staff\n\n"
-        "Applications are reviewed by staff within 48 hours."
-    )
-    if image_url:
-        e.set_image(url=image_url)
-    await interaction.channel.send(embed=e, view=ApplicationPanelView())
-    await interaction.response.send_message("✅ Application panel posted.", ephemeral=True)
-
 
 @bot.tree.command(name="backup_panel", description="Post the backup access panel so members can authorize")
 @app_commands.checks.has_permissions(administrator=True)

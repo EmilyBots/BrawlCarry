@@ -1632,7 +1632,8 @@ except Exception:
     prestige_ticket_channel="Text channel where Prestige Boost ticket threads are created",
     ranked_panel_channel="Channel where booster claiming cards for Ranked orders are posted",
     prestige_panel_channel="Channel where booster claiming cards for Prestige orders are posted",
-    owner="The server owner/admin who manages the bot"
+    owner="The server owner/admin who manages the bot",
+    ticket_log_channel="Channel where closed ticket logs and transcripts will be sent"
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(

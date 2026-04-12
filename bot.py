@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands, ui
 import json, os, sqlite3, uuid, random, io, aiohttp, asyncio
 from datetime import datetime, timedelta
@@ -49,7 +49,12 @@ def init_db():
         order_type TEXT,
         service_type TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        completed_at TIMESTAMP
+        completed_at TIMESTAMP,
+        claimed_at TIMESTAMP,
+        estimated_price REAL,
+        p11_count TEXT,
+        booster_rating INT,
+        completion_time_seconds INT
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS vouchers (
         id TEXT PRIMARY KEY,
@@ -94,7 +99,10 @@ def init_db():
         ticket_log_channel_id INT,
         application_channel_id INT,
         application_review_channel_id INT,
-        account_sale_channel_id INT
+        account_sale_channel_id INT,
+        booster_role_id INT,
+        proof_channel_id INT,
+        inactive_ticket_hours INT DEFAULT 24
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS payment_methods (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +122,26 @@ def init_db():
         image_url TEXT,
         status TEXT DEFAULT 'available',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS booster_availability (
+        user_id INT PRIMARY KEY,
+        guild_id INT,
+        status TEXT DEFAULT 'available',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS rank_prices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id INT,
+        from_rank TEXT,
+        to_rank TEXT,
+        base_price REAL,
+        UNIQUE(guild_id, from_rank, to_rank)
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS ticket_activity (
+        channel_id INT PRIMARY KEY,
+        guild_id INT,
+        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        warned INT DEFAULT 0
     )""")
 
     migrations = [
@@ -139,6 +167,14 @@ def init_db():
         ("guild_config", "ticket_log_channel_id INT"),
         ("vouchers",     "order_kind TEXT"),
         ("vouchers",     "service_type TEXT"),
+        ("orders",       "claimed_at TIMESTAMP"),
+        ("orders",       "estimated_price REAL"),
+        ("orders",       "p11_count TEXT"),
+        ("orders",       "booster_rating INT"),
+        ("orders",       "completion_time_seconds INT"),
+        ("guild_config", "booster_role_id INT"),
+        ("guild_config", "proof_channel_id INT"),
+        ("guild_config", "inactive_ticket_hours INT DEFAULT 24"),
     ]
     for table, col_def in migrations:
         try:
@@ -175,6 +211,9 @@ ALLOWED_CONFIG_KEYS = {
     "application_channel_id",
     "application_review_channel_id",
     "account_sale_channel_id",
+    "booster_role_id",
+    "proof_channel_id",
+    "inactive_ticket_hours",
 }
 
 def set_config(guild_id: int, **kwargs):
@@ -233,6 +272,144 @@ def remove_payment_method(guild_id: int, label: str) -> bool:
     return affected > 0
 
 # ---------------------------------------------------------------------------
+# PRICE ESTIMATION SYSTEM
+# ---------------------------------------------------------------------------
+# Base prices: (from_rank_index, to_rank_index) => base EUR price
+# Rank indices correspond to ALL_RANKS list below
+ALL_RANKS = [
+    "Bronze I", "Bronze II", "Bronze III",
+    "Silver I", "Silver II", "Silver III",
+    "Gold I", "Gold II", "Gold III",
+    "Diamond I", "Diamond II", "Diamond III",
+    "Mythic I", "Mythic II", "Mythic III",
+    "Legendary I", "Legendary II", "Legendary III",
+    "Masters I", "Masters II", "Masters III",
+]
+
+# Price per rank tier jump (base price per division crossed)
+BASE_PRICE_PER_DIVISION = {
+    "Bronze":    1.5,
+    "Silver":    2.0,
+    "Gold":      2.5,
+    "Diamond":   3.5,
+    "Mythic":    5.0,
+    "Legendary": 8.0,
+    "Masters":   12.0,
+}
+
+def get_rank_tier(rank_name: str) -> str:
+    for tier in BASE_PRICE_PER_DIVISION:
+        if rank_name.startswith(tier):
+            return tier
+    return "Bronze"
+
+def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_type: str, guild_id: int) -> float:
+    """Calculate estimated price based on rank range, P11 count, and service type."""
+    # Check if custom price exists in DB
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "SELECT base_price FROM rank_prices WHERE guild_id = ? AND from_rank = ? AND to_rank = ?",
+        (guild_id, from_rank, to_rank)
+    )
+    custom = c.fetchone()
+    conn.close()
+
+    if custom:
+        base = float(custom["base_price"])
+    else:
+        try:
+            fi = ALL_RANKS.index(from_rank)
+            ti = ALL_RANKS.index(to_rank)
+        except ValueError:
+            return 0.0
+
+        if ti <= fi:
+            return 0.0
+
+        base = 0.0
+        for i in range(fi, ti):
+            tier = get_rank_tier(ALL_RANKS[i])
+            base += BASE_PRICE_PER_DIVISION.get(tier, 3.0)
+
+    # P11 adjustment
+    p11_num = 0
+    if p11_str:
+        try:
+            if "-" in p11_str:
+                parts = p11_str.split("-")
+                p11_num = (int(parts[0]) + int(parts[1])) // 2
+            elif "+" in p11_str:
+                p11_num = int(p11_str.replace("+", "")) + 5
+            else:
+                p11_num = int(p11_str)
+        except Exception:
+            p11_num = 45  # default baseline
+
+    # Baseline is 40-50 P11
+    if p11_num < 40:
+        # Harder boost → price increases up to +25%
+        diff = 40 - p11_num
+        multiplier = 1.0 + min(diff * 0.005, 0.25)
+    elif p11_num > 50:
+        # Easier boost → price decreases up to -20%
+        diff = p11_num - 50
+        multiplier = 1.0 - min(diff * 0.004, 0.20)
+    else:
+        multiplier = 1.0
+
+    base *= multiplier
+
+    # Carry = 2x price
+    if service_type == "carry":
+        base *= 2.0
+
+    return round(base, 2)
+
+# ---------------------------------------------------------------------------
+# BOOSTER AVAILABILITY HELPERS
+# ---------------------------------------------------------------------------
+AVAILABILITY_STATUSES = ["available", "busy", "offline"]
+
+def get_booster_status(user_id: int) -> str:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT status FROM booster_availability WHERE user_id = ?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row["status"] if row else "available"
+
+def set_booster_status(user_id: int, guild_id: int, status: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO booster_availability (user_id, guild_id, status, updated_at) VALUES (?, ?, ?, ?)",
+        (user_id, guild_id, status, datetime.utcnow())
+    )
+    conn.commit()
+    conn.close()
+
+# ---------------------------------------------------------------------------
+# TICKET ACTIVITY HELPERS
+# ---------------------------------------------------------------------------
+def update_ticket_activity(channel_id: int, guild_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO ticket_activity (channel_id, guild_id, last_activity, warned) VALUES (?, ?, ?, 0)",
+        (channel_id, guild_id, datetime.utcnow())
+    )
+    conn.commit()
+    conn.close()
+
+def remove_ticket_activity(channel_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM ticket_activity WHERE channel_id = ?", (channel_id,))
+    conn.commit()
+    conn.close()
+
+# ---------------------------------------------------------------------------
 # TICKET HELPER
 # ---------------------------------------------------------------------------
 async def create_ticket_thread(
@@ -264,6 +441,7 @@ async def create_ticket_thread(
                 )
             await thread.add_user(member)
             await thread.send(content=member.mention, embed=topic_embed, view=view)
+            update_ticket_activity(thread.id, guild.id)
             return thread
 
     category = guild.get_channel(category_id) if category_id else None
@@ -289,6 +467,7 @@ async def create_ticket_thread(
         topic=f"Opened by {member} | {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
     )
     await ch.send(content=member.mention, embed=topic_embed, view=view)
+    update_ticket_activity(ch.id, guild.id)
     return ch
 
 # ---------------------------------------------------------------------------
@@ -340,6 +519,18 @@ def base_embed(title: str = None, color: int = PRIMARY, description: str = None)
     e.timestamp = datetime.utcnow()
     return e
 
+def format_duration(seconds: int) -> str:
+    if seconds < 60:
+        return f"{seconds}s"
+    elif seconds < 3600:
+        m = seconds // 60
+        s = seconds % 60
+        return f"{m}m {s}s"
+    else:
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        return f"{h}h {m}m"
+
 # ---------------------------------------------------------------------------
 # RANKED BOOST OPTIONS
 # ---------------------------------------------------------------------------
@@ -353,6 +544,7 @@ CURRENT_RANKS = [
     "Masters I", "Masters II", "Masters III",
 ]
 
+# Minimum desired rank is Diamond I
 DESIRED_RANKS = [
     "Diamond I", "Diamond II", "Diamond III",
     "Mythic I", "Mythic II", "Mythic III",
@@ -441,7 +633,6 @@ def _payment_emoji(method_label: str, guild_id: int) -> str:
     return "\U0001f4b3"
 
 def _build_order_details_str(order_type: str, from_tier: str, to_tier: str, service_type: str) -> str:
-    """Build a rich order details string showing boost/carry result with emojis."""
     svc = "Carry" if service_type == "carry" else "Boost"
     if order_type == "prestige":
         spec = f"{from_tier} -> {to_tier}"
@@ -451,6 +642,40 @@ def _build_order_details_str(order_type: str, from_tier: str, to_tier: str, serv
         fe = rank_emoji(from_tier or "")
         te = rank_emoji(to_tier or "")
         return f"{svc} {fe} `{from_tier}` → {te} `{to_tier}`"
+
+# ---------------------------------------------------------------------------
+# BOOSTER RATING VIEW (sent after order completion)
+# ---------------------------------------------------------------------------
+class BoosterRatingView(ui.View):
+    def __init__(self, order_id: str, booster_id: int):
+        super().__init__(timeout=None)
+        self.order_id   = order_id
+        self.booster_id = booster_id
+
+        select = ui.Select(
+            placeholder="Rate your booster...",
+            options=RATING_OPTIONS,
+            custom_id=f"booster_rate_{order_id}"
+        )
+        select.callback = self._on_rate
+        self.add_item(select)
+
+    async def _on_rate(self, interaction: discord.Interaction):
+        rating = int(interaction.data["values"][0])
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("UPDATE orders SET booster_rating = ? WHERE id = ?", (rating, self.order_id))
+        conn.commit()
+        conn.close()
+
+        stars = "⭐" * rating + f" ({rating}/5)"
+        e = base_embed("⭐ Rating Submitted", color=GOLD)
+        e.description = f"You rated your booster **{stars}**.\n\nThank you for your feedback!"
+
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(view=self)
+        await interaction.response.send_message(embed=e, ephemeral=True)
 
 # ---------------------------------------------------------------------------
 # DIRECT BOOSTER CLAIM VIEW
@@ -466,6 +691,15 @@ class BoosterClaimView(ui.View):
         guild   = interaction.guild
         booster = interaction.user
 
+        # Check booster availability
+        status = get_booster_status(booster.id)
+        if status != "available":
+            await interaction.response.send_message(
+                f"❌ Your availability is set to **{status}**. Set it to `available` with `/availability` before claiming.",
+                ephemeral=True
+            )
+            return
+
         order_id = self.order_id
         if not order_id and interaction.message and interaction.message.embeds:
             for field in interaction.message.embeds[0].fields:
@@ -479,19 +713,26 @@ class BoosterClaimView(ui.View):
 
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
-        order = c.fetchone()
 
-        if not order:
-            conn.close()
-            await interaction.response.send_message("❌ Order not found.", ephemeral=True)
-            return
+        # Anti-double-claim: lock with UPDATE and check rowcount
+        c.execute(
+            "UPDATE orders SET booster_id = ?, status = 'claimed', claimed_at = ? WHERE id = ? AND status = 'pending'",
+            (booster.id, datetime.utcnow(), self.order_id)
+        )
+        affected = c.rowcount
+        conn.commit()
 
-        if order["status"] == "claimed":
+        if affected == 0:
+            # Either already claimed or not found — check which
+            c.execute("SELECT status, booster_id FROM orders WHERE id = ?", (self.order_id,))
+            order_check = c.fetchone()
             conn.close()
-            await interaction.response.send_message(
-                "❌ This order has already been claimed by another booster.", ephemeral=True
-            )
+            if not order_check:
+                await interaction.response.send_message("❌ Order not found.", ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    "❌ This order has already been claimed by another booster.", ephemeral=True
+                )
             return
 
         # Check active orders cap
@@ -500,7 +741,14 @@ class BoosterClaimView(ui.View):
             (booster.id,)
         )
         active_count = c.fetchone()["cnt"]
-        if active_count >= 2:
+
+        if active_count > 2:
+            # Revert the claim
+            c.execute(
+                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = ?",
+                (self.order_id,)
+            )
+            conn.commit()
             conn.close()
             await interaction.response.send_message(
                 "❌ You already have **2 active orders**. Please complete one before claiming another.",
@@ -508,11 +756,8 @@ class BoosterClaimView(ui.View):
             )
             return
 
-        c.execute(
-            "UPDATE orders SET booster_id = ?, status = 'claimed' WHERE id = ?",
-            (booster.id, self.order_id)
-        )
-        conn.commit()
+        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
+        order = c.fetchone()
         conn.close()
 
         for item in self.children:
@@ -529,7 +774,7 @@ class BoosterClaimView(ui.View):
         except Exception as ex:
             print(f"[WARN] Could not edit claim embed: {ex}")
 
-        ticket_ch_id = self.ticket_channel_id or order["ticket_channel_id"]
+        ticket_ch_id = self.ticket_channel_id or (order["ticket_channel_id"] if order else None)
 
         if ticket_ch_id and guild:
             ticket_ch = guild.get_channel(ticket_ch_id)
@@ -550,6 +795,7 @@ class BoosterClaimView(ui.View):
                         "Please coordinate here to complete the boost! 🏆"
                     )
                     await ticket_ch.send(embed=notify_e)
+                    update_ticket_activity(ticket_ch_id, guild.id)
                 except Exception as ex:
                     print(f"[WARN] Could not add booster to ticket: {ex}")
 
@@ -644,18 +890,22 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         details    = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
 
         pay_emoji  = _payment_emoji(order["method"], guild.id)
+        est_price  = order["estimated_price"] or 0.0
+        p11        = order["p11_count"] or "—"
 
         claim_e = base_embed(title_str, color=color)
         claim_e.set_author(
             name="BrawlCarry | Boost Available",
             icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
         )
-        claim_e.add_field(name="📦 Order Details", value=details,                                        inline=False)
-        claim_e.add_field(name="💰 You Earn",      value=f"**€{earnings:.2f}**",                        inline=True)
-        claim_e.add_field(name=f"{pay_emoji} Payment", value=order["method"] or "---",                  inline=True)
-        claim_e.add_field(name="🛠 Service",        value=svc_label,                                    inline=True)
-        claim_e.add_field(name="🆔 Order ID",       value=f"`{self.order_id}`",                         inline=True)
-        claim_e.add_field(name="🕐 Posted",         value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+        claim_e.add_field(name="📦 Order Details",   value=details,                                        inline=False)
+        claim_e.add_field(name="💰 You Earn",         value=f"**€{earnings:.2f}**",                        inline=True)
+        claim_e.add_field(name=f"{pay_emoji} Payment", value=order["method"] or "---",                     inline=True)
+        claim_e.add_field(name="🛠 Service",           value=svc_label,                                    inline=True)
+        claim_e.add_field(name=f"{P11_EMOJI} P11",    value=p11,                                          inline=True)
+        claim_e.add_field(name="💡 Est. Price",        value=f"€{est_price:.2f}",                          inline=True)
+        claim_e.add_field(name="🆔 Order ID",          value=f"`{self.order_id}`",                         inline=True)
+        claim_e.add_field(name="🕐 Posted",            value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
 
         if self.extra_notes.value:
             claim_e.add_field(name="📝 Notes", value=self.extra_notes.value, inline=False)
@@ -883,22 +1133,23 @@ class TicketPanelSetupModal(ui.Modal, title="Configure Ticket Panel"):
 class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
     notes = ui.TextInput(label="Additional Notes (Optional)", placeholder="Any special requests...", required=False, style=discord.TextStyle.long, max_length=500)
 
-    def __init__(self, current_rank: str, desired_rank: str, p11: str, payment: str, service_type: str):
+    def __init__(self, current_rank: str, desired_rank: str, p11: str, payment: str, service_type: str, estimated_price: float):
         super().__init__()
-        self.current_rank = current_rank
-        self.desired_rank = desired_rank
-        self.p11          = p11
-        self.payment      = payment
-        self.service_type = service_type
+        self.current_rank    = current_rank
+        self.desired_rank    = desired_rank
+        self.p11             = p11
+        self.payment         = payment
+        self.service_type    = service_type
+        self.estimated_price = estimated_price
 
     async def on_submit(self, interaction: discord.Interaction):
         conn     = get_db()
         c        = conn.cursor()
         order_id = f"RANKED-{uuid.uuid4().hex[:6].upper()}"
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, p11_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0,
-             self.payment, "ranked", self.service_type)
+             self.payment, "ranked", self.service_type, self.estimated_price, self.p11)
         )
         conn.commit()
         conn.close()
@@ -922,6 +1173,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
+            f"💡 **Estimated Price:** €{self.estimated_price:.2f}\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your order. "
             "Please have your payment ready!"
@@ -953,13 +1205,14 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 
         order_e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-        order_e.add_field(name="👤 Customer",      value=member.mention,                                               inline=True)
-        order_e.add_field(name="📦 Order Details", value=f"{fe} `{self.current_rank}` → {te} `{self.desired_rank}`",  inline=True)
-        order_e.add_field(name=f"⚡ P11",           value=f"{P11_EMOJI} {self.p11}",                                   inline=True)
+        order_e.add_field(name="👤 Customer",       value=member.mention,                                               inline=True)
+        order_e.add_field(name="📦 Order Details",  value=f"{fe} `{self.current_rank}` → {te} `{self.desired_rank}`",  inline=True)
+        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)
+        order_e.add_field(name="💡 Est. Price",      value=f"**€{self.estimated_price:.2f}**",                          inline=True)
         svc_field_name = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
-        order_e.add_field(name=svc_field_name,     value=svc_label,                                                    inline=True)
+        order_e.add_field(name=svc_field_name,      value=svc_label,                                                    inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,                                             inline=True)
-        order_e.add_field(name="🕐 Placed",        value=f"<t:{int(datetime.utcnow().timestamp())}:R>",               inline=True)
+        order_e.add_field(name="🕐 Placed",         value=f"<t:{int(datetime.utcnow().timestamp())}:R>",               inline=True)
         if self.notes.value:
             order_e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
         order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
@@ -994,10 +1247,20 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_id = f"PREST-{uuid.uuid4().hex[:6].upper()}"
         from_p   = self.prestige_spec.split("->")[0].strip()
         to_p     = self.prestige_spec.split("->")[-1].strip()
+
+        # Estimated price from prestige prices table
+        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
+        try:
+            est_price = float(base_price_str)
+        except ValueError:
+            est_price = 0.0
+        if self.service_type == "carry":
+            est_price *= 2.0
+
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (order_id, interaction.user.id, from_p, to_p, 0.0,
-             self.payment, "prestige", self.service_type)
+             self.payment, "prestige", self.service_type, est_price)
         )
         conn.commit()
         conn.close()
@@ -1020,6 +1283,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             f"🏆 **Current Trophies:** {self.trophy_range}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
+            f"💡 **Estimated Price:** €{est_price:.2f}\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your prestige boost. "
             "Please have your payment ready!"
@@ -1054,6 +1318,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.add_field(name="👤 Customer",          value=member.mention,      inline=True)
         order_e.add_field(name=f"{pe} Prestige",       value=self.prestige_spec,  inline=True)
         order_e.add_field(name="🏆 Trophies",          value=self.trophy_range,   inline=True)
+        order_e.add_field(name="💡 Est. Price",         value=f"**€{est_price:.2f}**", inline=True)
         svc_field_name2 = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
         order_e.add_field(name=svc_field_name2,        value=svc_label,           inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,        inline=True)
@@ -1074,7 +1339,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
 
 # ---------------------------------------------------------------------------
-# ORDER COMPLETE MODAL  (FIXED)
+# ORDER COMPLETE MODAL
 # ---------------------------------------------------------------------------
 class OrderCompleteModal(ui.Modal, title="Complete Order"):
     order_id_input = ui.TextInput(label="Order ID",                   placeholder="RANKED-XXXXXX / PREST-XXXXXX", style=discord.TextStyle.short)
@@ -1103,9 +1368,23 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
             price_val = order["price"] or 0.0
 
         now = datetime.utcnow()
+
+        # Calculate completion time
+        completion_secs = None
+        if order["claimed_at"]:
+            try:
+                claimed_dt = datetime.strptime(str(order["claimed_at"]), "%Y-%m-%d %H:%M:%S.%f")
+            except ValueError:
+                try:
+                    claimed_dt = datetime.strptime(str(order["claimed_at"]), "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    claimed_dt = None
+            if claimed_dt:
+                completion_secs = int((now - claimed_dt).total_seconds())
+
         c.execute(
-            "UPDATE orders SET status = 'completed', price = ?, method = ?, completed_at = ? WHERE id = ?",
-            (price_val, self.payment_used.value.strip(), now, order_id)
+            "UPDATE orders SET status = 'completed', price = ?, method = ?, completed_at = ?, completion_time_seconds = ? WHERE id = ?",
+            (price_val, self.payment_used.value.strip(), now, completion_secs, order_id)
         )
         conn.commit()
 
@@ -1124,20 +1403,25 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         details    = _build_order_details_str(ord_type, order["from_tier"] or "", order["to_tier"] or "", svc_type)
         svc_label  = "Carry 🔴" if svc_type == "carry" else "Boost 🟢"
         pay_emoji  = _payment_emoji(self.payment_used.value.strip(), guild_id or 0)
+        booster_mention = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
 
         conn.close()
 
         img = self.image_url.value.strip() if self.image_url.value else None
 
-        e = base_embed("✅ Order Completed", color=SUCCESS)
-        e.set_author(name="BrawlCarry | Order Completed", icon_url=interaction.user.display_avatar.url)
+        # Order Summary Embed
+        e = base_embed("✅ Order Completed — Summary", color=SUCCESS)
+        e.set_author(name="BrawlCarry | Order Summary", icon_url=interaction.user.display_avatar.url)
         e.add_field(name="🆔 Order ID",      value=f"`{order_id}`",                                               inline=True)
         e.add_field(name="👤 Customer",      value=customer.mention if customer else f"<@{order['user_id']}>",    inline=True)
+        e.add_field(name="🟠 Booster",       value=booster_mention,                                               inline=True)
         e.add_field(name="💰 Amount Paid",   value=f"**€{price_val:.2f}**",                                       inline=True)
         e.add_field(name=f"{pay_emoji} Payment", value=f"**{self.payment_used.value.strip()}**",                  inline=True)
         e.add_field(name="📦 Result",        value=details,                                                        inline=True)
         e.add_field(name="🛠 Service",       value=svc_label,                                                     inline=True)
         e.add_field(name="✅ Completed By",  value=interaction.user.mention,                                      inline=True)
+        if completion_secs is not None:
+            e.add_field(name="⏱ Time Taken",  value=format_duration(completion_secs),                            inline=True)
         e.add_field(name="🕐 Completed At",  value=f"<t:{int(now.timestamp())}:F>",                              inline=False)
         if self.notes.value:
             e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
@@ -1160,14 +1444,28 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                 await interaction.channel.send(embed=e)
             await interaction.followup.send("⚠️ No completed-orders channel configured. Use `/setup` to set one.", ephemeral=True)
 
-        if customer:
+        # DM customer with rating request
+        if customer and order["booster_id"]:
             try:
                 dm_e = base_embed("✅ Your Order is Complete!", color=SUCCESS)
                 dm_e.description = (
                     f"Great news! Your order **`{order_id}`** has been completed.\n\n"
                     f"📦 **Result:** {details}\n"
                     f"💰 **Amount:** €{price_val:.2f}\n"
-                    f"{pay_emoji} **Payment:** {self.payment_used.value.strip()}\n\n"
+                    f"{pay_emoji} **Payment:** {self.payment_used.value.strip()}\n"
+                    f"⏱ **Time taken:** {format_duration(completion_secs) if completion_secs else 'N/A'}\n\n"
+                    "Please rate your booster below! ⭐"
+                )
+                await customer.send(embed=dm_e, view=BoosterRatingView(order_id, order["booster_id"]))
+            except discord.Forbidden:
+                pass
+        elif customer:
+            try:
+                dm_e = base_embed("✅ Your Order is Complete!", color=SUCCESS)
+                dm_e.description = (
+                    f"Great news! Your order **`{order_id}`** has been completed.\n\n"
+                    f"📦 **Result:** {details}\n"
+                    f"💰 **Amount:** €{price_val:.2f}\n\n"
                     "Thank you for choosing BrawlCarry! Consider leaving a vouch ⭐"
                 )
                 await customer.send(embed=dm_e)
@@ -1183,6 +1481,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
 class RankedOrderView(ui.View):
     def __init__(self, guild_id: int):
         super().__init__(timeout=300)
+        self.guild_id     = guild_id
         self.current_rank = None
         self.desired_rank = None
         self.p11          = None
@@ -1211,7 +1510,7 @@ class RankedOrderView(ui.View):
         current_select.callback = self._on_current
         self.add_item(current_select)
 
-        desired_select = ui.Select(placeholder="Your desired rank...", options=desired_options, custom_id="ranked_desired2", row=1)
+        desired_select = ui.Select(placeholder="Your desired rank (min Diamond I)...", options=desired_options, custom_id="ranked_desired2", row=1)
         desired_select.callback = self._on_desired
         self.add_item(desired_select)
 
@@ -1255,8 +1554,68 @@ class RankedOrderView(ui.View):
         if missing:
             await interaction.response.send_message(f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True)
             return
+
+        # Validate rank ordering
+        try:
+            current_idx = ALL_RANKS.index(self.current_rank)
+        except ValueError:
+            current_idx = -1
+
+        # Desired rank validation — must be higher than current and at least Diamond I
+        DIAMOND_I_IDX = ALL_RANKS.index("Diamond I")
+        try:
+            desired_idx = ALL_RANKS.index(self.desired_rank)
+        except ValueError:
+            desired_idx = len(ALL_RANKS)  # "Pro" is above all
+
+        if self.desired_rank != "Pro" and desired_idx <= current_idx:
+            await interaction.response.send_message(
+                f"❌ Your desired rank **{self.desired_rank}** must be **higher** than your current rank **{self.current_rank}**.",
+                ephemeral=True
+            )
+            return
+
+        # Calculate estimated price
+        est_price = calculate_rank_price(
+            self.current_rank, self.desired_rank, self.p11, self.service_type, interaction.guild_id
+        )
+
+        # Show price preview first
+        fe = rank_emoji(self.current_rank)
+        te = rank_emoji(self.desired_rank)
+        e = base_embed("💡 Price Estimate", color=GOLD)
+        e.description = (
+            f"**Order Summary:**\n\n"
+            f"📦 **Boost:** {fe} `{self.current_rank}` → {te} `{self.desired_rank}`\n"
+            f"{P11_EMOJI} **P11 Brawlers:** {self.p11}\n"
+            f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
+            f"💰 **Payment:** {self.payment}\n\n"
+            f"💡 **Estimated Price: €{est_price:.2f}**\n"
+            f"*(Final price set by staff after review)*\n\n"
+            "Click **Confirm & Continue** to open your ticket."
+        )
+
+        await interaction.response.send_message(
+            embed=e,
+            view=_RankedConfirmView(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, est_price),
+            ephemeral=True
+        )
+
+
+class _RankedConfirmView(ui.View):
+    def __init__(self, current_rank, desired_rank, p11, payment, service_type, estimated_price):
+        super().__init__(timeout=120)
+        self.current_rank    = current_rank
+        self.desired_rank    = desired_rank
+        self.p11             = p11
+        self.payment         = payment
+        self.service_type    = service_type
+        self.estimated_price = estimated_price
+
+    @ui.button(label="Confirm & Continue", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(
-            RankedOrderModal(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type)
+            RankedOrderModal(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, self.estimated_price)
         )
 
 
@@ -1318,6 +1677,44 @@ class PrestigeOrderView(ui.View):
         if missing:
             await interaction.response.send_message(f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True)
             return
+
+        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
+        try:
+            est_price = float(base_price_str)
+        except ValueError:
+            est_price = 0.0
+        if self.service_type == "carry":
+            est_price *= 2.0
+
+        pe = prestige_emoji(self.prestige_spec)
+        e = base_embed("💡 Price Estimate", color=GOLD)
+        e.description = (
+            f"**Order Summary:**\n\n"
+            f"{pe} **Prestige:** {self.prestige_spec}\n"
+            f"🏆 **Current Trophies:** {self.trophy_range}\n"
+            f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
+            f"💰 **Payment:** {self.payment}\n\n"
+            f"💡 **Estimated Price: €{est_price:.2f}**\n"
+            f"*(Final price set by staff after review)*\n\n"
+            "Click **Confirm & Continue** to open your ticket."
+        )
+        await interaction.response.send_message(
+            embed=e,
+            view=_PrestigeConfirmView(self.prestige_spec, self.trophy_range, self.payment, self.service_type),
+            ephemeral=True
+        )
+
+
+class _PrestigeConfirmView(ui.View):
+    def __init__(self, prestige_spec, trophy_range, payment, service_type):
+        super().__init__(timeout=120)
+        self.prestige_spec = prestige_spec
+        self.trophy_range  = trophy_range
+        self.payment       = payment
+        self.service_type  = service_type
+
+    @ui.button(label="Confirm & Continue", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(
             PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.payment, self.service_type)
         )
@@ -1343,7 +1740,6 @@ class ApplicationModal(ui.Modal):
     def __init__(self, role: str):
         super().__init__(title=f"{role} Application")
         self.role = role
-        # Add rank proof field for boosters
         if role == "Booster":
             self.rank_proof = ui.TextInput(
                 label="Current Rank + Proof URL (Masters III min.)",
@@ -1488,7 +1884,6 @@ class ApplicationPanelView(ui.View):
 
 
 class _AppConfirmView(ui.View):
-    """Shows requirements then lets the user confirm to open the modal."""
     def __init__(self, role: str):
         super().__init__(timeout=120)
         self.role = role
@@ -1509,10 +1904,11 @@ class RankedPanelButton(ui.View):
     async def open_ranked(self, interaction: discord.Interaction, button: ui.Button):
         e = base_embed("🔥 Ranked Boost Order", color=PRIMARY)
         e.description = (
-            "Select your ranks, Power 11 count, payment method and service type, then the order form will open automatically.\n\n"
+            "Select your ranks, Power 11 count, payment method and service type.\n"
+            "The bot will show you a **price estimate** before you confirm.\n\n"
             "> 🟢 **Boost** — we play on your account (standard price)\n"
             "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
-            "⚠️ Do not share passwords or sensitive information."
+            "⚠️ Minimum desired rank is **Diamond I**. Desired rank must be higher than current rank."
         )
         e.add_field(name="🏆 Rank Emojis",
                     value=" ".join(v for v in RANK_EMOJI.values()), inline=False)
@@ -1527,7 +1923,8 @@ class PrestigePanelButton(ui.View):
     async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
         e = base_embed("✨ Prestige Boost Order", color=ACCENT)
         e.description = (
-            "Select your prestige spec, current trophies, payment method and service type, then the order form will open automatically.\n\n"
+            "Select your prestige spec, current trophies, payment method and service type.\n"
+            "The bot will show you a **price estimate** before you confirm.\n\n"
             "> 🟢 **Boost** — we play on your account (standard price)\n"
             "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
             "⚠️ Do not share passwords or sensitive information."
@@ -1583,12 +1980,11 @@ class GiveawayView(ui.View):
         participants.append(interaction.user.id)
         bonus_msg = ""
 
-        # Bonus role extra entry
         bonus_role_id = ga["bonus_role_id"] if "bonus_role_id" in ga.keys() else None
         if bonus_role_id:
             member_role_ids = [r.id for r in interaction.user.roles]
             if bonus_role_id in member_role_ids:
-                participants.append(interaction.user.id)  # second entry
+                participants.append(interaction.user.id)
                 bonus_msg = " You have a bonus role, so you got **2 entries**! 🎉"
 
         c.execute("UPDATE giveaways SET participants = ? WHERE id = ?", (json.dumps(participants), self.giveaway_id))
@@ -1603,7 +1999,6 @@ class GiveawayView(ui.View):
         c.execute("SELECT participants FROM giveaways WHERE id = ?", (self.giveaway_id,))
         ga = c.fetchone()
         conn.close()
-        # Unique participants count
         raw   = json.loads(ga["participants"]) if ga and ga["participants"] else []
         count = len(set(raw))
         e = base_embed("👥 Giveaway Participants", color=PRIMARY)
@@ -1720,6 +2115,9 @@ class TicketCloseView(ui.View):
 
             await log_ch.send(embed=log_e, file=transcript_file)
 
+        # Remove from activity tracking
+        remove_ticket_activity(channel.id)
+
         await asyncio.sleep(5)
         try:
             await channel.delete(reason=f"Ticket closed by {interaction.user}")
@@ -1747,7 +2145,7 @@ class TicketCloseView(ui.View):
 
 
 # ---------------------------------------------------------------------------
-# ACCOUNT SALE MODAL  (FIXED — uses correct field references)
+# ACCOUNT SALE MODAL
 # ---------------------------------------------------------------------------
 class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
     game        = ui.TextInput(label="Game / Account Type",       placeholder="Brawl Stars",                        style=discord.TextStyle.short)
@@ -1770,7 +2168,6 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
         sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
         sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
 
-        # Assign a sequential account number
         conn = get_db()
         c    = conn.cursor()
         c.execute(
@@ -1825,6 +2222,47 @@ class BackupPanelView(ui.View):
 
 
 # ---------------------------------------------------------------------------
+# BOOSTER AVAILABILITY VIEW
+# ---------------------------------------------------------------------------
+class AvailabilityView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @ui.button(label="🟢 Available", style=discord.ButtonStyle.success, custom_id="avail_available")
+    async def set_available(self, interaction: discord.Interaction, button: ui.Button):
+        set_booster_status(interaction.user.id, interaction.guild_id, "available")
+        e = base_embed("✅ Status Updated", color=SUCCESS)
+        e.description = "Your status is now set to **🟢 Available**.\nYou can now claim new boost orders."
+        await interaction.response.edit_message(embed=e, view=None)
+
+    @ui.button(label="🟡 Busy", style=discord.ButtonStyle.secondary, custom_id="avail_busy")
+    async def set_busy(self, interaction: discord.Interaction, button: ui.Button):
+        set_booster_status(interaction.user.id, interaction.guild_id, "busy")
+        e = base_embed("🟡 Status Updated", color=GOLD)
+        e.description = "Your status is now set to **🟡 Busy**.\nYou won't be able to claim new orders until you set yourself as Available."
+        await interaction.response.edit_message(embed=e, view=None)
+
+    @ui.button(label="🔴 Offline", style=discord.ButtonStyle.danger, custom_id="avail_offline")
+    async def set_offline(self, interaction: discord.Interaction, button: ui.Button):
+        set_booster_status(interaction.user.id, interaction.guild_id, "offline")
+        e = base_embed("🔴 Status Updated", color=DANGER)
+        e.description = "Your status is now set to **🔴 Offline**.\nYou won't be able to claim orders until you change your status."
+        await interaction.response.edit_message(embed=e, view=None)
+
+
+# ---------------------------------------------------------------------------
+# MESSAGE LISTENER — update ticket activity
+# ---------------------------------------------------------------------------
+@bot.event
+async def on_message(message: discord.Message):
+    if message.author.bot:
+        return
+    if message.guild and message.channel:
+        update_ticket_activity(message.channel.id, message.guild.id)
+    await bot.process_commands(message)
+
+
+# ---------------------------------------------------------------------------
 # SLASH COMMANDS
 # ---------------------------------------------------------------------------
 
@@ -1843,6 +2281,9 @@ class BackupPanelView(ui.View):
     application_channel="Channel where application panels are posted",
     application_review_channel="Channel where staff review submitted applications",
     account_sale_channel="Channel where account sale posts are published",
+    booster_role="Role given to boosters (used for leaderboard filtering)",
+    proof_channel="Channel where proof screenshots are posted",
+    inactive_ticket_hours="Hours of inactivity before ticket warning (default: 24)",
 )
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
@@ -1860,6 +2301,9 @@ async def setup(
     application_channel: discord.TextChannel = None,
     application_review_channel: discord.TextChannel = None,
     account_sale_channel: discord.TextChannel = None,
+    booster_role: discord.Role = None,
+    proof_channel: discord.TextChannel = None,
+    inactive_ticket_hours: int = None,
 ):
     updates = {}
     if vouch_channel:              updates["vouch_channel_id"]              = vouch_channel.id
@@ -1875,6 +2319,9 @@ async def setup(
     if application_channel:        updates["application_channel_id"]        = application_channel.id
     if application_review_channel: updates["application_review_channel_id"] = application_review_channel.id
     if account_sale_channel:       updates["account_sale_channel_id"]       = account_sale_channel.id
+    if booster_role:               updates["booster_role_id"]               = booster_role.id
+    if proof_channel:              updates["proof_channel_id"]              = proof_channel.id
+    if inactive_ticket_hours is not None: updates["inactive_ticket_hours"]  = inactive_ticket_hours
     if updates:
         set_config(interaction.guild.id, **updates)
 
@@ -1893,14 +2340,17 @@ async def setup(
     if application_channel:        e.add_field(name="📝 Application Channel",          value=application_channel.mention,        inline=True)
     if application_review_channel: e.add_field(name="🔍 Application Review Channel",  value=application_review_channel.mention, inline=True)
     if account_sale_channel:       e.add_field(name="🛒 Account Sale Channel",         value=account_sale_channel.mention,       inline=True)
+    if booster_role:               e.add_field(name="🟠 Booster Role",                value=booster_role.mention,               inline=True)
+    if proof_channel:              e.add_field(name="📸 Proof Channel",               value=proof_channel.mention,              inline=True)
+    if inactive_ticket_hours:      e.add_field(name="⏰ Inactive Ticket Hours",        value=str(inactive_ticket_hours),         inline=True)
 
     e.add_field(
         name="ℹ️ Order Flow",
         value=(
-            "1️⃣ Customer clicks **Ranked/Prestige Boost** → ticket opens in the dedicated channel\n"
-            "2️⃣ An order card appears inside the ticket\n"
-            "3️⃣ Staff click **📢 Publish to Boosters** → set earnings → card appears in the claiming channel\n"
-            "4️⃣ A booster clicks **🟠 Claim This Boost** → immediately added to the customer's ticket"
+            "1️⃣ Customer clicks **Ranked/Prestige Boost** → price estimate shown → ticket opens\n"
+            "2️⃣ Staff click **📢 Publish to Boosters** → set earnings → card appears in claiming channel\n"
+            "3️⃣ Booster clicks **🟠 Claim This Boost** → instantly added to the customer's ticket\n"
+            "4️⃣ On completion, customer receives a DM to rate the booster"
         ),
         inline=False
     )
@@ -1961,6 +2411,7 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
         f"{rank_icons}\n\n"
         "> 🟢 **Boost** — we play on your account\n"
         "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+        "💡 **Price estimation is shown before you confirm your order!**\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
@@ -1993,6 +2444,7 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
         f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 → 3 — from **{PRESTIGE_PRICES['Prestige 2 -> Prestige 3']}€**\n\n"
         "> 🟢 **Boost** — we play on your account\n"
         "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+        "💡 **Price estimation is shown before you confirm your order!**\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
@@ -2198,9 +2650,9 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     conn.close()
     e = base_embed(f"📊 {target.display_name}'s Stats", color=PRIMARY)
     e.set_thumbnail(url=target.display_avatar.url)
-    e.add_field(name="🎮 Total Carries", value=f"**{row['count'] or 0}**", inline=True)
-    e.add_field(name="💰 Total Spent",   value=f"**€{row['total']:.2f}**" if row["total"] else "**€0.00**", inline=True)
-    e.add_field(name="⭐ Vouches",       value=f"**{vc['vc'] or 0}**", inline=True)
+    e.add_field(name="🎮 Total Orders", value=f"**{row['count'] or 0}**", inline=True)
+    e.add_field(name="💰 Total Spent",  value=f"**€{row['total']:.2f}**" if row["total"] else "**€0.00**", inline=True)
+    e.add_field(name="⭐ Vouches",      value=f"**{vc['vc'] or 0}**", inline=True)
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -2211,7 +2663,7 @@ async def booster_stats(interaction: discord.Interaction, user: discord.User = N
     conn   = get_db()
     c      = conn.cursor()
     c.execute(
-        "SELECT COUNT(*) as completed, SUM(booster_earnings) as total_earnings FROM orders WHERE booster_id = ? AND status = 'completed'",
+        "SELECT COUNT(*) as completed, SUM(booster_earnings) as total_earnings, AVG(booster_rating) as avg_rating FROM orders WHERE booster_id = ? AND status = 'completed'",
         (target.id,)
     )
     row = c.fetchone()
@@ -2220,17 +2672,219 @@ async def booster_stats(interaction: discord.Interaction, user: discord.User = N
         (target.id,)
     )
     active_row = c.fetchone()
+    c.execute(
+        "SELECT AVG(completion_time_seconds) as avg_time FROM orders WHERE booster_id = ? AND status = 'completed' AND completion_time_seconds IS NOT NULL",
+        (target.id,)
+    )
+    time_row = c.fetchone()
     conn.close()
 
     completed      = row["completed"] or 0
     total_earnings = row["total_earnings"] or 0.0
     active         = active_row["active"] or 0
+    avg_rating     = row["avg_rating"]
+    avg_time       = time_row["avg_time"]
+
+    status_icon = {"available": "🟢", "busy": "🟡", "offline": "🔴"}.get(get_booster_status(target.id), "⚪")
 
     e = base_embed(f"📊 Booster Stats — {target.display_name}", color=ACCENT)
     e.set_thumbnail(url=target.display_avatar.url)
-    e.add_field(name="✅ Completed Orders", value=f"**{completed}**",           inline=True)
-    e.add_field(name="💰 Total Earnings",   value=f"**€{total_earnings:.2f}**", inline=True)
-    e.add_field(name="🔄 Active Orders",    value=f"**{active}**",              inline=True)
+    e.add_field(name="✅ Completed Orders",  value=f"**{completed}**",                                  inline=True)
+    e.add_field(name="💰 Total Earnings",    value=f"**€{total_earnings:.2f}**",                        inline=True)
+    e.add_field(name="🔄 Active Orders",     value=f"**{active}**",                                    inline=True)
+    e.add_field(name="⭐ Avg Rating",        value=f"**{avg_rating:.1f}/5**" if avg_rating else "N/A", inline=True)
+    e.add_field(name="⏱ Avg Order Time",    value=format_duration(int(avg_time)) if avg_time else "N/A", inline=True)
+    e.add_field(name=f"{status_icon} Status", value=get_booster_status(target.id).capitalize(),        inline=True)
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="leaderboard", description="View the booster leaderboard")
+@app_commands.describe(sort_by="Sort by: orders, earnings, or rating (default: earnings)")
+async def leaderboard(interaction: discord.Interaction, sort_by: str = "earnings"):
+    sort_by = sort_by.lower()
+    if sort_by not in ("orders", "earnings", "rating"):
+        sort_by = "earnings"
+
+    order_by_map = {
+        "orders":   "completed DESC",
+        "earnings": "total_earnings DESC",
+        "rating":   "avg_rating DESC",
+    }
+
+    conn = get_db()
+    c    = conn.cursor()
+    c.execute(f"""
+        SELECT
+            booster_id,
+            COUNT(*) as completed,
+            SUM(booster_earnings) as total_earnings,
+            AVG(booster_rating) as avg_rating
+        FROM orders
+        WHERE status = 'completed' AND booster_id IS NOT NULL
+        GROUP BY booster_id
+        ORDER BY {order_by_map[sort_by]}
+        LIMIT 10
+    """)
+    rows = c.fetchall()
+    conn.close()
+
+    medals = ["🥇", "🥈", "🥉"]
+    lines  = []
+    for i, row in enumerate(rows):
+        medal    = medals[i] if i < 3 else f"**#{i+1}**"
+        member   = interaction.guild.get_member(row["booster_id"])
+        name     = member.display_name if member else f"User {row['booster_id']}"
+        earnings = row["total_earnings"] or 0.0
+        rating   = f" | ⭐ {row['avg_rating']:.1f}" if row["avg_rating"] else ""
+        status_icon = {"available": "🟢", "busy": "🟡", "offline": "🔴"}.get(get_booster_status(row["booster_id"]), "⚪")
+        lines.append(
+            f"{medal} {status_icon} **{name}** — {row['completed']} orders — €{earnings:.2f}{rating}"
+        )
+
+    e = base_embed("🏆 Booster Leaderboard", color=GOLD)
+    e.description = "\n".join(lines) if lines else "No completed orders yet."
+    e.set_footer(text=f"{FOOTER_BRAND} | Sorted by {sort_by}")
+    await interaction.response.send_message(embed=e)
+
+
+@bot.tree.command(name="availability", description="Set your booster availability status")
+async def availability(interaction: discord.Interaction):
+    current = get_booster_status(interaction.user.id)
+    status_map = {"available": "🟢 Available", "busy": "🟡 Busy", "offline": "🔴 Offline"}
+    e = base_embed("🔄 Set Availability", color=PRIMARY)
+    e.description = (
+        f"Your current status: **{status_map.get(current, current)}**\n\n"
+        "Select your new availability status below."
+    )
+    await interaction.response.send_message(embed=e, view=AvailabilityView(), ephemeral=True)
+
+
+@bot.tree.command(name="my_orders", description="View your order history as a booster")
+@app_commands.describe(filter_by="all, active, or completed (default: all)")
+async def my_orders(interaction: discord.Interaction, filter_by: str = "all"):
+    filter_by = filter_by.lower()
+    conn = get_db()
+    c    = conn.cursor()
+
+    if filter_by == "active":
+        c.execute("SELECT * FROM orders WHERE booster_id = ? AND status = 'claimed' ORDER BY claimed_at DESC", (interaction.user.id,))
+    elif filter_by == "completed":
+        c.execute("SELECT * FROM orders WHERE booster_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT 20", (interaction.user.id,))
+    else:
+        c.execute("SELECT * FROM orders WHERE booster_id = ? ORDER BY created_at DESC LIMIT 20", (interaction.user.id,))
+
+    orders = c.fetchall()
+    c.execute("SELECT SUM(booster_earnings) as total FROM orders WHERE booster_id = ? AND status = 'completed'", (interaction.user.id,))
+    total_row = c.fetchone()
+    conn.close()
+
+    total_earnings = total_row["total"] or 0.0
+
+    e = base_embed(f"📋 My Orders — {interaction.user.display_name}", color=ACCENT)
+
+    if not orders:
+        e.description = "No orders found."
+    else:
+        lines = []
+        for o in orders:
+            status_icon = {"pending": "🕐", "claimed": "🟡", "completed": "✅"}.get(o["status"], "❓")
+            details = _build_order_details_str(
+                o["order_type"] or "ranked", o["from_tier"] or "", o["to_tier"] or "", o["service_type"] or "boost"
+            )
+            earnings = f" | €{o['booster_earnings']:.2f}" if o["booster_earnings"] else ""
+            time_str = ""
+            if o["completion_time_seconds"]:
+                time_str = f" | ⏱ {format_duration(o['completion_time_seconds'])}"
+            lines.append(f"{status_icon} `{o['id']}` — {details}{earnings}{time_str}")
+
+        e.description = "\n".join(lines)
+
+    e.add_field(name="💰 Total Earned", value=f"**€{total_earnings:.2f}**", inline=True)
+    e.add_field(name="📊 Shown",        value=f"**{len(orders)}** orders",  inline=True)
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="price_estimate", description="Get a price estimate for a ranked boost order")
+@app_commands.describe(
+    from_rank="Starting rank",
+    to_rank="Desired rank (minimum Diamond I)",
+    p11="Number of Power 11 brawlers",
+    service_type="boost or carry"
+)
+async def price_estimate(
+    interaction: discord.Interaction,
+    from_rank: str,
+    to_rank: str,
+    p11: str = "41-50",
+    service_type: str = "boost"
+):
+    # Validate ranks
+    if from_rank not in ALL_RANKS:
+        opts = ", ".join(ALL_RANKS)
+        await interaction.response.send_message(f"❌ Invalid from_rank. Valid options: {opts}", ephemeral=True)
+        return
+
+    valid_desired = DESIRED_RANKS + ["Pro"]
+    if to_rank not in valid_desired:
+        await interaction.response.send_message(
+            f"❌ Invalid to_rank. Must be Diamond I or higher.", ephemeral=True
+        )
+        return
+
+    try:
+        fi = ALL_RANKS.index(from_rank)
+    except ValueError:
+        fi = -1
+
+    try:
+        ti = ALL_RANKS.index(to_rank)
+    except ValueError:
+        ti = len(ALL_RANKS)  # Pro
+
+    if to_rank != "Pro" and ti <= fi:
+        await interaction.response.send_message(
+            f"❌ Desired rank **{to_rank}** must be higher than current rank **{from_rank}**.", ephemeral=True
+        )
+        return
+
+    service_type = service_type.lower()
+    if service_type not in ("boost", "carry"):
+        service_type = "boost"
+
+    est = calculate_rank_price(from_rank, to_rank, p11, service_type, interaction.guild_id)
+    fe  = rank_emoji(from_rank)
+    te  = rank_emoji(to_rank)
+
+    e = base_embed("💡 Price Estimate", color=GOLD)
+    e.description = (
+        f"**Estimated price for your boost:**\n\n"
+        f"📦 **Route:** {fe} `{from_rank}` → {te} `{to_rank}`\n"
+        f"{P11_EMOJI} **P11 Brawlers:** {p11}\n"
+        f"🛠 **Service:** {'Carry 🔴 (2x)' if service_type == 'carry' else 'Boost 🟢'}\n\n"
+        f"💰 **Estimated Price: €{est:.2f}**\n\n"
+        "*Note: Final price is set by staff after reviewing your account.*"
+    )
+    await interaction.response.send_message(embed=e, ephemeral=True)
+
+
+@bot.tree.command(name="set_rank_price", description="Set a custom price for a specific rank boost route")
+@app_commands.describe(
+    from_rank="Starting rank",
+    to_rank="Desired rank",
+    price="Base price in EUR"
+)
+@app_commands.checks.has_permissions(manage_channels=True)
+async def set_rank_price(interaction: discord.Interaction, from_rank: str, to_rank: str, price: float):
+    conn = get_db()
+    c    = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO rank_prices (guild_id, from_rank, to_rank, base_price) VALUES (?, ?, ?, ?)",
+        (interaction.guild.id, from_rank, to_rank, price)
+    )
+    conn.commit()
+    conn.close()
+    e = base_embed("✅ Rank Price Set", color=SUCCESS)
+    e.description = f"**{from_rank}** → **{to_rank}** base price set to **€{price:.2f}**."
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
@@ -2364,7 +3018,7 @@ async def help_cmd(interaction: discord.Interaction):
         f"**Rank Icons:** {rank_icons}\n"
         f"**Prestige Icons:** {pres_icons}\n\n"
         "**⚙️ Admin Commands**\n"
-        "`/setup` — Configure all channels, ticket categories & owner\n"
+        "`/setup` — Configure all channels, ticket categories, booster role & owner\n"
         "`/configure_ticket_panel` — Customise support ticket panel text\n"
         "`/ranked_panel` — Post the Ranked Boost intake panel 🔥\n"
         "`/prestige_panel` — Post the Prestige Boost intake panel ✨\n"
@@ -2383,16 +3037,27 @@ async def help_cmd(interaction: discord.Interaction):
         "`/remove_payment_method` — Remove a payment method from order forms\n"
         "`/list_payment_methods` — View all configured payment methods\n"
         "`/set_prestige_price` — Update a prestige boost price\n"
+        "`/set_rank_price` — Set a custom price for a rank boost route\n"
         "`/assign_role` — Assign or remove a role from a member\n\n"
-        "**👤 User Commands**\n"
-        "`/stats` — View your carry statistics\n"
-        "`/booster_stats` — View booster completed orders & earnings\n"
+        "**👤 User & Booster Commands**\n"
+        "`/stats` — View your order statistics\n"
+        "`/booster_stats` — View booster completed orders, earnings & rating\n"
+        "`/leaderboard` — View the booster leaderboard (sort by orders/earnings/rating)\n"
+        "`/availability` — Set your booster availability (Available / Busy / Offline)\n"
+        "`/my_orders` — View your order history as a booster\n"
+        "`/price_estimate` — Get a price estimate for a ranked boost\n"
         "`/help` — Show this menu\n\n"
         "**📦 Order Flow**\n"
-        "1. Customer clicks **Ranked/Prestige Boost** → ticket opens in the dedicated channel\n"
-        "2. An order card appears in the ticket for staff\n"
-        "3. Staff click **📢 Publish to Boosters** → enter earnings → claiming card posted\n"
-        "4. Booster clicks **🟠 Claim This Boost** → instantly added to the customer's ticket\n\n"
+        "1. Customer clicks **Ranked/Prestige Boost** → sees **price estimate** → confirms → ticket opens\n"
+        "2. Staff click **📢 Publish to Boosters** → enter booster earnings → claiming card posted\n"
+        "3. Booster sets status to **Available** then clicks **🟠 Claim This Boost** → added to ticket\n"
+        "4. Staff mark complete → customer receives **rating request** for booster\n\n"
+        "**💡 Price Estimation Rules**\n"
+        "> 40-50 P11 = baseline price\n"
+        "> <40 P11 = slightly higher price (harder boost)\n"
+        "> >50 P11 = slightly lower price (easier boost)\n"
+        "> Carry = 2x the boost price\n"
+        "> Minimum desired rank: **Diamond I**\n\n"
         "**🛠 Service Types**\n"
         "> 🟢 **Boost** — staff play on customer's account (standard price)\n"
         "> 🔴 **Carry** — staff play alongside customer (2x price)"
@@ -2430,7 +3095,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 
 
 # ---------------------------------------------------------------------------
-# GIVEAWAY REMINDER LOOP  (now includes 1h reminder)
+# BACKGROUND TASKS
 # ---------------------------------------------------------------------------
 async def giveaway_reminder_loop():
     await bot.wait_until_ready()
@@ -2494,7 +3159,80 @@ async def giveaway_reminder_loop():
         except Exception as ex:
             print(f"[WARN] Giveaway reminder loop error: {ex}")
 
-        await asyncio.sleep(600)  # check every 10 minutes
+        await asyncio.sleep(600)
+
+
+async def inactive_ticket_loop():
+    """Auto-close tickets that have been inactive past the configured threshold."""
+    await bot.wait_until_ready()
+
+    while not bot.is_closed():
+        try:
+            conn = get_db()
+            c    = conn.cursor()
+            c.execute("SELECT * FROM ticket_activity")
+            tickets = c.fetchall()
+            conn.close()
+
+            now = datetime.utcnow()
+
+            for row in tickets:
+                guild = bot.get_guild(row["guild_id"])
+                if not guild:
+                    continue
+
+                cfg = get_config(guild.id)
+                threshold_hours = (cfg["inactive_ticket_hours"] if cfg and cfg["inactive_ticket_hours"] else 24)
+
+                try:
+                    last_activity = datetime.strptime(str(row["last_activity"]), "%Y-%m-%d %H:%M:%S.%f")
+                except ValueError:
+                    try:
+                        last_activity = datetime.strptime(str(row["last_activity"]), "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        continue
+
+                hours_inactive = (now - last_activity).total_seconds() / 3600
+                channel = guild.get_channel(row["channel_id"])
+                if not channel:
+                    remove_ticket_activity(row["channel_id"])
+                    continue
+
+                if hours_inactive >= threshold_hours and not row["warned"]:
+                    # Send warning
+                    try:
+                        warn_e = base_embed("⚠️ Ticket Inactivity Warning", color=GOLD)
+                        warn_e.description = (
+                            f"This ticket has been inactive for **{int(hours_inactive)}** hours.\n\n"
+                            f"If there is no activity within **1 hour**, this ticket will be automatically closed."
+                        )
+                        await channel.send(embed=warn_e)
+                        # Mark as warned
+                        conn2 = get_db()
+                        c2 = conn2.cursor()
+                        c2.execute("UPDATE ticket_activity SET warned = 1 WHERE channel_id = ?", (row["channel_id"],))
+                        conn2.commit()
+                        conn2.close()
+                    except Exception as ex:
+                        print(f"[WARN] Could not warn ticket {row['channel_id']}: {ex}")
+
+                elif hours_inactive >= (threshold_hours + 1) and row["warned"]:
+                    # Auto-close
+                    try:
+                        close_e = base_embed("🔒 Ticket Auto-Closed", color=DANGER)
+                        close_e.description = "This ticket has been automatically closed due to inactivity."
+                        await channel.send(embed=close_e)
+                        remove_ticket_activity(row["channel_id"])
+                        await asyncio.sleep(3)
+                        await channel.delete(reason="Auto-closed due to inactivity")
+                    except Exception as ex:
+                        print(f"[WARN] Could not auto-close ticket {row['channel_id']}: {ex}")
+                        remove_ticket_activity(row["channel_id"])
+
+        except Exception as ex:
+            print(f"[WARN] Inactive ticket loop error: {ex}")
+
+        await asyncio.sleep(1800)  # Check every 30 minutes
 
 
 # ---------------------------------------------------------------------------
@@ -2527,11 +3265,20 @@ async def on_ready():
         bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"], order_type))
         bot.add_view(BoosterClaimView(row["id"], row["ticket_channel_id"]))
 
+    # Restore booster rating views for recently completed orders (last 7 days)
+    c.execute(
+        "SELECT id, booster_id FROM orders WHERE status = 'completed' AND booster_rating IS NULL AND completed_at > datetime('now', '-7 days')"
+    )
+    for row in c.fetchall():
+        if row["booster_id"]:
+            bot.add_view(BoosterRatingView(row["id"], row["booster_id"]))
+
     conn.close()
     print(f"[OK] Persistent views registered")
 
     bot.loop.create_task(giveaway_reminder_loop())
-    print(f"[OK] Giveaway reminder loop started")
+    bot.loop.create_task(inactive_ticket_loop())
+    print(f"[OK] Background tasks started")
 
 
 if __name__ == "__main__":

@@ -2172,9 +2172,9 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
         await interaction.response.send_message(f"✅ Account posted in {sale_ch.mention}.", ephemeral=True)
 
 
-OAUTH_AUTHORIZE_URL  = os.getenv("OAUTH_AUTHORIZE_URL", "https://yourdomain.up.railway.app/authorize")
-OAUTH_BACKEND_URL    = os.getenv("OAUTH_BACKEND_URL",   "https://yourdomain.up.railway.app")
-RESTORE_SECRET       = os.getenv("RESTORE_SECRET", "")
+OAUTH_AUTHORIZE_URL  = os.getenv("OAUTH_AUTHORIZE_URL", "https://worker-production-e219.up.railway.app/authorize")
+OAUTH_BACKEND_URL    = os.getenv("OAUTH_BACKEND_URL",   "https://worker-production-e219.up.railway.app")
+RESTORE_SECRET       = os.getenv("RESTORE_SECRET", "MySecret999")
 
 class BackupPanelView(ui.View):
     def __init__(self):

@@ -3057,16 +3057,14 @@ async def help_cmd(interaction: discord.Interaction):
 # ---------------------------------------------------------------------------
 # GUILD GUARD
 # ---------------------------------------------------------------------------
-@bot.event
-async def on_interaction(interaction: discord.Interaction):
+@bot.tree.interaction_check
+async def guild_guard(interaction: discord.Interaction) -> bool:
     if ALLOWED_GUILDS and interaction.guild_id not in ALLOWED_GUILDS:
-        try:
-            await interaction.response.send_message(
-                "❌ This bot is not authorized to operate in this server.", ephemeral=True
-            )
-        except Exception:
-            pass
-
+        await interaction.response.send_message(
+            "❌ This bot is not authorized to operate in this server.", ephemeral=True
+        )
+        return False
+    return True
 
 # ---------------------------------------------------------------------------
 # ERROR HANDLER

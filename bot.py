@@ -289,12 +289,6 @@ ALL_RANKS = [
 # Price per rank tier jump (base price per division crossed)
 BASE_PRICE_PER_DIVISION = 0.80
 
-def get_rank_tier(rank_name: str) -> str:
-    for tier in BASE_PRICE_PER_DIVISION:
-        if rank_name.startswith(tier):
-            return tier
-    return "Bronze"
-
 def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_type: str, guild_id: int) -> float:
     """Calculate estimated price based on rank range, P11 count, and service type."""
     # Check if custom price exists in DB
@@ -1950,7 +1944,7 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-@ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
+    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
@@ -1997,7 +1991,7 @@ class GiveawayView(ui.View):
         e.description = f"**{count:,}** participant{'s' if count != 1 else ''} have entered."
         await interaction.response.send_message(embed=e, ephemeral=True)
 
-@ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
+    @ui.button(label="Extra Entries", style=discord.ButtonStyle.secondary, emoji="🎁", custom_id="ga_extra_v2")
     async def extra(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()

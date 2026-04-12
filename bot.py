@@ -2242,32 +2242,70 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
             await sale_ch.send(embed=e)
 
         await interaction.response.send_message(f"✅ Account posted in {sale_ch.mention}.", ephemeral=True)
-OAUTH_AUTHORIZE_URL = os.getenv("OAUTH_AUTHORIZE_URL", "https://yourdomain.com/authorize")
+OAUTH_AUTHORIZE_URL  = os.getenv("OAUTH_AUTHORIZE_URL", "https://yourdomain.up.railway.app/authorize")
+OAUTH_BACKEND_URL    = os.getenv("OAUTH_BACKEND_URL",   "https://yourdomain.up.railway.app")
+RESTORE_SECRET       = os.getenv("RESTORE_SECRET", "")
 
 class BackupPanelView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(ui.Button(
-            label="🔒 Secure Backup Access",
+            label="🛡️ Secure Backup Access",
             style=discord.ButtonStyle.link,
             url=OAUTH_AUTHORIZE_URL,
-            emoji="🛡️"
+            emoji="🔒"
         ))
 
 @bot.tree.command(name="backup_panel", description="Post the backup access panel so members can authorize")
 @app_commands.checks.has_permissions(administrator=True)
 async def backup_panel(interaction: discord.Interaction):
+    try:
+        import requests as req
+        r = req.get(f"{OAUTH_BACKEND_URL}/count", timeout=5)
+        count = r.json().get("authorized_users", "?")
+    except Exception:
+        count = "?"
     e = base_embed("🛡️ Secure Your Backup Access", color=DANGER)
     e.description = (
-        "If the main server is ever deleted, raided or banned, we can automatically add you to the backup server.\n\n"
-        "**Click the button below to authorize backup access.**\n\n"
+        "If the main server is ever deleted, raided or banned, we will automatically add you to our backup server.\n\n"
+        "**Click the button below and authorize with Discord.**\n\n"
         "🔒 We only request:\n"
         "> `identify` — to know who you are\n"
-        "> `guilds.join` — to add you to the backup server\n\n"
+        "> `guilds.join` — to add you to the backup server if needed\n\n"
         "⚠️ You only need to do this once."
     )
+    e.add_field(name="✅ Members Secured", value=f"**{count}**", inline=True)
     await interaction.channel.send(embed=e, view=BackupPanelView())
     await interaction.response.send_message("✅ Backup panel posted.", ephemeral=True)
+
+@bot.tree.command(name="restore_backup", description="Trigger restore — adds all authorized members to backup server")
+@app_commands.describe(backup_server_id="The ID of the backup server to add members to")
+@app_commands.checks.has_permissions(administrator=True)
+async def restore_backup(interaction: discord.Interaction, backup_server_id: str):
+    cfg = get_config(interaction.guild.id)
+    owner_id = cfg["owner_id"] if cfg else None
+    if owner_id and interaction.user.id != owner_id:
+        await interaction.response.send_message("❌ Only the server owner can trigger a restore.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        import requests as req
+        r = req.post(
+            f"{OAUTH_BACKEND_URL}/restore",
+            json={"secret": RESTORE_SECRET, "guild_id": backup_server_id},
+            timeout=60
+        )
+        data = r.json()
+        e = base_embed("🛡️ Restore Complete", color=SUCCESS)
+        e.add_field(name="✅ Added",     value=f"**{data.get('success', 0)}**",   inline=True)
+        e.add_field(name="🔄 Refreshed", value=f"**{data.get('refreshed', 0)}**", inline=True)
+        e.add_field(name="❌ Failed",    value=f"**{data.get('failed', 0)}**",    inline=True)
+        e.description = "All authorized members have been added to the backup server."
+        await interaction.followup.send(embed=e, ephemeral=True)
+    except Exception as ex:
+        await interaction.followup.send(f"❌ Restore failed: `{ex}`", ephemeral=True)
     
 @bot.tree.command(name="assign_role", description="Assign or remove a role from a member")
 @app_commands.describe(

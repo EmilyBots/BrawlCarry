@@ -2588,8 +2588,6 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
     role_6="Bonus role 6", entries_6="Extra entries for role 6 (e.g. 2 = 3 total with base)",
     role_7="Bonus role 7", entries_7="Extra entries for role 7 (e.g. 2 = 3 total with base)",
     role_8="Bonus role 8", entries_8="Extra entries for role 8 (e.g. 2 = 3 total with base)",
-    role_9="Bonus role 9", entries_9="Extra entries for role 9 (e.g. 2 = 3 total with base)",
-    role_10="Bonus role 10", entries_10="Extra entries for role 10 (e.g. 2 = 3 total with base)",
 )
 @app_commands.checks.has_permissions(manage_channels=True)
 async def giveaway(
@@ -2608,14 +2606,11 @@ async def giveaway(
     role_6: discord.Role = None, entries_6: int = 1,
     role_7: discord.Role = None, entries_7: int = 1,
     role_8: discord.Role = None, entries_8: int = 1,
-    role_9: discord.Role = None, entries_9: int = 1,
-    role_10: discord.Role = None, entries_10: int = 1,
 ):
     role_pairs = [
         (role_1, entries_1), (role_2, entries_2), (role_3, entries_3),
         (role_4, entries_4), (role_5, entries_5), (role_6, entries_6),
-        (role_7, entries_7), (role_8, entries_8), (role_9, entries_9),
-        (role_10, entries_10),
+        (role_7, entries_7), (role_8, entries_8),
     ]
     extra_entries_data = [
         {"role_id": r.id, "count": max(1, e)}

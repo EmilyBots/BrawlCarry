@@ -287,15 +287,7 @@ ALL_RANKS = [
 ]
 
 # Price per rank tier jump (base price per division crossed)
-BASE_PRICE_PER_DIVISION = {
-    "Bronze":    1.5,
-    "Silver":    2.0,
-    "Gold":      2.5,
-    "Diamond":   3.5,
-    "Mythic":    5.0,
-    "Legendary": 8.0,
-    "Masters":   12.0,
-}
+BASE_PRICE_PER_DIVISION = 0.80
 
 def get_rank_tier(rank_name: str) -> str:
     for tier in BASE_PRICE_PER_DIVISION:
@@ -327,10 +319,7 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
         if ti <= fi:
             return 0.0
 
-        base = 0.0
-        for i in range(fi, ti):
-            tier = get_rank_tier(ALL_RANKS[i])
-            base += BASE_PRICE_PER_DIVISION.get(tier, 3.0)
+        base = (ti - fi) * BASE_PRICE_PER_DIVISION
 
     # P11 adjustment
     p11_num = 0

@@ -230,9 +230,9 @@ async def create_ticket_thread(
     ticket_ch_id = override_channel_id or (cfg["ticket_channel_id"] if cfg else None)
     category_id  = cfg["ticket_category_id"] if cfg else None
 
-    if ticket_ch_id:
+if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
-    if isinstance(text_ch, discord.TextChannel):
+        if isinstance(text_ch, discord.TextChannel):
             try:
                 thread = await text_ch.create_thread(
                     name=name,
@@ -450,20 +450,20 @@ class BoosterClaimView(ui.View):
             await interaction.response.send_message("\u274c Order not found.", ephemeral=True)
             return
 
-        conn_check = get_db()
-c_check = conn_check.cursor()
-c_check.execute(
-    "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = ? AND status = 'claimed'",
-    (booster.id,)
-)
-active_count = c_check.fetchone()["cnt"]
-conn_check.close()
-if active_count >= 2:
-    await interaction.response.send_message(
-        "❌ You already have **2 active orders**. Please complete one before claiming another.",
-        ephemeral=True
-    )
-    return
+conn_check = get_db()
+        c_check = conn_check.cursor()
+        c_check.execute(
+            "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = ? AND status = 'claimed'",
+            (booster.id,)
+        )
+        active_count = c_check.fetchone()["cnt"]
+        conn_check.close()
+        if active_count >= 2:
+            await interaction.response.send_message(
+                "❌ You already have **2 active orders**. Please complete one before claiming another.",
+                ephemeral=True
+            )
+            return
     
         if order["status"] == "claimed":
             await interaction.response.send_message(
@@ -484,16 +484,16 @@ if active_count >= 2:
             item.disabled = True
         await interaction.message.edit(view=self)
 
-        try:
-    original_embed = interaction.message.embeds[0] if interaction.message.embeds else None
-    if original_embed:
-        original_embed.color = discord.Color.from_str("#2ECC71")
-        original_embed.title = "✅ Order Claimed — " + (original_embed.title or "")
-        original_embed.add_field(name="🟠 Claimed By", value=booster.mention, inline=True)
-        original_embed.add_field(name="⏰ Claimed At", value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-        await interaction.message.edit(embed=original_embed, view=self)
-except Exception as ex:
-    print(f"[WARN] Could not edit claim embed: {ex}")
+try:
+            original_embed = interaction.message.embeds[0] if interaction.message.embeds else None
+            if original_embed:
+                original_embed.color = SUCCESS
+                original_embed.title = "✅ Order Claimed — " + (original_embed.title or "")
+                original_embed.add_field(name="🟠 Claimed By", value=booster.mention, inline=True)
+                original_embed.add_field(name="⏰ Claimed At", value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+                await interaction.message.edit(embed=original_embed, view=self)
+        except Exception as ex:
+            print(f"[WARN] Could not edit claim embed: {ex}")
 
         ticket_ch_id = self.ticket_channel_id or order["ticket_channel_id"]
 
@@ -967,7 +967,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         )
         welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-try:
+        try:
             ticket = await create_ticket_thread(
                 guild=guild,
                 member=member,
@@ -1401,7 +1401,25 @@ class PrestigeOrderView(ui.View):
         svc_select.callback = self._on_svc_submit
         self.add_item(svc_select)
 
-    # ---------------------------------------------------------------------------
+async def _on_spec(self, interaction):   self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
+    async def _on_trophy(self, interaction): self.trophy_range  = interaction.data["values"][0]; await interaction.response.defer()
+    async def _on_pay(self, interaction):    self.payment       = interaction.data["values"][0]; await interaction.response.defer()
+
+    async def _on_svc_submit(self, interaction: discord.Interaction):
+        self.service_type = interaction.data["values"][0]
+        missing = []
+        if not self.prestige_spec: missing.append("Prestige Spec")
+        if not self.trophy_range:  missing.append("Current Trophies")
+        if not self.payment:       missing.append("Payment Method")
+        if missing:
+            await interaction.response.send_message(f"\u274c Please fill in: **{', '.join(missing)}**", ephemeral=True)
+            return
+        await interaction.response.send_modal(
+            PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.payment, self.service_type)
+        )
+
+
+# ---------------------------------------------------------------------------
 # APPLICATION SYSTEM
 # ---------------------------------------------------------------------------
 APPLICATION_ROLES = ["Booster", "Admin", "Reporter"]
@@ -1537,24 +1555,6 @@ class ApplicationPanelView(ui.View):
             await interaction.response.send_modal(ApplicationModal(role))
         return callback
 
-    async def _on_spec(self, interaction):   self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
-    async def _on_trophy(self, interaction): self.trophy_range  = interaction.data["values"][0]; await interaction.response.defer()
-    async def _on_pay(self, interaction):    self.payment       = interaction.data["values"][0]; await interaction.response.defer()
-
-    async def _on_svc_submit(self, interaction: discord.Interaction):
-        self.service_type = interaction.data["values"][0]
-        missing = []
-        if not self.prestige_spec: missing.append("Prestige Spec")
-        if not self.trophy_range:  missing.append("Current Trophies")
-        if not self.payment:       missing.append("Payment Method")
-        if missing:
-            await interaction.response.send_message(f"\u274c Please fill in: **{', '.join(missing)}**", ephemeral=True)
-            return
-        await interaction.response.send_modal(
-            PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.payment, self.service_type)
-        )
-
-
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)
 # ---------------------------------------------------------------------------
@@ -1641,7 +1641,7 @@ class GiveawayView(ui.View):
         if interaction.user.id in participants:
             await interaction.response.send_message("\u274c You have already entered this giveaway.", ephemeral=True)
         else:
-        participants.append(interaction.user.id)
+            participants.append(interaction.user.id)
             # Bonus role = extra entry
             bonus_role_id = ga["bonus_role_id"] if "bonus_role_id" in ga.keys() else None
             bonus_msg = ""
@@ -1719,72 +1719,72 @@ class TicketCloseView(ui.View):
         super().__init__(timeout=None)
 
     @ui.button(label="Close Ticket", style=discord.ButtonStyle.danger, emoji="\U0001f512", custom_id="ticket_close_v2")
-    async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
-e = base_embed("🔒 Closing Ticket", color=DANGER)
-e.description = "This ticket will be closed in **5 seconds**. Generating transcript..."
-await interaction.response.send_message(embed=e)
+async def close_ticket(self, interaction: discord.Interaction, button: ui.Button):
+        e = base_embed("🔒 Closing Ticket", color=DANGER)
+        e.description = "This ticket will be closed in **5 seconds**. Generating transcript..."
+        await interaction.response.send_message(embed=e)
 
-channel = interaction.channel
-guild   = interaction.guild
+        channel = interaction.channel
+        guild   = interaction.guild
 
-transcript_lines = []
-try:
-    async for msg in channel.history(limit=500, oldest_first=True):
-        ts = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        attachments = " | ".join(a.url for a in msg.attachments) if msg.attachments else ""
-        line = f"[{ts}] {msg.author.display_name} ({msg.author.id}): {msg.content}"
-        if attachments:
-            line += f"  [Attachments: {attachments}]"
-        transcript_lines.append(line)
-except Exception as ex:
-    transcript_lines.append(f"[ERROR fetching transcript: {ex}]")
+        transcript_lines = []
+        try:
+            async for msg in channel.history(limit=500, oldest_first=True):
+                ts = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                attachments = " | ".join(a.url for a in msg.attachments) if msg.attachments else ""
+                line = f"[{ts}] {msg.author.display_name} ({msg.author.id}): {msg.content}"
+                if attachments:
+                    line += f"  [Attachments: {attachments}]"
+                transcript_lines.append(line)
+        except Exception as ex:
+            transcript_lines.append(f"[ERROR fetching transcript: {ex}]")
 
-transcript_text = "\n".join(transcript_lines)
-transcript_file = discord.File(
-    io.BytesIO(transcript_text.encode("utf-8")),
-    filename=f"transcript-{channel.name}.txt"
-)
+        transcript_text = "\n".join(transcript_lines)
+        transcript_file = discord.File(
+            io.BytesIO(transcript_text.encode("utf-8")),
+            filename=f"transcript-{channel.name}.txt"
+        )
 
-conn = get_db()
-c    = conn.cursor()
-c.execute("SELECT * FROM orders WHERE ticket_channel_id = ? ORDER BY created_at DESC LIMIT 1", (channel.id,))
-order = c.fetchone()
-conn.close()
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT * FROM orders WHERE ticket_channel_id = ? ORDER BY created_at DESC LIMIT 1", (channel.id,))
+        order = c.fetchone()
+        conn.close()
 
-cfg       = get_config(guild.id) if guild else None
-log_ch_id = cfg["ticket_log_channel_id"] if cfg else None
-log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
+        cfg       = get_config(guild.id) if guild else None
+        log_ch_id = cfg["ticket_log_channel_id"] if cfg else None
+        log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
 
-if log_ch:
-    log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
-    log_e.add_field(name="📁 Channel",   value=channel.name,             inline=True)
-    log_e.add_field(name="🔒 Closed By", value=interaction.user.mention, inline=True)
-    log_e.add_field(name="⏰ Closed At", value=f"<t:{int(datetime.utcnow().timestamp())}:F>", inline=False)
+        if log_ch:
+            log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
+            log_e.add_field(name="📁 Channel",   value=channel.name,             inline=True)
+            log_e.add_field(name="🔒 Closed By", value=interaction.user.mention, inline=True)
+            log_e.add_field(name="⏰ Closed At", value=f"<t:{int(datetime.utcnow().timestamp())}:F>", inline=False)
 
-    if order:
-        booster_mention  = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
-        customer_mention = f"<@{order['user_id']}>"    if order["user_id"]    else "Unknown"
-        if order["order_type"] == "prestige":
-            pe      = prestige_emoji(f"{order['from_tier']} -> {order['to_tier']}")
-            details = f"{pe} `{order['from_tier']}` → `{order['to_tier']}`"
-        else:
-            fe      = rank_emoji(order["from_tier"] or "")
-            te      = rank_emoji(order["to_tier"]   or "")
-            details = f"{fe} `{order['from_tier']}` → {te} `{order['to_tier']}`"
+            if order:
+                booster_mention  = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
+                customer_mention = f"<@{order['user_id']}>"    if order["user_id"]    else "Unknown"
+                if order["order_type"] == "prestige":
+                    pe      = prestige_emoji(f"{order['from_tier']} -> {order['to_tier']}")
+                    details = f"{pe} `{order['from_tier']}` → `{order['to_tier']}`"
+                else:
+                    fe      = rank_emoji(order["from_tier"] or "")
+                    te      = rank_emoji(order["to_tier"]   or "")
+                    details = f"{fe} `{order['from_tier']}` → {te} `{order['to_tier']}`"
 
-        log_e.add_field(name="🧾 Order ID",     value=f"`{order['id']}`", inline=True)
-        log_e.add_field(name="👤 Customer",      value=customer_mention,  inline=True)
-        log_e.add_field(name="🟠 Booster",       value=booster_mention,   inline=True)
-        log_e.add_field(name="📦 Order Details", value=details,           inline=True)
-        log_e.add_field(name="🔖 Status",        value=order["status"],   inline=True)
+                log_e.add_field(name="🧾 Order ID",     value=f"`{order['id']}`", inline=True)
+                log_e.add_field(name="👤 Customer",      value=customer_mention,  inline=True)
+                log_e.add_field(name="🟠 Booster",       value=booster_mention,   inline=True)
+                log_e.add_field(name="📦 Order Details", value=details,           inline=True)
+                log_e.add_field(name="🔖 Status",        value=order["status"],   inline=True)
 
-    await log_ch.send(embed=log_e, file=transcript_file)
+            await log_ch.send(embed=log_e, file=transcript_file)
 
-await asyncio.sleep(5)
-try:
-    await channel.delete(reason=f"Ticket closed by {interaction.user}")
-except Exception:
-    pass
+        await asyncio.sleep(5)
+        try:
+            await channel.delete(reason=f"Ticket closed by {interaction.user}")
+        except Exception:
+            pass
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="\u2b50", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
@@ -1825,7 +1825,6 @@ except Exception:
     ticket_log_channel="Channel where closed ticket logs and transcripts will be sent",
     application_channel="Channel where application panels are posted",
     application_review_channel="Channel where staff review submitted applications",
-    account_sale_channel="Channel where account sale posts are published",
     account_sale_channel="Channel where account sale posts are published",
 )
 @app_commands.checks.has_permissions(administrator=True)
@@ -1935,7 +1934,7 @@ async def list_payment_methods(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="order_panel", description="Post the generic order creation panel in this channel")
-@app_commands.describe(image_url="Optional banner image URL",bonus_role="Role that receives an extra entry in this giveaway",)
+@app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_panel(interaction: discord.Interaction, image_url: str = None):
     e = base_embed("\U0001f3ae Brawl Stars Boost Orders", color=PRIMARY)
@@ -1960,17 +1959,17 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
     rank_icons = " ".join(RANK_EMOJI.values())
     e = base_embed("\U0001f525 Ranked Boost", color=PRIMARY)
     e.description = (
-        "Want to climb the ranked ladder? Click the button below to place your **Ranked Boost** order!\n\n"
-        f"{rank_icons}\n\n"
-        "**Pricing** *(depends on starting rank & P11 brawlers)*\n"
-        f"{RANK_EMOJI['Legendary']} Legendary Boost \u2014 from **16\u20ac**\n"
-        f"{RANK_EMOJI['Masters']} Masters Boost \u2014 from **35\u20ac**\n"
-        f"{RANK_EMOJI['Pro']} Pro Rank \u2014 from **200\u20ac**\n\n"
-        "> \U0001f7e2 **Boost** \u2014 we play on your account\n"
-        "> \U0001f534 **Carry** \u2014 we play alongside you (2x price)\n\n"
-        "\u26a1 Fast & reliable | \U0001f512 Secure | \u2b50 5-star rated"
+        "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
+        f"{pres_icons}\n\n"
+        "**Pricing** *(depends on brawler & power level)*\n"
+        f"{PRESTIGE_EMOJI['Prestige 0 -> Prestige 1']} Prestige 0 → 1 — from **{PRESTIGE_PRICES['Prestige 0 -> Prestige 1']}€**\n"
+        f"{PRESTIGE_EMOJI['Prestige 1 -> Prestige 2']} Prestige 1 → 2 — from **{PRESTIGE_PRICES['Prestige 1 -> Prestige 2']}€**\n"
+        f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 → 3 — from **{PRESTIGE_PRICES['Prestige 2 -> Prestige 3']}€**\n\n"
+        "> 🟢 **Boost** — we play on your account\n"
+        "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
-image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
+    image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
     if image_urls:
         e.set_image(url=image_urls[0])
 
@@ -2085,7 +2084,7 @@ async def vouch_panel(interaction: discord.Interaction, user: discord.User = Non
 async def giveaway(
     interaction: discord.Interaction,
     prize: str, hours: int, winners: int, description: str,
-    extra_entries: str = None, ping: str = "@everyone", image_url: str = None
+    extra_entries: str = None, ping: str = "@everyone", image_url: str = None,
     bonus_role: discord.Role = None,
 ):
     conn    = get_db()
@@ -2424,11 +2423,12 @@ async def help_cmd(interaction: discord.Interaction):
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if ALLOWED_GUILDS and interaction.guild_id not in ALLOWED_GUILDS:
-        await interaction.response.send_message(
-            "❌ This bot is not authorized to operate in this server.", ephemeral=True
-        )
-        return
-    await bot.process_application_commands(interaction)
+        try:
+            await interaction.response.send_message(
+                "❌ This bot is not authorized to operate in this server.", ephemeral=True
+            )
+        except Exception:
+            pass
     
 # ---------------------------------------------------------------------------
 # ERROR HANDLER

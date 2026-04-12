@@ -1951,7 +1951,7 @@ async def order_panel(interaction: discord.Interaction, image_url: str = None):
 
 
 @bot.tree.command(name="ranked_panel", description="Post the Ranked Boost order panel in this channel")
-@app_commands.describe(image_url="Optional banner image URL")
+@app_commands.describe(image_url="Image URLs separated by commas (e.g. url1,url2,url3)")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
     rank_icons = " ".join(RANK_EMOJI.values())
@@ -1967,14 +1967,24 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
         "> \U0001f534 **Carry** \u2014 we play alongside you (2x price)\n\n"
         "\u26a1 Fast & reliable | \U0001f512 Secure | \u2b50 5-star rated"
     )
-    if image_url:
-        e.set_image(url=image_url)
-    await interaction.channel.send(embed=e, view=RankedPanelButton())
-    await interaction.response.send_message("\u2705 Ranked Boost panel posted.", ephemeral=True)
+image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
+    if image_urls:
+        e.set_image(url=image_urls[0])
+
+    extra_embeds = []
+    for extra_url in image_urls[1:]:
+        img_e = discord.Embed(color=PRIMARY)
+        img_e.set_image(url=extra_url)
+        img_e.set_footer(text=FOOTER_BRAND)
+        extra_embeds.append(img_e)
+
+    all_embeds = [e] + extra_embeds
+    await interaction.channel.send(embeds=all_embeds, view=RankedPanelButton())
+    await interaction.response.send_message("✅ Ranked Boost panel posted.", ephemeral=True)
 
 
 @bot.tree.command(name="prestige_panel", description="Post the Prestige Boost order panel in this channel")
-@app_commands.describe(image_url="Optional banner image URL")
+@app_commands.describe(image_url="Image URLs separated by commas (e.g. url1,url2,url3)")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
     pres_icons = " ".join(PRESTIGE_EMOJI.values())
@@ -1993,11 +2003,20 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
         "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
-    if image_url:
-        e.set_image(url=image_url)
-    await interaction.channel.send(embed=e, view=PrestigePanelButton())
-    await interaction.response.send_message("\u2705 Prestige Boost panel posted.", ephemeral=True)
+image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
+    if image_urls:
+        e.set_image(url=image_urls[0])
 
+    extra_embeds = []
+    for extra_url in image_urls[1:]:
+        img_e = discord.Embed(color=ACCENT)
+        img_e.set_image(url=extra_url)
+        img_e.set_footer(text=FOOTER_BRAND)
+        extra_embeds.append(img_e)
+
+    all_embeds = [e] + extra_embeds
+    await interaction.channel.send(embeds=all_embeds, view=PrestigePanelButton())
+    await interaction.response.send_message("✅ Prestige Boost panel posted.", ephemeral=True)
 
 @bot.tree.command(name="ticket_panel", description="Post the support ticket panel in this channel")
 @app_commands.checks.has_permissions(manage_channels=True)

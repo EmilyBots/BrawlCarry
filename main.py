@@ -2220,7 +2220,33 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
             await sale_ch.send(embed=e)
 
         await interaction.response.send_message(f"✅ Account posted in {sale_ch.mention}.", ephemeral=True)
+OAUTH_AUTHORIZE_URL = os.getenv("OAUTH_AUTHORIZE_URL", "https://yourdomain.com/authorize")
 
+class BackupPanelView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(ui.Button(
+            label="🔒 Secure Backup Access",
+            style=discord.ButtonStyle.link,
+            url=OAUTH_AUTHORIZE_URL,
+            emoji="🛡️"
+        ))
+
+@bot.tree.command(name="backup_panel", description="Post the backup access panel so members can authorize")
+@app_commands.checks.has_permissions(administrator=True)
+async def backup_panel(interaction: discord.Interaction):
+    e = base_embed("🛡️ Secure Your Backup Access", color=DANGER)
+    e.description = (
+        "If the main server is ever deleted, raided or banned, we can automatically add you to the backup server.\n\n"
+        "**Click the button below to authorize backup access.**\n\n"
+        "🔒 We only request:\n"
+        "> `identify` — to know who you are\n"
+        "> `guilds.join` — to add you to the backup server\n\n"
+        "⚠️ You only need to do this once."
+    )
+    await interaction.channel.send(embed=e, view=BackupPanelView())
+    await interaction.response.send_message("✅ Backup panel posted.", ephemeral=True)
+    
 @bot.tree.command(name="assign_role", description="Assign or remove a role from a member")
 @app_commands.describe(
     member="The member to assign/remove the role to",

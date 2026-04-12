@@ -232,7 +232,6 @@ async def create_ticket_thread(
 
     if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
-        if isinstance(text_ch, discord.TextChannel):
     if isinstance(text_ch, discord.TextChannel):
             try:
                 thread = await text_ch.create_thread(

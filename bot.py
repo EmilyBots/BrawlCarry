@@ -1907,23 +1907,39 @@ class CombinedPanelView(ui.View):
         )
         await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
 
-    @ui.button(label="Apply: Booster", style=discord.ButtonStyle.danger, emoji="🟠", custom_id="combined_app_booster_v1")
-    async def apply_booster(self, interaction: discord.Interaction, button: ui.Button):
-        req = APPLICATION_REQUIREMENTS.get("Booster", "")
-        e = base_embed("📝 Booster Application", color=PRIMARY, description=req)
-        await interaction.response.send_message(embed=e, view=_AppConfirmView("Booster"), ephemeral=True)
+    @ui.button(label="Apply for a Role", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="combined_apply_v1")
+    async def apply_role(self, interaction: discord.Interaction, button: ui.Button):
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
 
-    @ui.button(label="Apply: Admin", style=discord.ButtonStyle.primary, emoji="🛡️", custom_id="combined_app_admin_v1")
-    async def apply_admin(self, interaction: discord.Interaction, button: ui.Button):
-        req = APPLICATION_REQUIREMENTS.get("Admin", "")
-        e = base_embed("📝 Admin Application", color=PRIMARY, description=req)
-        await interaction.response.send_message(embed=e, view=_AppConfirmView("Admin"), ephemeral=True)
+        e = base_embed("📝 Role Application", color=PRIMARY)
+        e.description = (
+            f"Welcome, {member.mention}!\n\n"
+            f"📋 **Category:** Role Application\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            "Please select the role you'd like to apply for below."
+        )
+        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-    @ui.button(label="Apply: Reporter", style=discord.ButtonStyle.secondary, emoji="📰", custom_id="combined_app_reporter_v1")
-    async def apply_reporter(self, interaction: discord.Interaction, button: ui.Button):
-        req = APPLICATION_REQUIREMENTS.get("Reporter", "")
-        e = base_embed("📝 Reporter Application", color=PRIMARY, description=req)
-        await interaction.response.send_message(embed=e, view=_AppConfirmView("Reporter"), ephemeral=True)
+        ticket = await create_ticket_thread(
+            guild=guild,
+            member=member,
+            name=f"apply-{member.name[:12].lower()}",
+            topic_embed=e,
+            view=TicketCloseView(),
+            cfg=cfg,
+        )
+
+        role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)
+        role_e.description = (
+            "🟠 **Booster** — Masters III rank minimum\n"
+            "🛡️ **Admin** — Trustworthy & fluent in English\n"
+            "📰 **Reporter** — Active moderator & issue reporter\n\n"
+            "Click a button below to begin your application."
+        )
+        await ticket.send(embed=role_e, view=ApplicationPanelView())
+        await interaction.response.send_message(f"✅ Application ticket created: {ticket.mention}", ephemeral=True)
 
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)

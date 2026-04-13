@@ -285,11 +285,40 @@ ALL_RANKS = [
 ]
 
 # Price per rank tier jump (base price per division crossed)
-BASE_PRICE_PER_DIVISION = 0.80
+# Tier-based prices per single division step (e.g. Bronze I -> Bronze II)
+TIER_DIVISION_PRICES = {
+    "Bronze":    0.80,
+    "Silver":    0.80,
+    "Gold":      1.00,
+    "Diamond":   1.00,
+    "Mythic":    2.00,
+    "Legendary": 4.00,
+    "Masters":   10.00,
+}
+
+# Explicit multi-division / cross-tier prices from price chart
+EXPLICIT_RANK_PRICES = {
+    ("Silver I",    "Gold I"):       2.60,
+    ("Gold I",      "Diamond I"):    4.00,
+    ("Diamond I",   "Mythic I"):     10.00,
+    ("Mythic I",    "Legendary I"):  15.00,  # M1->L1 (Legendary boost M1-L1)
+    ("Legendary I", "Masters I"):    35.00,  # L1->M1 (Master boost L1-M1); note: m1-m3 in legendary boost = Mythic
+    ("Masters I",   "Pro"):          210.00,
+    # Legendary boost single steps (from_mythic to legendary)
+    ("Mythic I",    "Mythic II"):    2.00,
+    ("Mythic II",   "Mythic III"):   3.00,
+    ("Mythic III",  "Legendary I"):  5.00,
+    # Master boost single steps
+    ("Legendary I",  "Legendary II"):  10.00,
+    ("Legendary II", "Legendary III"): 10.00,
+    ("Legendary III","Masters I"):     15.00,
+    # Pro boost single steps
+    ("Masters I",   "Masters II"):   35.00,
+    ("Masters II",  "Masters III"):  80.00,
+    ("Masters III", "Pro"):          95.00,
+}
 
 def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_type: str, guild_id: int) -> float:
-    """Calculate estimated price based on rank range, P11 count, and service type."""
-    # Check if custom price exists in DB
     conn = get_db()
     c = conn.cursor()
     c.execute(
@@ -302,16 +331,24 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
     if custom:
         base = float(custom["base_price"])
     else:
-        try:
-            fi = ALL_RANKS.index(from_rank)
-            ti = ALL_RANKS.index(to_rank)
-        except ValueError:
-            return 0.0
-
-        if ti <= fi:
-            return 0.0
-
-        base = (ti - fi) * BASE_PRICE_PER_DIVISION
+        # Check explicit price table first
+        if (from_rank, to_rank) in EXPLICIT_RANK_PRICES:
+            base = EXPLICIT_RANK_PRICES[(from_rank, to_rank)]
+        else:
+            try:
+                fi = ALL_RANKS.index(from_rank)
+                ti = ALL_RANKS.index(to_rank) if to_rank != "Pro" else len(ALL_RANKS)
+            except ValueError:
+                return 0.0
+            if ti <= fi:
+                return 0.0
+            # Sum division-by-division using tier prices
+            base = 0.0
+            for i in range(fi, min(ti, len(ALL_RANKS) - 1)):
+                tier = ALL_RANKS[i].split()[0]
+                base += TIER_DIVISION_PRICES.get(tier, 0.80)
+            if to_rank == "Pro" and ALL_RANKS[-1].startswith("Masters"):
+                base += TIER_DIVISION_PRICES.get("Masters", 10.00)
 
     # P11 adjustment
     p11_num = 0
@@ -325,26 +362,18 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
             else:
                 p11_num = int(p11_str)
         except Exception:
-            p11_num = 45  # default baseline
+            p11_num = 45
 
-    # Baseline is 40-50 P11
     if p11_num < 40:
-        # Harder boost → price increases up to +25%
-        diff = 40 - p11_num
-        multiplier = 1.0 + min(diff * 0.005, 0.25)
+        multiplier = 1.0 + min((40 - p11_num) * 0.005, 0.25)
     elif p11_num > 50:
-        # Easier boost → price decreases up to -20%
-        diff = p11_num - 50
-        multiplier = 1.0 - min(diff * 0.004, 0.20)
+        multiplier = 1.0 - min((p11_num - 50) * 0.004, 0.20)
     else:
         multiplier = 1.0
 
     base *= multiplier
-
-    # Carry = 2x price
     if service_type == "carry":
         base *= 2.0
-
     return round(base, 2)
 
 # ---------------------------------------------------------------------------
@@ -579,7 +608,6 @@ def rank_emoji(rank_name: str) -> str:
 
 P11_OPTIONS = ["0-10", "11-20", "21-30", "31-40", "41-50", "51-60", "61-70", "71+"]
 P11_EMOJI   = "<:P11:1491455088429109258>"
-
 TROPHY_OPTIONS = [
     "0 - 500",
     "501 - 1000",
@@ -589,6 +617,21 @@ TROPHY_OPTIONS = [
     "2501 - 3000",
     "3001+",
 ]
+
+def apply_trophy_discount(price: float, trophy_range: str) -> float:
+    """Half price at 500/1500/2500 thresholds; 4% discount per 50 trophies already owned."""
+    half_price_ranges = {"0 - 500", "1001 - 1500", "2001 - 2500"}
+    if trophy_range in half_price_ranges:
+        price *= 0.5
+    # 4% per 50-trophy band already completed
+    trophy_bands = {
+        "0 - 500": 0, "501 - 1000": 1, "1001 - 1500": 2,
+        "1501 - 2000": 3, "2001 - 2500": 4, "2501 - 3000": 5, "3001+": 6,
+    }
+    bands = trophy_bands.get(trophy_range, 0)
+    discount = min(bands * 0.04, 0.40)
+    price *= (1.0 - discount)
+    return round(price, 2)
 
 SERVICE_OPTIONS = [
     discord.SelectOption(label="Boost",  value="boost",  emoji="\U0001f7e2", description="Play on your account — standard price"),
@@ -883,10 +926,8 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         )
         claim_e.add_field(name="📦 Order Details",   value=details,                                        inline=False)
         claim_e.add_field(name="💰 You Earn",         value=f"**€{earnings:.2f}**",                        inline=True)
-        claim_e.add_field(name=f"{pay_emoji} Payment", value=order["method"] or "---",                     inline=True)
         claim_e.add_field(name="🛠 Service",           value=svc_label,                                    inline=True)
         claim_e.add_field(name=f"{P11_EMOJI} P11",    value=p11,                                          inline=True)
-        claim_e.add_field(name="💡 Est. Price",        value=f"€{est_price:.2f}",                          inline=True)
         claim_e.add_field(name="🆔 Order ID",          value=f"`{self.order_id}`",                         inline=True)
         claim_e.add_field(name="🕐 Posted",            value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
 
@@ -1238,6 +1279,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
+        est_price = apply_trophy_discount(est_price, self.trophy_range)
 
         c.execute(
             "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -1660,6 +1702,7 @@ class PrestigeOrderView(ui.View):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
+        est_price = apply_trophy_discount(est_price, self.trophy_range)
 
         pe = prestige_emoji(self.prestige_spec)
         e = base_embed("💡 Price Estimate", color=GOLD)
@@ -2247,13 +2290,77 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
+        buy_view = AccountBuyView(listing_number)
         if wm_file:
-            await sale_ch.send(embed=e, file=wm_file)
+            await sale_ch.send(embed=e, file=wm_file, view=buy_view)
         else:
-            await sale_ch.send(embed=e)
+            await sale_ch.send(embed=e, view=buy_view)
 
         await interaction.followup.send(f"✅ Account **#{listing_number}** posted in {sale_ch.mention}.", ephemeral=True)
 
+class AccountBuyView(ui.View):
+    def __init__(self, listing_id: int):
+        super().__init__(timeout=None)
+        self.listing_id = listing_id
+
+    @ui.button(label="Buy This Account", style=discord.ButtonStyle.success, emoji="🛒", custom_id="acct_buy_btn_v1")
+    async def buy(self, interaction: discord.Interaction, button: ui.Button):
+        # Build unique custom_id per listing at runtime — see on_ready registration
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
+
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT * FROM account_listings WHERE id = %s", (self.listing_id,))
+        listing = c.fetchone()
+        conn.close()
+
+        if not listing or listing["status"] != "available":
+            await interaction.response.send_message("❌ This account is no longer available.", ephemeral=True)
+            return
+
+        sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
+        sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
+
+        if not isinstance(sale_ch, discord.TextChannel):
+            await interaction.response.send_message("❌ Account sale channel not found or not a text channel.", ephemeral=True)
+            return
+
+        try:
+            thread = await sale_ch.create_thread(
+                name=f"purchase-{listing['game'][:20].lower().replace(' ','-')}-{member.name[:10].lower()}",
+                type=discord.ChannelType.private_thread,
+                reason=f"Account purchase by {member}",
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            thread = await sale_ch.create_thread(
+                name=f"purchase-{listing['game'][:20].lower().replace(' ','-')}-{member.name[:10].lower()}",
+                type=discord.ChannelType.public_thread,
+                reason=f"Account purchase by {member}",
+            )
+
+        await thread.add_user(member)
+
+        e = base_embed(f"🛒 Account Purchase — {listing['game']}", color=GOLD)
+        e.description = (
+            f"Welcome, {member.mention}!\n\n"
+            f"You're interested in purchasing this account:\n\n"
+            f"🎮 **Game:** {listing['game']}\n"
+            f"💰 **Price:** **€{listing['price']:.2f}**\n"
+            f"📋 **Description:** {listing['description']}\n"
+            f"🆔 **Listing #:** {listing['id']}\n\n"
+            "Staff will be with you shortly to finalize the purchase.\n"
+            "Please have your payment ready!"
+        )
+        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+
+        await thread.send(content=member.mention, embed=e, view=TicketCloseView())
+        update_ticket_activity(thread.id, guild.id)
+
+        await interaction.response.send_message(
+            f"✅ Purchase thread created: {thread.mention}", ephemeral=True
+        )
 
 # ---------------------------------------------------------------------------
 # BACKUP SYSTEM
@@ -3173,9 +3280,7 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 # ---------------------------------------------------------------------------
 async def giveaway_reminder_loop():
     await bot.wait_until_ready()
-    reminded_24h = set()
-    reminded_12h = set()
-    reminded_1h  = set()
+    reminded = {}  # ga_id -> set of labels already sent
 
     while not bot.is_closed():
         try:
@@ -3190,46 +3295,52 @@ async def giveaway_reminder_loop():
                 ends_at = ga["ended_at"]
                 if not isinstance(ends_at, datetime):
                     continue
-
                 remaining = (ends_at - now).total_seconds()
                 if remaining <= 0:
                     continue
 
+                ga_id = ga["id"]
+                if ga_id not in reminded:
+                    reminded[ga_id] = set()
+
                 reminders = [
-                    (86400, 82800, reminded_24h, "24 hours"),
-                    (43200, 39600, reminded_12h, "12 hours"),
-                    (3600,  2400,  reminded_1h,  "1 hour"),
+                    (86400, 82800, "24h",  "24 hours"),
+                    (43200, 39600, "12h",  "12 hours"),
+                    (3600,  2400,  "1h",   "1 hour"),
                 ]
 
-                for upper, lower, reminded_set, label in reminders:
-                    if upper >= remaining > lower and ga["id"] not in reminded_set:
-                        reminded_set.add(ga["id"])
+                for upper, lower, key, label in reminders:
+                    if upper >= remaining > lower and key not in reminded[ga_id]:
+                        reminded[ga_id].add(key)
+                        # Search all guilds for the giveaway message by embed footer
                         for guild in bot.guilds:
-                            found = False
                             for ch in guild.text_channels:
+                                found = False
+                                try:
+                                    async for msg in ch.history(limit=100):
+                                        if (msg.author == guild.me and msg.embeds
+                                                and ga_id in (msg.embeds[0].footer.text or "")):
+                                            reminder_e = base_embed("⏰ Giveaway Reminder", color=GOLD)
+                                            reminder_e.description = (
+                                                f"🎁 **{ga['prize']}** giveaway ends in **{label}**!\n"
+                                                f"<t:{int(ends_at.timestamp())}:R>"
+                                            )
+                                            ping = ga.get("ping", "")
+                                            ping_content = ping if (ping and ping.lower() != "none") else ""
+                                            await ch.send(content=ping_content or None, embed=reminder_e,
+                                                          allowed_mentions=discord.AllowedMentions(everyone=True, roles=True))
+                                            found = True
+                                            break
+                                except Exception:
+                                    pass
                                 if found:
                                     break
-                                try:
-                                    async for msg in ch.history(limit=50):
-                                        if msg.embeds and msg.author == guild.me:
-                                            footer = msg.embeds[0].footer.text or ""
-                                            if ga["id"] in footer:
-                                                reminder_e = base_embed("⏰ Giveaway Reminder", color=GOLD)
-                                                reminder_e.description = (
-                                                    f"🎁 **{ga['prize']}** giveaway ends in **{label}**!\n"
-                                                    f"<t:{int(ends_at.timestamp())}:R>"
-                                                )
-                                                await ch.send(embed=reminder_e)
-                                                found = True
-                                                break
-                                except Exception:
-                                    continue
                         break
 
         except Exception as ex:
             print(f"[WARN] Giveaway reminder loop error: {ex}")
 
-        await asyncio.sleep(600)
+        await asyncio.sleep(300)
 
 
 async def inactive_ticket_loop():
@@ -3339,6 +3450,10 @@ async def on_ready():
     for row in c.fetchall():
         if row["booster_id"]:
             bot.add_view(BoosterRatingView(row["id"], row["booster_id"]))
+
+    c.execute("SELECT id FROM account_listings WHERE status = 'available'")
+    for row in c.fetchall():
+        bot.add_view(AccountBuyView(row["id"]))
 
     conn.close()
     print(f"[OK] Persistent views registered")

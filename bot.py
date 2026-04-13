@@ -305,9 +305,9 @@ EXPLICIT_RANK_PRICES = {
     ("Legendary I", "Masters I"):    35.00,  # L1->M1 (Master boost L1-M1); note: m1-m3 in legendary boost = Mythic
     ("Masters I",   "Pro"):          210.00,
     # Legendary boost single steps (from_mythic to legendary)
-    ("Mythic I",    "Mythic II"):    2.00,
-    ("Mythic II",   "Mythic III"):   3.00,
-    ("Mythic III",  "Legendary I"):  5.00,
+    ("Mythic I",    "Mythic II"):    4.00,
+    ("Mythic II",   "Mythic III"):   5.00,
+    ("Mythic III",  "Legendary I"):  6.00,
     # Master boost single steps
     ("Legendary I",  "Legendary II"):  10.00,
     ("Legendary II", "Legendary III"): 10.00,

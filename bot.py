@@ -2642,8 +2642,7 @@ async def giveaway(
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
-    "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at)
+"INSERT INTO giveaways (id, prize, description, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at)
     )
     conn.commit()
     conn.close()

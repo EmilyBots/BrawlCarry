@@ -557,9 +557,9 @@ PRESTIGE_OPTIONS = [
 ]
 
 PRESTIGE_PRICES = {
-    "Prestige 0 -> Prestige 1": "10",
-    "Prestige 1 -> Prestige 2": "25",
-    "Prestige 2 -> Prestige 3": "70",
+    "Prestige 0 -> Prestige 1": "8",
+    "Prestige 1 -> Prestige 2": "20",
+    "Prestige 2 -> Prestige 3": "65",
 }
 
 PRESTIGE_EMOJI = {

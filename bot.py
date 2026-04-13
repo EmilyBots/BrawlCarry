@@ -478,9 +478,18 @@ async def create_ticket_thread(
                                 read_message_history=True,
                             ),
     }
-    for role in guild.roles:
+     for role in guild.roles:
         if role.permissions.administrator or role.permissions.manage_channels:
             overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+    if cfg and cfg.get("ticket_support_roles"):
+        for rid in cfg["ticket_support_roles"].split(","):
+            rid = rid.strip().strip("<@&>")
+            try:
+                support_role = guild.get_role(int(rid))
+                if support_role:
+                    overwrites[support_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            except ValueError:
+                pass
 
     ch = await guild.create_text_channel(
         name=name,
@@ -749,10 +758,28 @@ class BoosterClaimView(ui.View):
             return
         self.order_id = order_id
 
+        # Check carrier role for carry orders
+        cfg = get_config(guild.id)
+        carrier_role_id = cfg["carrier_role_id"] if cfg else None
+        if carrier_role_id:
+            conn_pre = get_db()
+            c_pre    = conn_pre.cursor()
+            c_pre.execute("SELECT service_type FROM orders WHERE id = %s", (self.order_id,))
+            pre_row = c_pre.fetchone()
+            conn_pre.close()
+            if pre_row and pre_row["service_type"] == "carry":
+                member_role_ids = {r.id for r in booster.roles}
+                if carrier_role_id not in member_role_ids:
+                    await interaction.response.send_message(
+                        "❌ You need the **Carrier** role to claim carry orders.", ephemeral=True
+                    )
+                    return
+
         conn = get_db()
         c    = conn.cursor()
 
         # Anti-double-claim: lock with UPDATE and check rowcount
+
         c.execute(
             "UPDATE orders SET booster_id = %s, status = 'claimed', claimed_at = %s WHERE id = %s AND status = 'pending'",
             (booster.id, datetime.utcnow(), self.order_id)
@@ -1847,9 +1874,20 @@ class ApplicationReviewView(ui.View):
 
     @ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅", custom_id="app_accept_v1")
     async def accept(self, interaction: discord.Interaction, button: ui.Button):
-        if not interaction.user.guild_permissions.manage_roles:
+        cfg = get_config(interaction.guild.id)
+        reviewer_role_ids = set()
+        if cfg and cfg.get("reviewer_roles"):
+            for rid in cfg["reviewer_roles"].split(","):
+                rid = rid.strip().strip("<@&>")
+                try:
+                    reviewer_role_ids.add(int(rid))
+                except ValueError:
+                    pass
+        member_role_ids = {r.id for r in interaction.user.roles}
+        if not interaction.user.guild_permissions.manage_roles and not (reviewer_role_ids & member_role_ids):
             await interaction.response.send_message("❌ You don't have permission to review applications.", ephemeral=True)
             return
+
         member      = interaction.guild.get_member(self.applicant_id)
         result_text = ""
         if member:
@@ -1884,9 +1922,20 @@ class ApplicationReviewView(ui.View):
 
     @ui.button(label="Reject", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_reject_v1")
     async def reject(self, interaction: discord.Interaction, button: ui.Button):
-        if not interaction.user.guild_permissions.manage_roles:
+        cfg = get_config(interaction.guild.id)
+        reviewer_role_ids = set()
+        if cfg and cfg.get("reviewer_roles"):
+            for rid in cfg["reviewer_roles"].split(","):
+                rid = rid.strip().strip("<@&>")
+                try:
+                    reviewer_role_ids.add(int(rid))
+                except ValueError:
+                    pass
+        member_role_ids = {r.id for r in interaction.user.roles}
+        if not interaction.user.guild_permissions.manage_roles and not (reviewer_role_ids & member_role_ids):
             await interaction.response.send_message("❌ You don't have permission to review applications.", ephemeral=True)
             return
+
         member = interaction.guild.get_member(self.applicant_id)
         if member:
             try:
@@ -2529,7 +2578,13 @@ async def setup(
     if inactive_ticket_hours is not None: updates["inactive_ticket_hours"]  = inactive_ticket_hours
     if application_ticket_channel: updates["application_ticket_channel_id"] = application_ticket_channel.id
     if carrier_role:               updates["carrier_role_id"]               = carrier_role.id
-    if ticket_support_roles:       updates["ticket_support_roles"]          = ticket_support_roles
+    if ticket_support_roles:
+        roles_list = [r.strip() for r in ticket_support_roles.split(",") if r.strip()]
+        if len(roles_list) > 6:
+            await interaction.response.send_message("❌ You can only set up to 6 ticket support roles.", ephemeral=True)
+            return
+        updates["ticket_support_roles"] = ticket_support_roles
+          = ticket_support_roles
     if reviewer_roles:             updates["reviewer_roles"]                = reviewer_roles
     if updates:
         set_config(interaction.guild.id, **updates)

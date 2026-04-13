@@ -927,7 +927,6 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         details    = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
 
         pay_emoji  = _payment_emoji(order["method"], guild.id)
-        est_price  = order["estimated_price"] or 0.0
         p11        = order["p11_count"] or "—"
 
         claim_e = base_embed(title_str, color=color)
@@ -1186,10 +1185,11 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         c        = conn.cursor()
         order_id = f"RANKED-{uuid.uuid4().hex[:6].upper()}"
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, p11_count) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, p11_count) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0,
-             self.payment, "ranked", self.service_type, self.estimated_price, self.p11)
+             self.payment, "ranked", self.service_type, self.p11)
         )
+
         conn.commit()
         conn.close()
 
@@ -1212,7 +1212,6 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
-            f"💡 **Estimated Price:** €{self.estimated_price:.2f}\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your order. "
             "Please have your payment ready!"
@@ -1245,8 +1244,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
         order_e.add_field(name="👤 Customer",       value=member.mention,                                               inline=True)
         order_e.add_field(name="📦 Order Details",  value=f"{fe} `{self.current_rank}` → {te} `{self.desired_rank}`",  inline=True)
-        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)
-        order_e.add_field(name="💡 Est. Price",      value=f"**€{self.estimated_price:.2f}**",                          inline=True)
+        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)                          inline=True)
         svc_field_name = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
         order_e.add_field(name=svc_field_name,      value=svc_label,                                                    inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,                                             inline=True)
@@ -1288,21 +1286,10 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         from_p   = self.prestige_spec.split("->")[0].strip()
         to_p     = self.prestige_spec.split("->")[-1].strip()
 
-        # Estimated price from prestige prices table
-        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
-        try:
-            est_price = float(base_price_str)
-        except ValueError:
-            est_price = 0.0
-        if self.service_type == "carry":
-            est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, self.trophy_range, self.trophy_val, self.prestige_spec)
-
-
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, brawler_name, trophy_val) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, brawler_name, trophy_val) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (order_id, interaction.user.id, from_p, to_p, 0.0,
-             self.payment, "prestige", self.service_type, est_price, self.brawler_name, self.trophy_val)
+             self.payment, "prestige", self.service_type, self.brawler_name, self.trophy_val)
         )
 
         conn.commit()
@@ -1327,7 +1314,6 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             f"🏆 **Current Trophies:** {self.trophy_val:,}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
-            f"💡 **Estimated Price:** €{est_price:.2f}\n"
             f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
             "Our staff will contact you shortly to complete your prestige boost. "
             "Please have your payment ready!"
@@ -1363,7 +1349,6 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.add_field(name=f"{pe} Prestige",       value=self.prestige_spec,  inline=True)
         order_e.add_field(name="🎮 Brawler",            value=self.brawler_name,      inline=True)
         order_e.add_field(name="🏆 Trophies",           value=f"{self.trophy_val:,}", inline=True)
-        order_e.add_field(name="💡 Est. Price",         value=f"**€{est_price:.2f}**", inline=True)
         svc_field_name2 = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
         order_e.add_field(name=svc_field_name2,        value=svc_label,           inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,        inline=True)
@@ -1613,29 +1598,21 @@ class RankedOrderView(ui.View):
             )
             return
 
-        # Calculate estimated price
-        est_price = calculate_rank_price(
-            self.current_rank, self.desired_rank, self.p11, self.service_type, interaction.guild_id
-        )
-
-        # Show price preview first
         fe = rank_emoji(self.current_rank)
         te = rank_emoji(self.desired_rank)
-        e = base_embed("💡 Price Estimate", color=GOLD)
+        e = base_embed("📋 Order Summary", color=PRIMARY)
         e.description = (
-            f"**Order Summary:**\n\n"
+            f"**Please confirm your order:**\n\n"
             f"📦 **Boost:** {fe} `{self.current_rank}` → {te} `{self.desired_rank}`\n"
             f"{P11_EMOJI} **P11 Brawlers:** {self.p11}\n"
             f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
             f"💰 **Payment:** {self.payment}\n\n"
-            f"💡 **Estimated Price: €{est_price:.2f}**\n"
-            f"*(Final price set by staff after review)*\n\n"
             "Click **Confirm & Continue** to open your ticket."
         )
 
         await interaction.response.send_message(
             embed=e,
-            view=_RankedConfirmView(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, est_price),
+            view=_RankedConfirmView(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, 0.0),
             ephemeral=True
         )
 
@@ -1703,27 +1680,16 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
         else:
             trophy_range = "3001+"
 
-        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
-        try:
-            est_price = float(base_price_str)
-        except ValueError:
-            est_price = 0.0
-        if self.service_type == "carry":
-            est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, trophy_range, trophy_val, self.prestige_spec)
-        
-        brawler = self.brawler_name.value.strip()
+         brawler = self.brawler_name.value.strip()
         pe = prestige_emoji(self.prestige_spec)
-        e = base_embed("💡 Price Estimate", color=GOLD)
+        e = base_embed("📋 Order Summary", color=ACCENT)
         e.description = (
-            f"**Order Summary:**\n\n"
+            f"**Please confirm your order:**\n\n"
             f"{pe} **Prestige:** {self.prestige_spec}\n"
             f"🎮 **Brawler:** {brawler}\n"
             f"🏆 **Current Trophies:** {trophy_val:,}\n"
             f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
             f"💰 **Payment:** {self.payment}\n\n"
-            f"💡 **Estimated Price: €{est_price:.2f}**\n"
-            f"*(Final price set by staff after review)*\n\n"
             "Click **Confirm & Continue** to open your ticket."
         )
         await interaction.response.send_message(

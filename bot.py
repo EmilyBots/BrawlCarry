@@ -1282,7 +1282,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, self.trophy_range)
+                est_price = apply_trophy_discount(est_price, self.trophy_range, self.trophy_val)
 
         c.execute(
             "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
@@ -1694,7 +1694,7 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, trophy_range)
+                est_price = apply_trophy_discount(est_price, trophy_range, trophy_val)
         
         brawler = self.brawler_name.value.strip()
         pe = prestige_emoji(self.prestige_spec)

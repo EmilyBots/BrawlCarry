@@ -2537,7 +2537,7 @@ async def on_message(message: discord.Message):
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
     interaction: discord.Interaction,
-    vouch_channel: discord.TextChannel = None,
+    vouch_channel: discord.abc.GuildChannel = None,
     ticket_channel: discord.abc.GuildChannel = None,
     ticket_category: discord.CategoryChannel = None,
     completed_channel: discord.TextChannel = None,

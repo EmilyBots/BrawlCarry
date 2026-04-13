@@ -1645,6 +1645,70 @@ class _RankedConfirmView(ui.View):
 # ---------------------------------------------------------------------------
 # PRESTIGE BOOST SELECT-MENU VIEW
 # ---------------------------------------------------------------------------
+class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
+    trophy_input = ui.TextInput(
+        label="Current Trophies on the Brawler",
+        placeholder="e.g. 750 or 1200",
+        style=discord.TextStyle.short,
+        max_length=10
+    )
+
+    def __init__(self, prestige_spec: str, payment: str, service_type: str):
+        super().__init__()
+        self.prestige_spec = prestige_spec
+        self.payment       = payment
+        self.service_type  = service_type
+
+    async def on_submit(self, interaction: discord.Interaction):
+        trophy_raw = self.trophy_input.value.strip()
+        try:
+            trophy_val = int(trophy_raw.replace(",", "").replace(".", ""))
+        except ValueError:
+            await interaction.response.send_message("❌ Please enter a valid number like `750`.", ephemeral=True)
+            return
+
+        if trophy_val <= 500:
+            trophy_range = "0 - 500"
+        elif trophy_val <= 1000:
+            trophy_range = "501 - 1000"
+        elif trophy_val <= 1500:
+            trophy_range = "1001 - 1500"
+        elif trophy_val <= 2000:
+            trophy_range = "1501 - 2000"
+        elif trophy_val <= 2500:
+            trophy_range = "2001 - 2500"
+        elif trophy_val <= 3000:
+            trophy_range = "2501 - 3000"
+        else:
+            trophy_range = "3001+"
+
+        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
+        try:
+            est_price = float(base_price_str)
+        except ValueError:
+            est_price = 0.0
+        if self.service_type == "carry":
+            est_price *= 2.0
+        est_price = apply_trophy_discount(est_price, trophy_range)
+
+        pe = prestige_emoji(self.prestige_spec)
+        e = base_embed("💡 Price Estimate", color=GOLD)
+        e.description = (
+            f"**Order Summary:**\n\n"
+            f"{pe} **Prestige:** {self.prestige_spec}\n"
+            f"🏆 **Current Trophies:** {trophy_val:,}\n"
+            f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
+            f"💰 **Payment:** {self.payment}\n\n"
+            f"💡 **Estimated Price: €{est_price:.2f}**\n"
+            f"*(Final price set by staff after review)*\n\n"
+            "Click **Confirm & Continue** to open your ticket."
+        )
+        await interaction.response.send_message(
+            embed=e,
+            view=_PrestigeConfirmView(self.prestige_spec, trophy_range, self.payment, self.service_type),
+            ephemeral=True
+        )
+
 class PrestigeOrderView(ui.View):
     def __init__(self, guild_id: int):
         super().__init__(timeout=300)
@@ -1655,20 +1719,13 @@ class PrestigeOrderView(ui.View):
 
         pres_options = []
         for p in PRESTIGE_OPTIONS:
-            opt = discord.SelectOption(label=p, value=p)
+            emo = PRESTIGE_EMOJI.get(p)
+            opt = discord.SelectOption(label=p, value=p, emoji=emo) if emo else discord.SelectOption(label=p, value=p)
             pres_options.append(opt)
 
         pres_select = ui.Select(placeholder="Select prestige spec...", options=pres_options, custom_id="prest_spec2", row=0)
         pres_select.callback = self._on_spec
         self.add_item(pres_select)
-
-        trophy_select = ui.Select(
-            placeholder="Current trophy count on that brawler...",
-            options=[discord.SelectOption(label=t, value=t, emoji="🏆") for t in TROPHY_OPTIONS],
-            custom_id="prest_trophy", row=1
-        )
-        trophy_select.callback = self._on_trophy
-        self.add_item(trophy_select)
 
         methods    = get_payment_methods(guild_id)
         pay_select = ui.Select(
@@ -1688,44 +1745,18 @@ class PrestigeOrderView(ui.View):
         self.add_item(svc_select)
 
     async def _on_spec(self,   interaction: discord.Interaction): self.prestige_spec = interaction.data["values"][0]; await interaction.response.defer()
-    async def _on_trophy(self, interaction: discord.Interaction): self.trophy_range  = interaction.data["values"][0]; await interaction.response.defer()
     async def _on_pay(self,    interaction: discord.Interaction): self.payment       = interaction.data["values"][0]; await interaction.response.defer()
 
     async def _on_svc_submit(self, interaction: discord.Interaction):
         self.service_type = interaction.data["values"][0]
         missing = []
         if not self.prestige_spec: missing.append("Prestige Spec")
-        if not self.trophy_range:  missing.append("Current Trophies")
         if not self.payment:       missing.append("Payment Method")
         if missing:
             await interaction.response.send_message(f"❌ Please fill in: **{', '.join(missing)}**", ephemeral=True)
             return
-
-        base_price_str = PRESTIGE_PRICES.get(self.prestige_spec, "0")
-        try:
-            est_price = float(base_price_str)
-        except ValueError:
-            est_price = 0.0
-        if self.service_type == "carry":
-            est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, self.trophy_range)
-
-        pe = prestige_emoji(self.prestige_spec)
-        e = base_embed("💡 Price Estimate", color=GOLD)
-        e.description = (
-            f"**Order Summary:**\n\n"
-            f"{pe} **Prestige:** {self.prestige_spec}\n"
-            f"🏆 **Current Trophies:** {self.trophy_range}\n"
-            f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
-            f"💰 **Payment:** {self.payment}\n\n"
-            f"💡 **Estimated Price: €{est_price:.2f}**\n"
-            f"*(Final price set by staff after review)*\n\n"
-            "Click **Confirm & Continue** to open your ticket."
-        )
-        await interaction.response.send_message(
-            embed=e,
-            view=_PrestigeConfirmView(self.prestige_spec, self.trophy_range, self.payment, self.service_type),
-            ephemeral=True
+        await interaction.response.send_modal(
+            PrestigeTrophyModal(self.prestige_spec, self.payment, self.service_type)
         )
 
 
@@ -3315,33 +3346,48 @@ async def giveaway_reminder_loop():
                     (3600,  2400,  "1h",   "1 hour"),
                 ]
 
+                triggered_key = None
+                triggered_label = None
                 for upper, lower, key, label in reminders:
                     if upper >= remaining > lower and key not in reminded[ga_id]:
-                        reminded[ga_id].add(key)
-                        # Search all guilds for the giveaway message by embed footer
-                        for guild in bot.guilds:
-                            for ch in guild.text_channels:
-                                found = False
-                                try:
-                                    async for msg in ch.history(limit=100):
-                                        if (msg.author == guild.me and msg.embeds
-                                                and ga_id in (msg.embeds[0].footer.text or "")):
-                                            reminder_e = base_embed("⏰ Giveaway Reminder", color=GOLD)
-                                            reminder_e.description = (
-                                                f"🎁 **{ga['prize']}** giveaway ends in **{label}**!\n"
-                                                f"<t:{int(ends_at.timestamp())}:R>"
-                                            )
-                                            ping = ga.get("ping", "")
-                                            ping_content = ping if (ping and ping.lower() != "none") else ""
-                                            await ch.send(content=ping_content or None, embed=reminder_e,
-                                                          allowed_mentions=discord.AllowedMentions(everyone=True, roles=True))
-                                            found = True
-                                            break
-                                except Exception:
-                                    pass
-                                if found:
-                                    break
+                        triggered_key = key
+                        triggered_label = label
                         break
+
+                if not triggered_key:
+                    continue
+
+                # Mark as reminded BEFORE sending to prevent duplicates
+                reminded[ga_id].add(triggered_key)
+
+                # Find the giveaway message across all guilds — send ONE reminder only
+                sent = False
+                for guild in bot.guilds:
+                    if sent:
+                        break
+                    for ch in guild.text_channels:
+                        if sent:
+                            break
+                        try:
+                            async for msg in ch.history(limit=100):
+                                if (msg.author == guild.me and msg.embeds
+                                        and ga_id in (msg.embeds[0].footer.text or "")):
+                                    reminder_e = base_embed("⏰ Giveaway Reminder", color=GOLD)
+                                    reminder_e.description = (
+                                        f"🎁 **{ga['prize']}** giveaway ends in **{triggered_label}**!\n"
+                                        f"<t:{int(ends_at.timestamp())}:R>"
+                                    )
+                                    ping = ga.get("ping", "")
+                                    ping_content = ping if (ping and ping.lower() != "none") else ""
+                                    await ch.send(
+                                        content=ping_content or None,
+                                        embed=reminder_e,
+                                        allowed_mentions=discord.AllowedMentions(everyone=True, roles=True)
+                                    )
+                                    sent = True
+                                    break
+                        except Exception:
+                            pass
 
         except Exception as ex:
             print(f"[WARN] Giveaway reminder loop error: {ex}")

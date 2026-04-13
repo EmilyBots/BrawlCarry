@@ -618,17 +618,12 @@ TROPHY_OPTIONS = [
     "3001+",
 ]
 
-def apply_trophy_discount(price: float, trophy_range: str) -> float:
-    """Half price at 500/1500/2500 thresholds; 4% discount per 50 trophies already owned."""
+def apply_trophy_discount(price: float, trophy_range: str, trophy_val: int = 0) -> float:
+    """Half price at 500/1500/2500 thresholds; 2% discount per 50 trophies already owned."""
     half_price_ranges = {"0 - 500", "1001 - 1500", "2001 - 2500"}
     if trophy_range in half_price_ranges:
         price *= 0.5
-    # 4% per 50-trophy band already completed
-    trophy_bands = {
-        "0 - 500": 0, "501 - 1000": 1, "1001 - 1500": 2,
-        "1501 - 2000": 3, "2001 - 2500": 4, "2501 - 3000": 5, "3001+": 6,
-    }
-    bands = trophy_bands.get(trophy_range, 0)
+    bands = trophy_val // 50
     discount = min(bands * 0.02, 0.20)
     price *= (1.0 - discount)
     return round(price, 2)

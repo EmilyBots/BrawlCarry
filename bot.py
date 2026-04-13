@@ -107,7 +107,7 @@ def init_db():
     c.execute("""CREATE TABLE IF NOT EXISTS giveaways (
         id TEXT PRIMARY KEY,
         prize TEXT,
-        desc TEXT,
+        description TEXT,
         winners INT,
         hosted_by BIGINT,
         participants TEXT,
@@ -717,11 +717,11 @@ class BoosterClaimView(ui.View):
                 )
             return
 
-        # Check active orders cap
-            c.execute(
-                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = %s",
-                (self.order_id,)
-            )
+# Check active orders cap
+        c.execute(
+            "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = %s AND status = 'claimed'",
+            (booster.id,)
+        )
         active_count = c.fetchone()["cnt"]
 
         if active_count > 2:
@@ -1353,13 +1353,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         # Calculate completion time
         completion_secs = None
         if order["claimed_at"]:
-            try:
-                claimed_dt = datetime.strptime(str(order["claimed_at"]), "%Y-%m-%d %H:%M:%S.%f")
-            except ValueError:
-                try:
-                    claimed_dt = datetime.strptime(str(order["claimed_at"]), "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    claimed_dt = None
+            claimed_dt = order["claimed_at"] if isinstance(order["claimed_at"], datetime) else None
             if claimed_dt:
                 completion_secs = int((now - claimed_dt).total_seconds())
         c.execute(
@@ -3192,13 +3186,9 @@ async def giveaway_reminder_loop():
 
             now = datetime.utcnow()
             for ga in giveaways:
-                try:
-                    ends_at = datetime.strptime(ga["ended_at"], "%Y-%m-%d %H:%M:%S.%f")
-                except ValueError:
-                    try:
-                        ends_at = datetime.strptime(ga["ended_at"], "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        continue
+                ends_at = ga["ended_at"]
+                if not isinstance(ends_at, datetime):
+                    continue
 
                 remaining = (ends_at - now).total_seconds()
                 if remaining <= 0:
@@ -3263,13 +3253,9 @@ async def inactive_ticket_loop():
                 cfg = get_config(guild.id)
                 threshold_hours = (cfg["inactive_ticket_hours"] if cfg and cfg["inactive_ticket_hours"] else 24)
 
-                try:
-                    last_activity = datetime.strptime(str(row["last_activity"]), "%Y-%m-%d %H:%M:%S.%f")
-                except ValueError:
-                    try:
-                        last_activity = datetime.strptime(str(row["last_activity"]), "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        continue
+                last_activity = row["last_activity"]
+                if not isinstance(last_activity, datetime):
+                    continue
 
                 hours_inactive = (now - last_activity).total_seconds() / 3600
                 channel = guild.get_channel(row["channel_id"])

@@ -1244,7 +1244,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
         order_e.add_field(name="👤 Customer",       value=member.mention,                                               inline=True)
         order_e.add_field(name="📦 Order Details",  value=f"{fe} `{self.current_rank}` → {te} `{self.desired_rank}`",  inline=True)
-        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)                          inline=True)
+        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)                          
         svc_field_name = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
         order_e.add_field(name=svc_field_name,      value=svc_label,                                                    inline=True)
         order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,                                             inline=True)

@@ -138,8 +138,12 @@ def init_db():
         booster_role_id BIGINT,
         proof_channel_id BIGINT,
         inactive_ticket_hours INT DEFAULT 24,
-        application_ticket_channel_id BIGINT
+        application_ticket_channel_id BIGINT,
+        carrier_role_id BIGINT,
+        ticket_support_roles TEXT,
+        reviewer_roles TEXT
     )""")
+
     c.execute("""CREATE TABLE IF NOT EXISTS payment_methods (
         id SERIAL PRIMARY KEY,
         guild_id BIGINT,
@@ -215,8 +219,11 @@ def init_db():
         ("guild_config", "application_ticket_channel_id BIGINT"),
         ("orders", "brawler_name TEXT"),
         ("orders", "trophy_val INT"),
-
+        ("guild_config", "carrier_role_id BIGINT"),
+        ("guild_config", "ticket_support_roles TEXT"),
+        ("guild_config", "reviewer_roles TEXT"),
     ]
+
     for table, col_def in migrations:
         try:
             c.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
@@ -2473,7 +2480,11 @@ async def on_message(message: discord.Message):
     proof_channel="Channel where proof screenshots are posted",
     inactive_ticket_hours="Hours of inactivity before ticket warning (default: 24)",
     application_ticket_channel="Channel where application ticket threads are created",
+    carrier_role="Role given to carriers",
+    ticket_support_roles="Up to 6 support roles for tickets, separated by commas (role IDs or mentions)",
+    reviewer_roles="Roles allowed to review applications, separated by commas",
 )
+
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
     interaction: discord.Interaction,
@@ -2494,7 +2505,11 @@ async def setup(
     proof_channel: discord.TextChannel = None,
     inactive_ticket_hours: int = None,
     application_ticket_channel: discord.TextChannel = None,
+    carrier_role: discord.Role = None,
+    ticket_support_roles: str = None,
+    reviewer_roles: str = None,
 ):
+
     updates = {}
     if vouch_channel:              updates["vouch_channel_id"]              = vouch_channel.id
     if ticket_channel:             updates["ticket_channel_id"]             = ticket_channel.id
@@ -2513,6 +2528,9 @@ async def setup(
     if proof_channel:              updates["proof_channel_id"]              = proof_channel.id
     if inactive_ticket_hours is not None: updates["inactive_ticket_hours"]  = inactive_ticket_hours
     if application_ticket_channel: updates["application_ticket_channel_id"] = application_ticket_channel.id
+    if carrier_role:               updates["carrier_role_id"]               = carrier_role.id
+    if ticket_support_roles:       updates["ticket_support_roles"]          = ticket_support_roles
+    if reviewer_roles:             updates["reviewer_roles"]                = reviewer_roles
     if updates:
         set_config(interaction.guild.id, **updates)
 
@@ -2535,6 +2553,9 @@ async def setup(
     if proof_channel:              e.add_field(name="📸 Proof Channel",               value=proof_channel.mention,              inline=True)
     if inactive_ticket_hours:      e.add_field(name="⏰ Inactive Ticket Hours",        value=str(inactive_ticket_hours),         inline=True)
     if application_ticket_channel:     e.add_field(name="📝 Application Ticket Channel",  value=application_ticket_channel.mention,      inline=True)
+    if carrier_role:               e.add_field(name="🚗 Carrier Role",            value=carrier_role.mention,      inline=True)
+    if ticket_support_roles:       e.add_field(name="🎫 Ticket Support Roles",    value=ticket_support_roles,      inline=True)
+    if reviewer_roles:             e.add_field(name="🔍 Reviewer Roles",          value=reviewer_roles,            inline=True)
 
     e.add_field(
         name="ℹ️ Order Flow",

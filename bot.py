@@ -3367,4 +3367,6 @@ if __name__ == "__main__":
     if not token:
         print("[ERROR] DISCORD_TOKEN not set in environment.")
         exit(1)
+    init_db()
+    print("[OK] Database initialised")
     bot.run(token)

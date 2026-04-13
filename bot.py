@@ -594,6 +594,12 @@ PRESTIGE_PRICES = {
     "Prestige 2 -> Prestige 3": "65",
 }
 
+PRESTIGE_BASE_TROPHIES = {
+    "Prestige 0 -> Prestige 1": 0,
+    "Prestige 1 -> Prestige 2": 1000,
+    "Prestige 2 -> Prestige 3": 2000,
+}
+
 PRESTIGE_EMOJI = {
     "Prestige 0 -> Prestige 1": "<:Prestige1:1491103698116677693>",
     "Prestige 1 -> Prestige 2": "<:Prestige2:1491103696153477161>",
@@ -621,12 +627,14 @@ TROPHY_OPTIONS = [
     "3001+",
 ]
 
-def apply_trophy_discount(price: float, trophy_range: str, trophy_val: int = 0) -> float:
-    """Half price at 500/1500/2500 thresholds; 2% discount per 50 trophies already owned."""
+def apply_trophy_discount(price: float, trophy_range: str, trophy_val: int = 0, prestige_spec: str = None) -> float:
+    """Half price at start of range; 2% discount per 50 trophies above the prestige base."""
     half_price_ranges = {"0 - 500", "1001 - 1500", "2001 - 2500"}
     if trophy_range in half_price_ranges:
         price *= 0.5
-    bands = trophy_val // 50
+    base = PRESTIGE_BASE_TROPHIES.get(prestige_spec, 0) if prestige_spec else 0
+    relative_trophies = max(0, trophy_val - base)
+    bands = relative_trophies // 50
     discount = min(bands * 0.02, 0.20)
     price *= (1.0 - discount)
     return round(price, 2)
@@ -1289,7 +1297,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, self.trophy_range, self.trophy_val)
+        est_price = apply_trophy_discount(est_price, self.trophy_range, self.trophy_val, self.prestige_spec)
 
 
         c.execute(
@@ -1703,7 +1711,7 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
             est_price = 0.0
         if self.service_type == "carry":
             est_price *= 2.0
-        est_price = apply_trophy_discount(est_price, trophy_range, trophy_val)
+        est_price = apply_trophy_discount(est_price, trophy_range, trophy_val, self.prestige_spec)
         
         brawler = self.brawler_name.value.strip()
         pe = prestige_emoji(self.prestige_spec)

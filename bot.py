@@ -629,7 +629,7 @@ def apply_trophy_discount(price: float, trophy_range: str) -> float:
         "1501 - 2000": 3, "2001 - 2500": 4, "2501 - 3000": 5, "3001+": 6,
     }
     bands = trophy_bands.get(trophy_range, 0)
-    discount = min(bands * 0.04, 0.40)
+    discount = min(bands * 0.02, 0.20)
     price *= (1.0 - discount)
     return round(price, 2)
 
@@ -1263,10 +1263,12 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
     notes = ui.TextInput(label="Additional Notes (Optional)", placeholder="Any special requests...", required=False, style=discord.TextStyle.long, max_length=500)
 
-    def __init__(self, prestige_spec: str, trophy_range: str, payment: str, service_type: str):
+    def __init__(self, prestige_spec: str, trophy_range: str, trophy_val: int, brawler_name: str, payment: str, service_type: str):
         super().__init__()
         self.prestige_spec = prestige_spec
         self.trophy_range  = trophy_range
+        self.trophy_val    = trophy_val
+        self.brawler_name  = brawler_name
         self.payment       = payment
         self.service_type  = service_type
 
@@ -1310,7 +1312,8 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             f"Welcome, {member.mention}! ✨\n\n"
             f"📋 **Order:** `{order_id}`\n"
             f"{pe} **Prestige:** {self.prestige_spec}\n"
-            f"🏆 **Current Trophies:** {self.trophy_range}\n"
+            f"🎮 **Brawler:** {self.brawler_name}\n"
+            f"🏆 **Current Trophies:** {self.trophy_val:,}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
             f"💡 **Estimated Price:** €{est_price:.2f}\n"
@@ -1347,7 +1350,8 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
         order_e.add_field(name="👤 Customer",          value=member.mention,      inline=True)
         order_e.add_field(name=f"{pe} Prestige",       value=self.prestige_spec,  inline=True)
-        order_e.add_field(name="🏆 Trophies",          value=self.trophy_range,   inline=True)
+        order_e.add_field(name="🎮 Brawler",            value=self.brawler_name,      inline=True)
+        order_e.add_field(name="🏆 Trophies",           value=f"{self.trophy_val:,}", inline=True)
         order_e.add_field(name="💡 Est. Price",         value=f"**€{est_price:.2f}**", inline=True)
         svc_field_name2 = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
         order_e.add_field(name=svc_field_name2,        value=svc_label,           inline=True)
@@ -1652,6 +1656,12 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
         style=discord.TextStyle.short,
         max_length=10
     )
+    brawler_name = ui.TextInput(
+        label="Brawler Name",
+        placeholder="e.g. Shelly, Bull, Crow...",
+        style=discord.TextStyle.short,
+        max_length=50
+    )
 
     def __init__(self, prestige_spec: str, payment: str, service_type: str):
         super().__init__()
@@ -1690,12 +1700,14 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
         if self.service_type == "carry":
             est_price *= 2.0
         est_price = apply_trophy_discount(est_price, trophy_range)
-
+        
+        brawler = self.brawler_name.value.strip()
         pe = prestige_emoji(self.prestige_spec)
         e = base_embed("💡 Price Estimate", color=GOLD)
         e.description = (
             f"**Order Summary:**\n\n"
             f"{pe} **Prestige:** {self.prestige_spec}\n"
+            f"🎮 **Brawler:** {brawler}\n"
             f"🏆 **Current Trophies:** {trophy_val:,}\n"
             f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
             f"💰 **Payment:** {self.payment}\n\n"
@@ -1705,7 +1717,7 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
         )
         await interaction.response.send_message(
             embed=e,
-            view=_PrestigeConfirmView(self.prestige_spec, trophy_range, self.payment, self.service_type),
+            view=_PrestigeConfirmView(self.prestige_spec, trophy_range, trophy_val, brawler, self.payment, self.service_type),
             ephemeral=True
         )
 
@@ -1761,17 +1773,19 @@ class PrestigeOrderView(ui.View):
 
 
 class _PrestigeConfirmView(ui.View):
-    def __init__(self, prestige_spec, trophy_range, payment, service_type):
+    def __init__(self, prestige_spec, trophy_range, trophy_val, brawler_name, payment, service_type):
         super().__init__(timeout=120)
         self.prestige_spec = prestige_spec
         self.trophy_range  = trophy_range
+        self.trophy_val    = trophy_val
+        self.brawler_name  = brawler_name
         self.payment       = payment
         self.service_type  = service_type
 
     @ui.button(label="Confirm & Continue", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(
-            PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.payment, self.service_type)
+            PrestigeOrderModal(self.prestige_spec, self.trophy_range, self.trophy_val, self.brawler_name, self.payment, self.service_type)
         )
 
 

@@ -144,7 +144,7 @@ def restore():
                 )
         if resp.status_code in (200, 201, 204):
             results["success"] += 1
-        else:
+        elif resp.status_code != 401:
             results["failed"] += 1
 
     return jsonify(results)

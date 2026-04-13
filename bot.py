@@ -628,12 +628,11 @@ TROPHY_OPTIONS = [
 ]
 
 def apply_trophy_discount(price: float, trophy_range: str, trophy_val: int = 0, prestige_spec: str = None) -> float:
-    """Half price at start of range; 2% discount per 50 trophies above the prestige base."""
-    half_price_ranges = {"0 - 500", "1001 - 1500", "2001 - 2500"}
-    if trophy_range in half_price_ranges:
-        price *= 0.5
+    """Half price in first 500 relative trophies of a prestige; 2% per 50 trophies above that."""
     base = PRESTIGE_BASE_TROPHIES.get(prestige_spec, 0) if prestige_spec else 0
     relative_trophies = max(0, trophy_val - base)
+    if relative_trophies <= 500:
+        price *= 0.5
     bands = relative_trophies // 50
     discount = min(bands * 0.02, 0.20)
     price *= (1.0 - discount)

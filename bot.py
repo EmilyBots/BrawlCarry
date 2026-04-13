@@ -2603,7 +2603,6 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
         f"{rank_icons}\n\n"
         "> 🟢 **Boost** — we play on your account\n"
         "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
-        "💡 **Price estimation is shown before you confirm your order!**\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
@@ -2636,7 +2635,6 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
         f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 → 3 — from **{PRESTIGE_PRICES['Prestige 2 -> Prestige 3']}€**\n\n"
         "> 🟢 **Boost** — we play on your account\n"
         "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
-        "💡 **Price estimation is shown before you confirm your order!**\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []

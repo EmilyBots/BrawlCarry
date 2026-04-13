@@ -213,6 +213,9 @@ def init_db():
         ("guild_config", "proof_channel_id BIGINT"),
         ("guild_config", "inactive_ticket_hours INT DEFAULT 24"),
         ("guild_config", "application_ticket_channel_id BIGINT"),
+        ("orders", "brawler_name TEXT"),
+        ("orders", "trophy_val INT"),
+
     ]
     for table, col_def in migrations:
         try:
@@ -926,6 +929,10 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
         )
         claim_e.add_field(name="📦 Order Details",   value=details,                                        inline=False)
+                if order["brawler_name"]:
+            claim_e.add_field(name="🎮 Brawler",     value=order["brawler_name"],                         inline=True)
+        if order["trophy_val"]:
+            claim_e.add_field(name="🏆 Trophies",    value=f"{order['trophy_val']:,}",                    inline=True)
         claim_e.add_field(name="💰 You Earn",         value=f"**€{earnings:.2f}**",                        inline=True)
         claim_e.add_field(name="🛠 Service",           value=svc_label,                                    inline=True)
         claim_e.add_field(name=f"{P11_EMOJI} P11",    value=p11,                                          inline=True)
@@ -1286,10 +1293,11 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
 
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, brawler_name, trophy_val) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (order_id, interaction.user.id, from_p, to_p, 0.0,
-             self.payment, "prestige", self.service_type, est_price)
+             self.payment, "prestige", self.service_type, est_price, self.brawler_name, self.trophy_val)
         )
+
         conn.commit()
         conn.close()
 

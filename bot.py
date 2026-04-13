@@ -929,7 +929,7 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
         )
         claim_e.add_field(name="📦 Order Details",   value=details,                                        inline=False)
-                if order["brawler_name"]:
+        if order["brawler_name"]:
             claim_e.add_field(name="🎮 Brawler",     value=order["brawler_name"],                         inline=True)
         if order["trophy_val"]:
             claim_e.add_field(name="🏆 Trophies",    value=f"{order['trophy_val']:,}",                    inline=True)

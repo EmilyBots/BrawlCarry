@@ -1680,7 +1680,8 @@ class PrestigeTrophyModal(ui.Modal, title="Enter Trophy Count"):
         else:
             trophy_range = "3001+"
 
-          brawler = self.brawler_name.value.strip()
+        brawler = self.brawler_name.value.strip()
+
         pe = prestige_emoji(self.prestige_spec)
         e = base_embed("📋 Order Summary", color=ACCENT)
         e.description = (

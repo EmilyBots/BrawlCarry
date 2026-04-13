@@ -478,7 +478,7 @@ async def create_ticket_thread(
                                 read_message_history=True,
                             ),
     }
-     for role in guild.roles:
+    for role in guild.roles:
         if role.permissions.administrator or role.permissions.manage_channels:
             overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
     if cfg and cfg.get("ticket_support_roles"):
@@ -2584,7 +2584,7 @@ async def setup(
             await interaction.response.send_message("❌ You can only set up to 6 ticket support roles.", ephemeral=True)
             return
         updates["ticket_support_roles"] = ticket_support_roles
-          = ticket_support_roles
+
     if reviewer_roles:             updates["reviewer_roles"]                = reviewer_roles
     if updates:
         set_config(interaction.guild.id, **updates)

@@ -1,7 +1,42 @@
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands, ui
-import json, os, sqlite3, uuid, random, io, aiohttp, asyncio
+import json, os, uuid, random, io, aiohttp, asyncio
+import psycopg2
+from psycopg2.extras import RealDictCursor
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:zZrBWjYglZfFzAvmFzKBMhphniaMywYQ@postgres.railway.internal:5432/railway")
+def get_db():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
+def get_config(guild_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM guild_config WHERE guild_id = %s", (guild_id,))
+    row = c.fetchone()
+    conn.close()
+    return row
+
+def set_config(guild_id: int, **kwargs):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT guild_id FROM guild_config WHERE guild_id = %s", (guild_id,))
+    if c.fetchone():
+        if kwargs:
+            set_clause = ", ".join(f"{k} = %s" for k in kwargs)
+            c.execute(
+                f"UPDATE guild_config SET {set_clause} WHERE guild_id = %s",
+                (*kwargs.values(), guild_id)
+            )
+    else:
+        c.execute("INSERT INTO guild_config (guild_id) VALUES (%s)", (guild_id,))
+        if kwargs:
+            set_clause = ", ".join(f"{k} = %s" for k in kwargs)
+            c.execute(
+                f"UPDATE guild_config SET {set_clause} WHERE guild_id = %s",
+                (*kwargs.values(), guild_id)
+            )
+    conn.commit()
+    conn.close()
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -32,26 +67,26 @@ ALLOWED_GUILDS = [
 # DATABASE
 # ---------------------------------------------------------------------------
 def init_db():
-    conn = sqlite3.connect("brawl.db")
+    conn = get_db()
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS orders (
         id TEXT PRIMARY KEY,
-        user_id INT,
+        user_id BIGINT,
         from_tier TEXT,
         to_tier TEXT,
-        price REAL,
+        price FLOAT,
         method TEXT,
         status TEXT DEFAULT 'pending',
         image_url TEXT,
-        ticket_channel_id INT,
-        booster_id INT,
-        booster_earnings REAL,
+        ticket_channel_id BIGINT,
+        booster_id BIGINT,
+        booster_earnings FLOAT,
         order_type TEXT,
         service_type TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_at TIMESTAMP,
         claimed_at TIMESTAMP,
-        estimated_price REAL,
+        estimated_price FLOAT,
         p11_count TEXT,
         booster_rating INT,
         completion_time_seconds INT
@@ -59,8 +94,8 @@ def init_db():
     c.execute("""CREATE TABLE IF NOT EXISTS vouchers (
         id TEXT PRIMARY KEY,
         code TEXT UNIQUE,
-        amount REAL,
-        used_by INT,
+        amount FLOAT,
+        used_by BIGINT,
         rating INT DEFAULT 5,
         feedback TEXT,
         image_url TEXT,
@@ -74,72 +109,73 @@ def init_db():
         prize TEXT,
         desc TEXT,
         winners INT,
-        hosted_by INT,
+        hosted_by BIGINT,
         participants TEXT,
         winner_ids TEXT,
         image_url TEXT,
         extra_entries TEXT,
         ping TEXT,
-        bonus_role_id INT,
+        bonus_role_id BIGINT,
         ended_at TIMESTAMP
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS guild_config (
-        guild_id INT PRIMARY KEY,
-        vouch_channel_id INT,
-        ticket_channel_id INT,
-        completed_channel_id INT,
-        ticket_category_id INT,
+        guild_id BIGINT PRIMARY KEY,
+        vouch_channel_id BIGINT,
+        ticket_channel_id BIGINT,
+        completed_channel_id BIGINT,
+        ticket_category_id BIGINT,
         ticket_panel_title TEXT,
         ticket_panel_desc TEXT,
-        ranked_panel_channel_id INT,
-        prestige_panel_channel_id INT,
-        ranked_ticket_channel_id INT,
-        prestige_ticket_channel_id INT,
-        owner_id INT,
-        ticket_log_channel_id INT,
-        application_channel_id INT,
-        application_review_channel_id INT,
-        account_sale_channel_id INT,
-        booster_role_id INT,
-        proof_channel_id INT,
-        inactive_ticket_hours INT DEFAULT 24
+        ranked_panel_channel_id BIGINT,
+        prestige_panel_channel_id BIGINT,
+        ranked_ticket_channel_id BIGINT,
+        prestige_ticket_channel_id BIGINT,
+        owner_id BIGINT,
+        ticket_log_channel_id BIGINT,
+        application_channel_id BIGINT,
+        application_review_channel_id BIGINT,
+        account_sale_channel_id BIGINT,
+        booster_role_id BIGINT,
+        proof_channel_id BIGINT,
+        inactive_ticket_hours INT DEFAULT 24,
+        application_ticket_channel_id BIGINT
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS payment_methods (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        guild_id INT,
+        id SERIAL PRIMARY KEY,
+        guild_id BIGINT,
         label TEXT,
         emoji TEXT,
         UNIQUE(guild_id, label)
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS account_listings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        guild_id INT,
-        seller_id INT,
+        id SERIAL PRIMARY KEY,
+        guild_id BIGINT,
+        seller_id BIGINT,
         game TEXT,
         description TEXT,
-        price REAL,
+        price FLOAT,
         contact TEXT,
         image_url TEXT,
         status TEXT DEFAULT 'available',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS booster_availability (
-        user_id INT PRIMARY KEY,
-        guild_id INT,
+        user_id BIGINT PRIMARY KEY,
+        guild_id BIGINT,
         status TEXT DEFAULT 'available',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS rank_prices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        guild_id INT,
+        id SERIAL PRIMARY KEY,
+        guild_id BIGINT,
         from_rank TEXT,
         to_rank TEXT,
-        base_price REAL,
+        base_price FLOAT,
         UNIQUE(guild_id, from_rank, to_rank)
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS ticket_activity (
-        channel_id INT PRIMARY KEY,
-        guild_id INT,
+        channel_id BIGINT PRIMARY KEY,
+        guild_id BIGINT,
         last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         warned INT DEFAULT 0
     )""")
@@ -147,86 +183,43 @@ def init_db():
     migrations = [
         ("giveaways",    "extra_entries TEXT"),
         ("giveaways",    "ping TEXT"),
-        ("giveaways",    "bonus_role_id INT"),
-        ("guild_config", "completed_channel_id INT"),
-        ("guild_config", "ticket_category_id INT"),
+        ("giveaways",    "bonus_role_id BIGINT"),
+        ("guild_config", "completed_channel_id BIGINT"),
+        ("guild_config", "ticket_category_id BIGINT"),
         ("vouchers",     "method TEXT"),
-        ("guild_config", "ranked_panel_channel_id INT"),
-        ("guild_config", "prestige_panel_channel_id INT"),
-        ("guild_config", "ranked_ticket_channel_id INT"),
-        ("guild_config", "prestige_ticket_channel_id INT"),
-        ("guild_config", "owner_id INT"),
-        ("orders",       "ticket_channel_id INT"),
-        ("orders",       "booster_id INT"),
-        ("orders",       "booster_earnings REAL"),
+        ("guild_config", "ranked_panel_channel_id BIGINT"),
+        ("guild_config", "prestige_panel_channel_id BIGINT"),
+        ("guild_config", "ranked_ticket_channel_id BIGINT"),
+        ("guild_config", "prestige_ticket_channel_id BIGINT"),
+        ("guild_config", "owner_id BIGINT"),
+        ("orders",       "ticket_channel_id BIGINT"),
+        ("orders",       "booster_id BIGINT"),
+        ("orders",       "booster_earnings FLOAT"),
         ("orders",       "order_type TEXT"),
         ("orders",       "service_type TEXT"),
-        ("guild_config", "application_channel_id INT"),
-        ("guild_config", "application_review_channel_id INT"),
-        ("guild_config", "account_sale_channel_id INT"),
-        ("guild_config", "ticket_log_channel_id INT"),
+        ("guild_config", "application_channel_id BIGINT"),
+        ("guild_config", "application_review_channel_id BIGINT"),
+        ("guild_config", "account_sale_channel_id BIGINT"),
+        ("guild_config", "ticket_log_channel_id BIGINT"),
         ("vouchers",     "order_kind TEXT"),
         ("vouchers",     "service_type TEXT"),
         ("orders",       "claimed_at TIMESTAMP"),
-        ("orders",       "estimated_price REAL"),
+        ("orders",       "estimated_price FLOAT"),
         ("orders",       "p11_count TEXT"),
         ("orders",       "booster_rating INT"),
         ("orders",       "completion_time_seconds INT"),
-        ("guild_config", "booster_role_id INT"),
-        ("guild_config", "proof_channel_id INT"),
+        ("guild_config", "booster_role_id BIGINT"),
+        ("guild_config", "proof_channel_id BIGINT"),
         ("guild_config", "inactive_ticket_hours INT DEFAULT 24"),
-        ("guild_config", "application_ticket_channel_id INT"),
-
+        ("guild_config", "application_ticket_channel_id BIGINT"),
     ]
     for table, col_def in migrations:
         try:
             c.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+            conn.commit()
         except Exception:
-            pass
+            conn.rollback()
 
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def get_db():
-    conn = sqlite3.connect("brawl.db")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def get_config(guild_id: int):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT * FROM guild_config WHERE guild_id = ?", (guild_id,))
-    row = c.fetchone()
-    conn.close()
-    return row
-
-ALLOWED_CONFIG_KEYS = {
-    "vouch_channel_id", "ticket_channel_id",
-    "completed_channel_id", "ticket_category_id",
-    "ticket_panel_title", "ticket_panel_desc",
-    "ranked_panel_channel_id", "prestige_panel_channel_id",
-    "ranked_ticket_channel_id", "prestige_ticket_channel_id",
-    "owner_id",
-    "ticket_log_channel_id",
-    "application_channel_id",
-    "application_review_channel_id",
-    "account_sale_channel_id",
-    "booster_role_id",
-    "proof_channel_id",
-    "inactive_ticket_hours",
-    "application_ticket_channel_id",
-}
-
-def set_config(guild_id: int, **kwargs):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO guild_config (guild_id) VALUES (?)", (guild_id,))
-    for key, val in kwargs.items():
-        if key not in ALLOWED_CONFIG_KEYS:
-            continue
-        c.execute(f"UPDATE guild_config SET {key} = ? WHERE guild_id = ?", (val, guild_id))
     conn.commit()
     conn.close()
 
@@ -243,7 +236,7 @@ DEFAULT_PAYMENT_METHODS = [
 def get_payment_methods(guild_id: int) -> list:
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT label, emoji FROM payment_methods WHERE guild_id = ? ORDER BY id", (guild_id,))
+    c.execute("SELECT label, emoji FROM payment_methods WHERE guild_id = %s ORDER BY id", (guild_id,))
     rows = c.fetchall()
     conn.close()
     if rows:
@@ -255,20 +248,21 @@ def add_payment_method(guild_id: int, label: str, emoji: str) -> bool:
     c = conn.cursor()
     try:
         c.execute(
-            "INSERT INTO payment_methods (guild_id, label, emoji) VALUES (?, ?, ?)",
+            "INSERT INTO payment_methods (guild_id, label, emoji) VALUES (%s, %s, %s)",
             (guild_id, label, emoji)
         )
         conn.commit()
         conn.close()
         return True
-    except sqlite3.IntegrityError:
+    except Exception:
+        conn.rollback()
         conn.close()
         return False
 
 def remove_payment_method(guild_id: int, label: str) -> bool:
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM payment_methods WHERE guild_id = ? AND label = ?", (guild_id, label))
+    c.execute("DELETE FROM payment_methods WHERE guild_id = %s AND label = %s", (guild_id, label))
     affected = c.rowcount
     conn.commit()
     conn.close()
@@ -298,7 +292,7 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
     conn = get_db()
     c = conn.cursor()
     c.execute(
-        "SELECT base_price FROM rank_prices WHERE guild_id = ? AND from_rank = ? AND to_rank = ?",
+        "SELECT base_price FROM rank_prices WHERE guild_id = %s AND from_rank = %s AND to_rank = %s",
         (guild_id, from_rank, to_rank)
     )
     custom = c.fetchone()
@@ -360,7 +354,7 @@ AVAILABILITY_STATUSES = ["available", "busy", "offline"]
 def get_booster_status(user_id: int) -> str:
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT status FROM booster_availability WHERE user_id = ?", (user_id,))
+    c.execute("SELECT status FROM booster_availability WHERE user_id = %s", (user_id,))
     row = c.fetchone()
     conn.close()
     return row["status"] if row else "available"
@@ -369,7 +363,8 @@ def set_booster_status(user_id: int, guild_id: int, status: str):
     conn = get_db()
     c = conn.cursor()
     c.execute(
-        "INSERT OR REPLACE INTO booster_availability (user_id, guild_id, status, updated_at) VALUES (?, ?, ?, ?)",
+        """INSERT INTO booster_availability (user_id, guild_id, status, updated_at) VALUES (%s, %s, %s, %s)
+           ON CONFLICT (user_id) DO UPDATE SET guild_id = EXCLUDED.guild_id, status = EXCLUDED.status, updated_at = EXCLUDED.updated_at""",
         (user_id, guild_id, status, datetime.utcnow())
     )
     conn.commit()
@@ -382,7 +377,8 @@ def update_ticket_activity(channel_id: int, guild_id: int):
     conn = get_db()
     c = conn.cursor()
     c.execute(
-        "INSERT OR REPLACE INTO ticket_activity (channel_id, guild_id, last_activity, warned) VALUES (?, ?, ?, 0)",
+        """INSERT INTO ticket_activity (channel_id, guild_id, last_activity, warned) VALUES (%s, %s, %s, 0)
+           ON CONFLICT (channel_id) DO UPDATE SET guild_id = EXCLUDED.guild_id, last_activity = EXCLUDED.last_activity, warned = 0""",
         (channel_id, guild_id, datetime.utcnow())
     )
     conn.commit()
@@ -391,7 +387,7 @@ def update_ticket_activity(channel_id: int, guild_id: int):
 def remove_ticket_activity(channel_id: int):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM ticket_activity WHERE channel_id = ?", (channel_id,))
+    c.execute("DELETE FROM ticket_activity WHERE channel_id = %s", (channel_id,))
     conn.commit()
     conn.close()
 
@@ -650,7 +646,7 @@ class BoosterRatingView(ui.View):
         rating = int(interaction.data["values"][0])
         conn = get_db()
         c = conn.cursor()
-        c.execute("UPDATE orders SET booster_rating = ? WHERE id = ?", (rating, self.order_id))
+        c.execute("UPDATE orders SET booster_rating = %s WHERE id = %s", (rating, self.order_id))
         conn.commit()
         conn.close()
 
@@ -702,7 +698,7 @@ class BoosterClaimView(ui.View):
 
         # Anti-double-claim: lock with UPDATE and check rowcount
         c.execute(
-            "UPDATE orders SET booster_id = ?, status = 'claimed', claimed_at = ? WHERE id = ? AND status = 'pending'",
+            "UPDATE orders SET booster_id = %s, status = 'claimed', claimed_at = %s WHERE id = %s AND status = 'pending'",
             (booster.id, datetime.utcnow(), self.order_id)
         )
         affected = c.rowcount
@@ -710,7 +706,7 @@ class BoosterClaimView(ui.View):
 
         if affected == 0:
             # Either already claimed or not found — check which
-            c.execute("SELECT status, booster_id FROM orders WHERE id = ?", (self.order_id,))
+            c.execute("SELECT status, booster_id FROM orders WHERE id = %s", (self.order_id,))
             order_check = c.fetchone()
             conn.close()
             if not order_check:
@@ -722,10 +718,10 @@ class BoosterClaimView(ui.View):
             return
 
         # Check active orders cap
-        c.execute(
-            "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = ? AND status = 'claimed'",
-            (booster.id,)
-        )
+            c.execute(
+                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = ?",
+                (self.order_id,)
+            )
         active_count = c.fetchone()["cnt"]
 
         if active_count > 2:
@@ -742,7 +738,7 @@ class BoosterClaimView(ui.View):
             )
             return
 
-        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
+        c.execute("SELECT * FROM orders WHERE id = %s", (self.order_id,))
         order = c.fetchone()
         conn.close()
 
@@ -838,14 +834,14 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
 
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE id = ?", (self.order_id,))
+        c.execute("SELECT * FROM orders WHERE id = %s", (self.order_id,))
         order = c.fetchone()
         if not order:
             conn.close()
             await interaction.followup.send("❌ Order not found.", ephemeral=True)
             return
 
-        c.execute("UPDATE orders SET booster_earnings = ? WHERE id = ?", (earnings, self.order_id))
+        c.execute("UPDATE orders SET booster_earnings = %s WHERE id = %s", (earnings, self.order_id))
         conn.commit()
         conn.close()
 
@@ -976,7 +972,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         c.execute("SELECT COUNT(*) as cnt FROM vouchers")
         vouch_number = c.fetchone()["cnt"] + 1
         c.execute(
-            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method, order_kind, service_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method, order_kind, service_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (vouch_id, vouch_id, amount_val, interaction.user.id, stars, self.feedback.value, img,
              self.payment_method, self.order_kind, self.service_type)
         )
@@ -1133,7 +1129,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         c        = conn.cursor()
         order_id = f"RANKED-{uuid.uuid4().hex[:6].upper()}"
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, p11_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price, p11_count) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (order_id, interaction.user.id, self.current_rank, self.desired_rank, 0.0,
              self.payment, "ranked", self.service_type, self.estimated_price, self.p11)
         )
@@ -1184,8 +1180,7 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             return
 
         conn = get_db()
-        c    = conn.cursor()
-        c.execute("UPDATE orders SET ticket_channel_id = ? WHERE id = ?", (ticket.id, order_id))
+        c.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
         conn.commit()
         conn.close()
 
@@ -1244,7 +1239,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             est_price *= 2.0
 
         c.execute(
-            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, estimated_price) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (order_id, interaction.user.id, from_p, to_p, 0.0,
              self.payment, "prestige", self.service_type, est_price)
         )
@@ -1295,7 +1290,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
         conn = get_db()
         c    = conn.cursor()
-        c.execute("UPDATE orders SET ticket_channel_id = ? WHERE id = ?", (ticket.id, order_id))
+        c.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
         conn.commit()
         conn.close()
 
@@ -1340,7 +1335,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         order_id = self.order_id_input.value.strip().upper()
         conn     = get_db()
         c        = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        c.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order = c.fetchone()
 
         if not order:
@@ -1367,9 +1362,8 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                     claimed_dt = None
             if claimed_dt:
                 completion_secs = int((now - claimed_dt).total_seconds())
-
         c.execute(
-            "UPDATE orders SET status = 'completed', price = ?, method = ?, completed_at = ?, completion_time_seconds = ? WHERE id = ?",
+            "UPDATE orders SET status = 'completed', price = %s, method = %s, completed_at = %s, completion_time_seconds = %s WHERE id = %s",
             (price_val, self.payment_used.value.strip(), now, completion_secs, order_id)
         )
         conn.commit()
@@ -2147,7 +2141,7 @@ class TicketCloseView(ui.View):
 
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE ticket_channel_id = ? ORDER BY created_at DESC LIMIT 1", (channel.id,))
+        c.execute("SELECT * FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1", (channel.id,))
         order = c.fetchone()
         conn.close()
 
@@ -2234,12 +2228,12 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
         conn = get_db()
         c    = conn.cursor()
         c.execute(
-            "INSERT INTO account_listings (guild_id, seller_id, game, description, price, contact, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO account_listings (guild_id, seller_id, game, description, price, contact, image_url) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (guild.id, interaction.user.id, self.game.value, self.description.value,
              price_val, self.contact.value or "Open a ticket or DM staff", self.image_url.value.strip())
         )
+        listing_number = c.fetchone()["id"]
         conn.commit()
-        listing_number = c.lastrowid
         conn.close()
 
         e = base_embed(f"🛒 Account For Sale — {self.game.value}", color=GOLD)
@@ -2747,9 +2741,9 @@ async def stats(interaction: discord.Interaction, user: discord.User = None):
     target = user or interaction.user
     conn   = get_db()
     c      = conn.cursor()
-    c.execute("SELECT COUNT(*) as count, SUM(price) as total FROM orders WHERE user_id = ?", (target.id,))
+    c.execute("SELECT COUNT(*) as count, SUM(price) as total FROM orders WHERE user_id = %s", (target.id,))
     row = c.fetchone()
-    c.execute("SELECT COUNT(*) as vc FROM vouchers WHERE used_by = ?", (target.id,))
+    c.execute("SELECT COUNT(*) as vc FROM vouchers WHERE used_by = %s", (target.id,))
     vc = c.fetchone()
     conn.close()
     e = base_embed(f"📊 {target.display_name}'s Stats", color=PRIMARY)
@@ -2767,17 +2761,17 @@ async def booster_stats(interaction: discord.Interaction, user: discord.User = N
     conn   = get_db()
     c      = conn.cursor()
     c.execute(
-        "SELECT COUNT(*) as completed, SUM(booster_earnings) as total_earnings, AVG(booster_rating) as avg_rating FROM orders WHERE booster_id = ? AND status = 'completed'",
+        "SELECT COUNT(*) as completed, SUM(booster_earnings) as total_earnings, AVG(booster_rating) as avg_rating FROM orders WHERE booster_id = %s AND status = 'completed'",
         (target.id,)
     )
     row = c.fetchone()
     c.execute(
-        "SELECT COUNT(*) as active FROM orders WHERE booster_id = ? AND status = 'claimed'",
+        "SELECT COUNT(*) as active FROM orders WHERE booster_id = %s AND status = 'claimed'",
         (target.id,)
     )
     active_row = c.fetchone()
     c.execute(
-        "SELECT AVG(completion_time_seconds) as avg_time FROM orders WHERE booster_id = ? AND status = 'completed' AND completion_time_seconds IS NOT NULL",
+        "SELECT AVG(completion_time_seconds) as avg_time FROM orders WHERE booster_id = %s AND status = 'completed' AND completion_time_seconds IS NOT NULL",
         (target.id,)
     )
     time_row = c.fetchone()
@@ -2871,14 +2865,14 @@ async def my_orders(interaction: discord.Interaction, filter_by: str = "all"):
     c    = conn.cursor()
 
     if filter_by == "active":
-        c.execute("SELECT * FROM orders WHERE booster_id = ? AND status = 'claimed' ORDER BY claimed_at DESC", (interaction.user.id,))
+        c.execute("SELECT * FROM orders WHERE booster_id = %s AND status = 'claimed' ORDER BY claimed_at DESC", (interaction.user.id,))
     elif filter_by == "completed":
-        c.execute("SELECT * FROM orders WHERE booster_id = ? AND status = 'completed' ORDER BY completed_at DESC LIMIT 20", (interaction.user.id,))
+        c.execute("SELECT * FROM orders WHERE booster_id = %s AND status = 'completed' ORDER BY completed_at DESC LIMIT 20", (interaction.user.id,))
     else:
-        c.execute("SELECT * FROM orders WHERE booster_id = ? ORDER BY created_at DESC LIMIT 20", (interaction.user.id,))
+        c.execute("SELECT * FROM orders WHERE booster_id = %s ORDER BY created_at DESC LIMIT 20", (interaction.user.id,))
 
     orders = c.fetchall()
-    c.execute("SELECT SUM(booster_earnings) as total FROM orders WHERE booster_id = ? AND status = 'completed'", (interaction.user.id,))
+    c.execute("SELECT SUM(booster_earnings) as total FROM orders WHERE booster_id = %s AND status = 'completed'", (interaction.user.id,))
     total_row = c.fetchone()
     conn.close()
 
@@ -2982,7 +2976,8 @@ async def set_rank_price(interaction: discord.Interaction, from_rank: str, to_ra
     conn = get_db()
     c    = conn.cursor()
     c.execute(
-        "INSERT OR REPLACE INTO rank_prices (guild_id, from_rank, to_rank, base_price) VALUES (?, ?, ?, ?)",
+        """INSERT INTO rank_prices (guild_id, from_rank, to_rank, base_price) VALUES (%s, %s, %s, %s)
+           ON CONFLICT (guild_id, from_rank, to_rank) DO UPDATE SET base_price = EXCLUDED.base_price""",
         (interaction.guild.id, from_rank, to_rank, price)
     )
     conn.commit()
@@ -3295,7 +3290,7 @@ async def inactive_ticket_loop():
                         # Mark as warned
                         conn2 = get_db()
                         c2 = conn2.cursor()
-                        c2.execute("UPDATE ticket_activity SET warned = 1 WHERE channel_id = ?", (row["channel_id"],))
+                        c2.execute("UPDATE ticket_activity SET warned = 1 WHERE channel_id = %s", (row["channel_id"],))
                         conn2.commit()
                         conn2.close()
                     except Exception as ex:
@@ -3352,7 +3347,7 @@ async def on_ready():
 
     # Restore booster rating views for recently completed orders (last 7 days)
     c.execute(
-        "SELECT id, booster_id FROM orders WHERE status = 'completed' AND booster_rating IS NULL AND completed_at > datetime('now', '-7 days')"
+        "SELECT id, booster_id FROM orders WHERE status = 'completed' AND booster_rating IS NULL AND completed_at > NOW() - INTERVAL '7 days'"
     )
     for row in c.fetchall():
         if row["booster_id"]:

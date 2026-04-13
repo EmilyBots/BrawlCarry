@@ -719,7 +719,7 @@ class BoosterClaimView(ui.View):
 
         # Check active orders cap
             c.execute(
-                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = ?",
+                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = %s",
                 (self.order_id,)
             )
         active_count = c.fetchone()["cnt"]
@@ -727,7 +727,7 @@ class BoosterClaimView(ui.View):
         if active_count > 2:
             # Revert the claim
             c.execute(
-                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = ?",
+                "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = %s",
                 (self.order_id,)
             )
             conn.commit()
@@ -2010,7 +2010,7 @@ class GiveawayView(ui.View):
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT * FROM giveaways WHERE id = ?", (self.giveaway_id,))
+        c.execute("SELECT * FROM giveaways WHERE id = %s", (self.giveaway_id,))
         ga = c.fetchone()
         if not ga:
             conn.close()
@@ -2033,7 +2033,7 @@ class GiveawayView(ui.View):
         for _ in range(total_entries):
             participants.append(interaction.user.id)
 
-        c.execute("UPDATE giveaways SET participants = ? WHERE id = ?", (json.dumps(participants), self.giveaway_id))
+        c.execute("UPDATE giveaways SET participants = %s WHERE id = %s", (json.dumps(participants), self.giveaway_id))
         conn.commit()
         conn.close()
 
@@ -2044,7 +2044,7 @@ class GiveawayView(ui.View):
     async def view_participants(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT participants FROM giveaways WHERE id = ?", (self.giveaway_id,))
+        c.execute("SELECT participants FROM giveaways WHERE id = %s", (self.giveaway_id,))
         ga = c.fetchone()
         conn.close()
         raw   = json.loads(ga["participants"]) if ga and ga["participants"] else []
@@ -2057,7 +2057,7 @@ class GiveawayView(ui.View):
     async def extra(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
-        c.execute("SELECT extra_entries FROM giveaways WHERE id = ?", (self.giveaway_id,))
+        c.execute("SELECT extra_entries FROM giveaways WHERE id = %s", (self.giveaway_id,))
         ga = c.fetchone()
         conn.close()
         extra_entries_data = json.loads(ga["extra_entries"]) if ga and ga["extra_entries"] else []
@@ -2642,7 +2642,7 @@ async def giveaway(
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
-        "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO giveaways (id, prize, desc, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at)
     )
     conn.commit()
@@ -2679,7 +2679,7 @@ async def giveaway(
 async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     conn = get_db()
     c    = conn.cursor()
-    c.execute("SELECT * FROM giveaways WHERE id = ?", (giveaway_id,))
+    c.execute("SELECT * FROM giveaways WHERE id = %s", (giveaway_id,))
     ga = c.fetchone()
     if not ga:
         conn.close()
@@ -2691,7 +2691,7 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
         await interaction.response.send_message("❌ No participants to draw from.", ephemeral=True)
         return
     winner_ids = random.sample(participants, min(ga["winners"], len(participants)))
-    c.execute("UPDATE giveaways SET winner_ids = ? WHERE id = ?", (json.dumps(winner_ids), giveaway_id))
+    c.execute("UPDATE giveaways SET winner_ids = %s WHERE id = %s", (json.dumps(winner_ids), giveaway_id))
     conn.commit()
     conn.close()
     winner_mentions = " ".join([f"<@{w}>" for w in winner_ids])
@@ -3320,6 +3320,7 @@ async def inactive_ticket_loop():
 # ---------------------------------------------------------------------------
 @bot.event
 async def on_ready():
+    init_db()
     await bot.tree.sync()
     print(f"[OK] {bot.user} | Slash commands synced")
 

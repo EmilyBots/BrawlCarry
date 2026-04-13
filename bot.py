@@ -180,6 +180,7 @@ def init_db():
         warned INT DEFAULT 0
     )""")
 
+    conn.commit()
     migrations = [
         ("giveaways",    "extra_entries TEXT"),
         ("giveaways",    "ping TEXT"),

@@ -898,11 +898,17 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
                     cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
                     else cfg["prestige_panel_channel_id"]
                 )
-
         panel_ch = guild.get_channel(panel_ch_id) if panel_ch_id else None
         if not panel_ch:
+            # fallback: try fetching as a thread
+            if panel_ch_id:
+                try:
+                    panel_ch = await guild.fetch_channel(panel_ch_id)
+                except Exception:
+                    panel_ch = None
+        if not panel_ch:
             await interaction.followup.send(
-                "❌ Panel channel not found. Make sure it is configured via `/setup`.", ephemeral=True
+                f"❌ Panel channel not found (id={panel_ch_id}). Make sure it is configured via `/setup`.", ephemeral=True
             )
             return
 

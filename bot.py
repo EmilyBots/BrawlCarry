@@ -2306,19 +2306,11 @@ class TicketCloseView(ui.View):
 # Remove the ticket from activity tracking
 remove_ticket_activity(channel.id)
 
-# Disable the button to prevent further clicks
-button.disabled = True
-await asyncio.sleep(5)
-
 async def close_ticket(interaction, channel, button):
-    # Remove from activity tracking
     remove_ticket_activity(channel.id)
-
-    # Disable the button to prevent further clicks
     button.disabled = True
     await asyncio.sleep(5)
 
-    # Try to delete the channel/thread safely
     try:
         if isinstance(channel, discord.Thread):
             if channel.archived:

@@ -3546,6 +3546,7 @@ async def on_ready():
     bot.add_view(RankedPanelButton())
     bot.add_view(PrestigePanelButton())
     bot.add_view(ApplicationPanelView())
+    bot.add_view(CombinedPanelView())
     bot.add_view(BackupPanelView())
 
     conn = get_db()

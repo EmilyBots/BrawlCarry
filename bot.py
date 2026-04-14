@@ -472,7 +472,7 @@ async def create_ticket_thread(
                 await text_ch.set_permissions(member, overwrite=None, reason="Cleanup after thread creation")
             except Exception:
                 pass
-             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
+            pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
             if pings:
                 await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
 

@@ -220,6 +220,7 @@ def init_db():
         ("guild_config", "inactive_ticket_hours INT DEFAULT 24"),
         ("guild_config", "application_ticket_channel_id BIGINT"),
         ("orders", "brawler_name TEXT"),
+        ("guild_config", "account_sale_ticket_channel_id BIGINT"),
         ("orders", "trophy_val INT"),
         ("guild_config", "carrier_role_id BIGINT"),
         ("guild_config", "ticket_support_roles TEXT"),
@@ -2358,8 +2359,9 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
 
         guild = interaction.guild
         cfg   = get_config(guild.id)
-        sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
-        sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
+        sale_ch_id        = cfg["account_sale_channel_id"] if cfg else None
+        acct_ticket_ch_id = cfg["account_sale_ticket_channel_id"] if cfg else None
+        sale_ch           = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
 
         conn = get_db()
         c    = conn.cursor()
@@ -2442,7 +2444,7 @@ class AccountBuyView(ui.View):
                 topic_embed=e,
                 view=TicketCloseView(),
                 cfg=cfg,
-                override_channel_id=sale_ch_id,
+                override_channel_id=acct_ticket_ch_id or sale_ch_id,
             )
         except Exception as err:
             await interaction.response.send_message(
@@ -2532,6 +2534,7 @@ async def on_message(message: discord.Message):
     application_channel="Channel where application panels are posted",
     application_review_channel="Channel where staff review submitted applications",
     account_sale_channel="Channel where account sale posts are published",
+    account_sale_ticket_channel="Channel where account purchase ticket threads are created",
     booster_role="Role given to boosters (used for leaderboard filtering)",
     proof_channel="Channel where proof screenshots are posted",
     inactive_ticket_hours="Hours of inactivity before ticket warning (default: 24)",
@@ -2557,6 +2560,7 @@ async def setup(
     application_channel: discord.abc.GuildChannel = None,
     application_review_channel: discord.abc.GuildChannel = None,
     account_sale_channel: discord.abc.GuildChannel = None,
+    account_sale_ticket_channel: discord.abc.GuildChannel = None,
     booster_role: discord.Role = None,
     proof_channel: discord.abc.GuildChannel = None,
     inactive_ticket_hours: int = None,
@@ -2580,6 +2584,7 @@ async def setup(
     if application_channel:        updates["application_channel_id"]        = application_channel.id
     if application_review_channel: updates["application_review_channel_id"] = application_review_channel.id
     if account_sale_channel:       updates["account_sale_channel_id"]       = account_sale_channel.id
+    if account_sale_ticket_channel: updates["account_sale_ticket_channel_id"] = account_sale_ticket_channel.id
     if booster_role:               updates["booster_role_id"]               = booster_role.id
     if proof_channel:              updates["proof_channel_id"]              = proof_channel.id
     if inactive_ticket_hours is not None: updates["inactive_ticket_hours"]  = inactive_ticket_hours
@@ -2611,6 +2616,7 @@ async def setup(
     if application_channel:        e.add_field(name="📝 Application Channel",          value=application_channel.mention,        inline=True)
     if application_review_channel: e.add_field(name="🔍 Application Review Channel",  value=application_review_channel.mention, inline=True)
     if account_sale_channel:       e.add_field(name="🛒 Account Sale Channel",         value=account_sale_channel.mention,       inline=True)
+    if account_sale_ticket_channel: e.add_field(name="🛒 Account Ticket Channel", value=account_sale_ticket_channel.mention, inline=True)
     if booster_role:               e.add_field(name="🟠 Booster Role",                value=booster_role.mention,               inline=True)
     if proof_channel:              e.add_field(name="📸 Proof Channel",               value=proof_channel.mention,              inline=True)
     if inactive_ticket_hours:      e.add_field(name="⏰ Inactive Ticket Hours",        value=str(inactive_ticket_hours),         inline=True)

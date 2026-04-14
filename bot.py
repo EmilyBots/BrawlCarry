@@ -452,7 +452,7 @@ async def create_ticket_thread(
         text_ch = guild.get_channel(ticket_ch_id)
         if isinstance(text_ch, discord.TextChannel):
             try:
-                await text_ch.set_permissions(member, view_channel=True, read_message_history=True, reason="Temporary ticket access")
+                await text_ch.set_permissions(member, view_channel=True, read_message_history=True, send_messages=True, reason="Temporary ticket access")
             except Exception:
                 pass
             try:

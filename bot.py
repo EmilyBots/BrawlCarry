@@ -50,6 +50,8 @@ DANGER       = 0xE74C3C
 DARK         = 0x0A0E1A
 ACCENT       = 0xA855F7
 
+HARDCODED_SUPPORT_ROLES = [123456789012345678, 987654321098765432, 111222333444555666]  # Replace with your role IDs
+
 FOOTER_BRAND = "Powered by Brawl Carry (TM)"
 
 intents = discord.Intents.default()
@@ -470,16 +472,10 @@ async def create_ticket_thread(
                 await text_ch.set_permissions(member, overwrite=None, reason="Cleanup after thread creation")
             except Exception:
                 pass
-            if cfg and cfg.get("ticket_support_roles"):
-                pings = []
-                for rid in cfg["ticket_support_roles"].split(","):
-                    rid = rid.strip().strip("<@&>")
-                    try:
-                        pings.append(f"<@&{int(rid)}>")
-                    except ValueError:
-                        pass
-                if pings:
-                    await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
+             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
+            if pings:
+                await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
+
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             update_ticket_activity(thread.id, guild.id)
             return thread
@@ -499,15 +495,10 @@ async def create_ticket_thread(
     for role in guild.roles:
         if role.permissions.administrator or role.permissions.manage_channels:
             overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
-    if cfg and cfg.get("ticket_support_roles"):
-        for rid in cfg["ticket_support_roles"].split(","):
-            rid = rid.strip().strip("<@&>")
-            try:
-                support_role = guild.get_role(int(rid))
-                if support_role:
-                    overwrites[support_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
-            except ValueError:
-                pass
+    for rid in HARDCODED_SUPPORT_ROLES:
+        support_role = guild.get_role(rid)
+        if support_role:
+            overwrites[support_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
     ch = await guild.create_text_channel(
         name=name,

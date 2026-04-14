@@ -2310,22 +2310,26 @@ remove_ticket_activity(channel.id)
 button.disabled = True
 await asyncio.sleep(5)
 
-# Try to delete the channel/thread safely
-try:
-    if isinstance(channel, discord.Thread):
-        # If it's a thread and archived, unarchive it first
-        if channel.archived:
-            await channel.edit(archived=False)
-        await channel.delete()
-    else:
-        # If it's a normal channel, delete it with a reason
-        await channel.delete(reason=f"Ticket closed by {interaction.user}")
-except discord.Forbidden:
-    # Bot lacks permissions
-    await channel.send("❌ Bot is missing **Manage Threads** permission.")
-except Exception as ex:
-    # Catch all other errors
-    await channel.send(f"❌ Failed to delete: `{ex}`")
+async def close_ticket(interaction, channel, button):
+    # Remove from activity tracking
+    remove_ticket_activity(channel.id)
+
+    # Disable the button to prevent further clicks
+    button.disabled = True
+    await asyncio.sleep(5)
+
+    # Try to delete the channel/thread safely
+    try:
+        if isinstance(channel, discord.Thread):
+            if channel.archived:
+                await channel.edit(archived=False)
+            await channel.delete()
+        else:
+            await channel.delete(reason=f"Ticket closed by {interaction.user}")
+    except discord.Forbidden:
+        await channel.send("❌ Bot is missing **Manage Threads** permission.")
+    except Exception as ex:
+        await channel.send(f"❌ Failed to delete: `{ex}`")
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):

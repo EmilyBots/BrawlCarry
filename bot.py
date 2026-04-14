@@ -2421,39 +2421,6 @@ class AccountBuyView(ui.View):
         sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
         sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
 
-        if not isinstance(sale_ch, discord.TextChannel):
-            await interaction.response.send_message("❌ Account sale channel not found or not a text channel.", ephemeral=True)
-            return
-
-# Grant the buyer explicit access on the parent channel so they can
-        # read and write inside the resulting private thread.
-        try:
-            await sale_ch.set_permissions(
-                member,
-                view_channel=True,
-                read_message_history=True,
-                send_messages=True,
-                reason="Temporary purchase-ticket access",
-            )
-        except Exception:
-            pass
-
-        try:
-            thread = await sale_ch.create_thread(
-                name=f"purchase-{listing['game'][:20].lower().replace(' ','-')}-{member.name[:10].lower()}",
-                type=discord.ChannelType.private_thread,
-                invitable=False,
-                reason=f"Account purchase by {member}",
-            )
-        except (discord.Forbidden, discord.HTTPException):
-            thread = await sale_ch.create_thread(
-                name=f"purchase-{listing['game'][:20].lower().replace(' ','-')}-{member.name[:10].lower()}",
-                type=discord.ChannelType.public_thread,
-                reason=f"Account purchase by {member}",
-            )
-
-        await thread.add_user(member)
-
         e = base_embed(f"🛒 Account Purchase — {listing['game']}", color=GOLD)
         e.description = (
             f"Welcome, {member.mention}!\n\n"
@@ -2467,11 +2434,21 @@ class AccountBuyView(ui.View):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await thread.send(content=member.mention, embed=e, view=TicketCloseView())
-        pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
-        if pings:
-            await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
-        update_ticket_activity(thread.id, guild.id)
+        try:
+            thread = await create_ticket_thread(
+                guild=guild,
+                member=member,
+                name=f"purchase-{listing['game'][:20].lower().replace(' ', '-')}-{member.name[:10].lower()}",
+                topic_embed=e,
+                view=TicketCloseView(),
+                cfg=cfg,
+                override_channel_id=sale_ch_id,
+            )
+        except Exception as err:
+            await interaction.response.send_message(
+                f"❌ Could not create purchase thread: `{err}`", ephemeral=True
+            )
+            return
 
         await interaction.response.send_message(
             f"✅ Purchase thread created: {thread.mention}", ephemeral=True

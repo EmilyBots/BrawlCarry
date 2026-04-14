@@ -2431,7 +2431,11 @@ class AccountBuyView(ui.View):
                 type=discord.ChannelType.public_thread,
                 reason=f"Account purchase by {member}",
             )
-
+        try:
+            await sale_ch.set_permissions(member, view_channel=True, read_message_history=True, send_messages=True, reason="Temporary ticket access")
+        except Exception:
+            pass
+        
         await thread.add_user(member)
 
         e = base_embed(f"🛒 Account Purchase — {listing['game']}", color=GOLD)
@@ -2448,6 +2452,9 @@ class AccountBuyView(ui.View):
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
         await thread.send(content=member.mention, embed=e, view=TicketCloseView())
+        pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
+        if pings:
+            await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
         update_ticket_activity(thread.id, guild.id)
 
         await interaction.response.send_message(

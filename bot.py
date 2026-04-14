@@ -11,7 +11,7 @@ def get_db():
 def get_config(guild_id: int):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT * FROM guild_config WHERE guild_id = %s", (guild_id,))
+    c.execute("SELECT * FROM guild_config WHERE guild_id = %s", (guild_id,)) 
     row = c.fetchone()
     conn.close()
     return row

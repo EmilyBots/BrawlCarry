@@ -2312,7 +2312,11 @@ class TicketCloseView(ui.View):
             if isinstance(channel, discord.Thread):
                 if channel.archived:
                     await channel.edit(archived=False)
-            await channel.delete(reason=f"Ticket closed by {interaction.user}")
+    if isinstance(channel, discord.Thread):
+        await channel.delete()
+    else:
+        await channel.delete(reason=f"Ticket closed by {interaction.user}")
+        
         except discord.Forbidden:
             await channel.send("❌ Bot is missing **Manage Threads** permission.")
         except Exception as ex:

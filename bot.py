@@ -469,10 +469,7 @@ async def create_ticket_thread(
                 )
                 
             await thread.add_user(member)
-            try:
-                await text_ch.set_permissions(member, view_channel=False, read_message_history=False, reason="Cleanup after thread creation")
-            except Exception:
-                pass
+
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
             if pings:

@@ -467,16 +467,16 @@ async def create_ticket_thread(
                     type=discord.ChannelType.public_thread,
                     reason=f"Ticket opened by {member}",
                 )
+                
             await thread.add_user(member)
             try:
                 await text_ch.set_permissions(member, overwrite=None, reason="Cleanup after thread creation")
             except Exception:
                 pass
+            await thread.send(content=member.mention, embed=topic_embed, view=view)
             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
             if pings:
                 await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
-
-            await thread.send(content=member.mention, embed=topic_embed, view=view)
             update_ticket_activity(thread.id, guild.id)
             return thread
 
@@ -1278,10 +1278,11 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             )
             return
 
-        conn = get_db()
-        c.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
-        conn.commit()
-        conn.close()
+        conn2 = get_db()
+        c2 = conn2.cursor()
+        c2.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
+        conn2.commit()
+        conn2.close()
 
         order_e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
@@ -1380,11 +1381,11 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
             )
             return
 
-        conn = get_db()
-        c    = conn.cursor()
-        c.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
-        conn.commit()
-        conn.close()
+        conn2 = get_db()
+        c2    = conn2.cursor()
+        c2.execute("UPDATE orders SET ticket_channel_id = %s WHERE id = %s", (ticket.id, order_id))
+        conn2.commit()
+        conn2.close()
 
         order_e = base_embed("✨ New Prestige Boost Order", color=ACCENT)
         order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)

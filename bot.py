@@ -2536,27 +2536,19 @@ async def on_message(message: discord.Message):
 
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(
-    interaction: discord.Interaction,
     vouch_channel: discord.abc.GuildChannel = None,
     ticket_channel: discord.abc.GuildChannel = None,
-    ticket_category: discord.CategoryChannel = None,
-    completed_channel: discord.TextChannel = None,
-    ranked_ticket_channel: discord.TextChannel = None,
-    prestige_ticket_channel: discord.TextChannel = None,
-    ranked_panel_channel: discord.TextChannel = None,
-    prestige_panel_channel: discord.TextChannel = None,
-    owner: discord.Member = None,
-    ticket_log_channel: discord.TextChannel = None,
-    application_channel: discord.TextChannel = None,
-    application_review_channel: discord.TextChannel = None,
-    account_sale_channel: discord.TextChannel = None,
-    booster_role: discord.Role = None,
-    proof_channel: discord.TextChannel = None,
-    inactive_ticket_hours: int = None,
-    application_ticket_channel: discord.TextChannel = None,
-    carrier_role: discord.Role = None,
-    ticket_support_roles: str = None,
-    reviewer_roles: str = None,
+    completed_channel: discord.abc.GuildChannel = None,
+    ranked_ticket_channel: discord.abc.GuildChannel = None,
+    prestige_ticket_channel: discord.abc.GuildChannel = None,
+    ranked_panel_channel: discord.abc.GuildChannel = None,
+    prestige_panel_channel: discord.abc.GuildChannel = None,
+    ticket_log_channel: discord.abc.GuildChannel = None,
+    application_channel: discord.abc.GuildChannel = None,
+    application_review_channel: discord.abc.GuildChannel = None,
+    account_sale_channel: discord.abc.GuildChannel = None,
+    proof_channel: discord.abc.GuildChannel = None,
+    application_ticket_channel: discord.abc.GuildChannel = None,
 ):
 
     updates = {}

@@ -450,6 +450,10 @@ async def create_ticket_thread(
         text_ch = guild.get_channel(ticket_ch_id)
         if isinstance(text_ch, discord.TextChannel):
             try:
+                await text_ch.set_permissions(member, view_channel=True, read_message_history=True, reason="Temporary ticket access")
+            except Exception:
+                pass
+            try:
                 thread = await text_ch.create_thread(
                     name=name,
                     type=discord.ChannelType.private_thread,
@@ -462,6 +466,20 @@ async def create_ticket_thread(
                     reason=f"Ticket opened by {member}",
                 )
             await thread.add_user(member)
+            try:
+                await text_ch.set_permissions(member, overwrite=None, reason="Cleanup after thread creation")
+            except Exception:
+                pass
+            if cfg and cfg.get("ticket_support_roles"):
+                pings = []
+                for rid in cfg["ticket_support_roles"].split(","):
+                    rid = rid.strip().strip("<@&>")
+                    try:
+                        pings.append(f"<@&{int(rid)}>")
+                    except ValueError:
+                        pass
+                if pings:
+                    await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             update_ticket_activity(thread.id, guild.id)
             return thread

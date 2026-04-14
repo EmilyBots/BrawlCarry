@@ -2449,7 +2449,7 @@ class AccountBuyView(ui.View):
                 topic_embed=e,
                 view=TicketCloseView(),
                 cfg=cfg,
-                override_channel_id=acct_ticket_ch_id or sale_ch_id,
+                override_channel_id=1491765596403273869,
             )
         except Exception as err:
             await interaction.response.send_message(

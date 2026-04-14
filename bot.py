@@ -470,7 +470,7 @@ async def create_ticket_thread(
                 
             await thread.add_user(member)
             try:
-                await text_ch.set_permissions(member, overwrite=None, reason="Cleanup after thread creation")
+                await text_ch.set_permissions(member, view_channel=False, read_message_history=False, reason="Cleanup after thread creation")
             except Exception:
                 pass
             await thread.send(content=member.mention, embed=topic_embed, view=view)

@@ -2307,9 +2307,14 @@ class TicketCloseView(ui.View):
 
         await asyncio.sleep(5)
         try:
-            await channel.delete(reason=f"Ticket closed by {interaction.user}")
-        except Exception:
-            pass
+            if isinstance(channel, discord.Thread):
+                await channel.delete(reason=f"Ticket closed by {interaction.user}")
+            else:
+                await channel.delete(reason=f"Ticket closed by {interaction.user}")
+        except discord.Forbidden:
+            await channel.send("❌ I don't have permission to delete this channel/thread.")
+        except Exception as e:
+            print(f"[WARN] Could not delete channel/thread: {e}")
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
@@ -2423,6 +2428,7 @@ class AccountBuyView(ui.View):
             thread = await sale_ch.create_thread(
                 name=f"purchase-{listing['game'][:20].lower().replace(' ','-')}-{member.name[:10].lower()}",
                 type=discord.ChannelType.private_thread,
+                invitable=False,
                 reason=f"Account purchase by {member}",
             )
         except (discord.Forbidden, discord.HTTPException):
@@ -2431,11 +2437,7 @@ class AccountBuyView(ui.View):
                 type=discord.ChannelType.public_thread,
                 reason=f"Account purchase by {member}",
             )
-        try:
-            await sale_ch.set_permissions(member, view_channel=True, read_message_history=True, send_messages=True, reason="Temporary ticket access")
-        except Exception:
-            pass
-        
+
         await thread.add_user(member)
 
         e = base_embed(f"🛒 Account Purchase — {listing['game']}", color=GOLD)

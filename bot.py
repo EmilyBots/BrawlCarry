@@ -2305,16 +2305,17 @@ class TicketCloseView(ui.View):
         # Remove from activity tracking
         remove_ticket_activity(channel.id)
 
+        button.disabled = True
         await asyncio.sleep(5)
         try:
             if isinstance(channel, discord.Thread):
-                await channel.delete(reason=f"Ticket closed by {interaction.user}")
-            else:
-                await channel.delete(reason=f"Ticket closed by {interaction.user}")
+                if channel.archived:
+                    await channel.edit(archived=False)
+            await channel.delete(reason=f"Ticket closed by {interaction.user}")
         except discord.Forbidden:
-            await channel.send("❌ I don't have permission to delete this channel/thread.")
-        except Exception as e:
-            print(f"[WARN] Could not delete channel/thread: {e}")
+            await channel.send("❌ Bot is missing **Manage Threads** permission.")
+        except Exception as ex:
+            await channel.send(f"❌ Failed to delete: `{ex}`")
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
@@ -2423,6 +2424,19 @@ class AccountBuyView(ui.View):
         if not isinstance(sale_ch, discord.TextChannel):
             await interaction.response.send_message("❌ Account sale channel not found or not a text channel.", ephemeral=True)
             return
+
+# Grant the buyer explicit access on the parent channel so they can
+        # read and write inside the resulting private thread.
+        try:
+            await sale_ch.set_permissions(
+                member,
+                view_channel=True,
+                read_message_history=True,
+                send_messages=True,
+                reason="Temporary purchase-ticket access",
+            )
+        except Exception:
+            pass
 
         try:
             thread = await sale_ch.create_thread(

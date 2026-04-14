@@ -2406,10 +2406,18 @@ class AccountBuyView(ui.View):
     def __init__(self, listing_id: int):
         super().__init__(timeout=None)
         self.listing_id = listing_id
+        btn = ui.Button(
+            label="Buy This Account",
+            style=discord.ButtonStyle.success,
+            emoji="🛒",
+            custom_id=f"acct_buy_btn_{listing_id}"
+        )
+        btn.callback = self._buy_callback
+        self.add_item(btn)
 
-    @ui.button(label="Buy This Account", style=discord.ButtonStyle.success, emoji="🛒", custom_id="acct_buy_btn_v1")
-    async def buy(self, interaction: discord.Interaction, button: ui.Button):
-        # Build unique custom_id per listing at runtime — see on_ready registration
+    async def _buy_callback(self, interaction: discord.Interaction, button: ui.Button):
+        # Always derive listing_id from custom_id — correct even after bot restart
+        self.listing_id = int(button.custom_id.split("_")[-1])
         guild  = interaction.guild
         member = interaction.user
         cfg    = get_config(guild.id)

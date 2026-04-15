@@ -2475,6 +2475,8 @@ class AccountBuyView(ui.View):
         self.listing_id = int(button.custom_id.split("_")[-1])
         guild  = interaction.guild
         member = interaction.user
+        await interaction.response.defer(ephemeral=True)
+        
         cfg    = get_config(guild.id)
 
         conn = get_db()
@@ -2503,7 +2505,6 @@ class AccountBuyView(ui.View):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await interaction.response.defer(ephemeral=True)  # must move to line 2473, as the FIRST line of the function
 
         try:
             thread = await create_ticket_thread(

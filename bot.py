@@ -876,11 +876,11 @@ if ticket_ch_id and guild:
                 except Exception as ex:
                     print(f"[WARN] Could not add booster to ticket: {ex}")
                 try:
-                  dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
-                dm_e.description = (
-                f"You've successfully claimed order **`{self.order_id}`**!\n\n"
-                "You have been added to the customer's ticket. Good luck! 🏆"
-                )
+                    dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
+                    dm_e.description = (
+                    f"You've successfully claimed order **`{self.order_id}`**!\n\n"
+                    "You have been added to the customer's ticket. Good luck! 🏆"
+                    )
                 await booster.send(embed=dm_e)
                except discord.Forbidden:
                pass

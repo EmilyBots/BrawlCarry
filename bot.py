@@ -2486,7 +2486,7 @@ class AccountBuyView(ui.View):
         conn.close()
 
         if not listing or listing["status"] != "available":
-            await interaction.response.send_message("❌ This account is no longer available.", ephemeral=True)
+            await interaction.followup.send("❌ This account is no longer available.", ephemeral=True)
             return
 
         sale_ch_id = cfg.get("account_sale_channel_id") if cfg else None

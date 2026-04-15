@@ -451,6 +451,14 @@ async def create_ticket_thread(
 
     if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
+        if isinstance(text_ch, discord.ForumChannel):
+            thread = await text_ch.create_thread(
+                name=name,
+                content=member.mention,
+                embed=topic_embed,
+            )
+            update_ticket_activity(thread.thread.id, guild.id)
+            return thread.thread
         if isinstance(text_ch, discord.TextChannel):
             try:
                 await text_ch.set_permissions(member, view_channel=True, read_message_history=True, send_messages=True, reason="Temporary ticket access")

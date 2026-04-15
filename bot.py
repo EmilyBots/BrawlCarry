@@ -877,7 +877,7 @@ if ticket_ch_id and guild:
                     print(f"[WARN] Could not add booster to ticket: {ex}")
                 try:
                   dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
-                 dm_e.description = (
+                dm_e.description = (
                 f"You've successfully claimed order **`{self.order_id}`**!\n\n"
                 "You have been added to the customer's ticket. Good luck! 🏆"
                 )

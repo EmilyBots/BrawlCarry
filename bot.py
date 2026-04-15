@@ -446,8 +446,8 @@ async def create_ticket_thread(
     cfg,
     override_channel_id: int = None,
 ):
-    ticket_ch_id = override_channel_id or (cfg["ticket_channel_id"] if cfg else None)
-    category_id  = cfg["ticket_category_id"] if cfg else None
+    ticket_ch_id = override_channel_id or (cfg.get("ticket_channel_id") if cfg else None)
+    category_id  = cfg.get("ticket_category_id") if cfg else None
 
     if ticket_ch_id:
         text_ch = guild.get_channel(ticket_ch_id)
@@ -2484,7 +2484,7 @@ class AccountBuyView(ui.View):
         conn.close()
 
         if not listing or listing["status"] != "available":
-            await interaction.response.send_message("❌ This account is no longer available.", ephemeral=True)
+            await interaction.followup.send("❌ This account is no longer available.", ephemeral=True)
             return
 
         sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
@@ -2503,6 +2503,8 @@ class AccountBuyView(ui.View):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
+        await interaction.response.defer(ephemeral=True)
+
         try:
             thread = await create_ticket_thread(
                 guild=guild,
@@ -2514,12 +2516,12 @@ class AccountBuyView(ui.View):
                 override_channel_id=1491765596403273869,
             )
         except Exception as err:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ Could not create purchase thread: `{err}`", ephemeral=True
             )
             return
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ Purchase thread created: {thread.mention}", ephemeral=True
         )
 # ---------------------------------------------------------------------------

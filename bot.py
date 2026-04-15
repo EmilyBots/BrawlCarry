@@ -848,8 +848,13 @@ class BoosterClaimView(ui.View):
 
         ticket_ch_id = self.ticket_channel_id or (order["ticket_channel_id"] if order else None)
 
-        if ticket_ch_id and guild:
-            ticket_ch = guild.get_channel(ticket_ch_id)
+if ticket_ch_id and guild:
+            ticket_ch = guild.get_channel_or_thread(ticket_ch_id)
+            if ticket_ch is None:
+                try:
+                    ticket_ch = await guild.fetch_channel(ticket_ch_id)
+                except Exception:
+                    ticket_ch = None
             if ticket_ch:
                 try:
                     if isinstance(ticket_ch, discord.Thread):
@@ -944,14 +949,12 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
                     cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
                     else cfg["prestige_panel_channel_id"]
                 )
-        panel_ch = guild.get_channel(panel_ch_id) if panel_ch_id else None
-        if not panel_ch:
-            # fallback: try fetching as a thread
-            if panel_ch_id:
-                try:
-                    panel_ch = await guild.fetch_channel(panel_ch_id)
-                except Exception:
-                    panel_ch = None
+        panel_ch = guild.get_channel_or_thread(panel_ch_id) if panel_ch_id else None
+        if not panel_ch and panel_ch_id:
+            try:
+                panel_ch = await guild.fetch_channel(panel_ch_id)
+            except Exception:
+                panel_ch = None
         if not panel_ch:
             await interaction.followup.send(
                 f"❌ Panel channel not found (id={panel_ch_id}). Make sure it is configured via `/setup`.", ephemeral=True
@@ -1967,6 +1970,52 @@ class ApplicationReviewView(ui.View):
         await interaction.response.send_message("❌ Application rejected and applicant notified.", ephemeral=True)
 
 
+class ApplicationReviewViewStub(ui.View):
+    """Registered on startup to handle Accept/Reject clicks on pre-existing application embeds."""
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅", custom_id="app_accept_v1")
+    async def accept(self, interaction: discord.Interaction, button: ui.Button):
+        # Reconstruct context from the embed fields
+        embed = interaction.message.embeds[0] if interaction.message.embeds else None
+        applicant_id = None
+        role_name = None
+        if embed:
+            for field in embed.fields:
+                if "User ID" in field.name:
+                    try:
+                        applicant_id = int(field.value.strip("`"))
+                    except Exception:
+                        pass
+                if "Role Applied" in field.name:
+                    role_name = field.value.replace("**", "").strip()
+        if not applicant_id or not role_name:
+            await interaction.response.send_message("❌ Could not read application data from embed.", ephemeral=True)
+            return
+        view = ApplicationReviewView(applicant_id, role_name)
+        await view.accept(interaction, button)
+
+    @ui.button(label="Reject", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_reject_v1")
+    async def reject(self, interaction: discord.Interaction, button: ui.Button):
+        embed = interaction.message.embeds[0] if interaction.message.embeds else None
+        applicant_id = None
+        role_name = None
+        if embed:
+            for field in embed.fields:
+                if "User ID" in field.name:
+                    try:
+                        applicant_id = int(field.value.strip("`"))
+                    except Exception:
+                        pass
+                if "Role Applied" in field.name:
+                    role_name = field.value.replace("**", "").strip()
+        if not applicant_id or not role_name:
+            await interaction.response.send_message("❌ Could not read application data from embed.", ephemeral=True)
+            return
+        view = ApplicationReviewView(applicant_id, role_name)
+        await view.reject(interaction, button)
+
 class ApplicationPanelView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -2319,9 +2368,15 @@ class TicketCloseView(ui.View):
                 # Normal channels do accept a reason
                 await channel.delete(reason=f"Ticket closed by {interaction.user}")
         except discord.Forbidden:
-            await interaction.followup.send("❌ Bot is missing **Manage Threads** or **Manage Channels** permission.")
+            try:
+                await interaction.followup.send("❌ Bot is missing **Manage Threads** or **Manage Channels** permission.")
+            except Exception:
+                pass
         except Exception as ex:
-            await interaction.followup.send(f"❌ Failed to delete: `{ex}`")
+            try:
+                await interaction.followup.send(f"❌ Failed to delete: `{ex}`")
+            except Exception:
+                pass
 
     @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
     async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
@@ -2522,8 +2577,15 @@ class AvailabilityView(ui.View):
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
-    if message.guild and message.channel:
-        update_ticket_activity(message.channel.id, message.guild.id)
+    if message.guild and isinstance(message.channel, discord.Thread):
+        # Only update activity for channels already tracked as tickets
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT 1 FROM ticket_activity WHERE channel_id = %s", (message.channel.id,))
+        exists = c.fetchone()
+        conn.close()
+        if exists:
+            update_ticket_activity(message.channel.id, message.guild.id)
     await bot.process_commands(message)
 
 
@@ -3513,12 +3575,21 @@ async def inactive_ticket_loop():
                     continue
 
                 hours_inactive = (now - last_activity).total_seconds() / 3600
-                channel = guild.get_channel(row["channel_id"])
+                channel = guild.get_channel_or_thread(row["channel_id"])
+                if channel is None:
+                    try:
+                        channel = await guild.fetch_channel(row["channel_id"])
+                    except Exception:
+                        remove_ticket_activity(row["channel_id"])
+                        continue
                 if not channel:
                     remove_ticket_activity(row["channel_id"])
                     continue
-
                 if hours_inactive >= threshold_hours and not row["warned"]:
+                    # Safety guard: ONLY warn actual threads
+                    if not isinstance(channel, discord.Thread):
+                        remove_ticket_activity(row["channel_id"])
+                        continue
                     # Send warning
                     try:
                         warn_e = base_embed("⚠️ Ticket Inactivity Warning", color=GOLD)
@@ -3537,6 +3608,11 @@ async def inactive_ticket_loop():
                         print(f"[WARN] Could not warn ticket {row['channel_id']}: {ex}")
 
                 elif hours_inactive >= (threshold_hours + 1) and row["warned"]:
+                    # Safety guard: ONLY delete actual threads, never text channels
+                    if not isinstance(channel, discord.Thread):
+                        print(f"[WARN] Inactivity system skipped non-thread channel {channel.id} ({channel.name})")
+                        remove_ticket_activity(row["channel_id"])
+                        continue
                     # Auto-close
                     try:
                         close_e = base_embed("🔒 Ticket Auto-Closed", color=DANGER)
@@ -3544,7 +3620,9 @@ async def inactive_ticket_loop():
                         await channel.send(embed=close_e)
                         remove_ticket_activity(row["channel_id"])
                         await asyncio.sleep(3)
-                        await channel.delete(reason="Auto-closed due to inactivity")
+                        if channel.archived:
+                            await channel.edit(archived=False)
+                        await channel.delete()
                     except Exception as ex:
                         print(f"[WARN] Could not auto-close ticket {row['channel_id']}: {ex}")
                         remove_ticket_activity(row["channel_id"])
@@ -3573,7 +3651,7 @@ async def on_ready():
     bot.add_view(ApplicationPanelView())
     bot.add_view(CombinedPanelView())
     bot.add_view(BackupPanelView())
-
+    bot.add_view(ApplicationReviewViewStub())
     conn = get_db()
     c    = conn.cursor()
 

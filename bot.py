@@ -848,7 +848,7 @@ class BoosterClaimView(ui.View):
 
         ticket_ch_id = self.ticket_channel_id or (order["ticket_channel_id"] if order else None)
 
-if ticket_ch_id and guild:
+        if ticket_ch_id and guild:
             ticket_ch = guild.get_channel_or_thread(ticket_ch_id)
             if ticket_ch is None:
                 try:
@@ -878,12 +878,12 @@ if ticket_ch_id and guild:
                 try:
                     dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
                     dm_e.description = (
-                    f"You've successfully claimed order **`{self.order_id}`**!\n\n"
-                    "You have been added to the customer's ticket. Good luck! 🏆"
+                        f"You've successfully claimed order **`{self.order_id}`**!\n\n"
+                        "You have been added to the customer's ticket. Good luck! 🏆"
                     )
-                await booster.send(embed=dm_e)
-               except discord.Forbidden:
-               pass
+                    await booster.send(embed=dm_e)
+                except discord.Forbidden:
+                    pass
 
         await interaction.response.send_message(
             f"✅ You've claimed order `{self.order_id}`! Check the customer's ticket.",
@@ -2105,7 +2105,7 @@ class CombinedPanelView(ui.View):
             topic_embed=e,
             view=TicketCloseView(),
             cfg=cfg,
-        override_channel_id=1491397629546860614
+            override_channel_id=1491397629546860614,
         )
 
         role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)

@@ -477,10 +477,7 @@ async def create_ticket_thread(
                     reason=f"Ticket opened by {member}",
                 )
                 
-            try:
-                await thread.add_user(member)
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+            await thread.add_user(member)
 
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]

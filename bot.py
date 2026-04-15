@@ -2057,6 +2057,7 @@ class CombinedPanelView(ui.View):
             topic_embed=e,
             view=TicketCloseView(),
             cfg=cfg,
+        override_channel_id=1491397629546860614
         )
 
         role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)

@@ -19,7 +19,7 @@ def get_config(guild_id: int):
 def set_config(guild_id: int, **kwargs):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT guild_id FROM guild_config WHERE guild_id = %s", (guild_id,))
+    c.execute("SELECT guild_id FROM guild_config WHERE guild_id = %s", (guild_id,)
     if c.fetchone():
         if kwargs:
             set_clause = ", ".join(f"{k} = %s" for k in kwargs)
@@ -2522,7 +2522,7 @@ class AccountBuyView(ui.View):
                 topic_embed=e,
                 view=TicketCloseView(),
                 cfg=cfg,
-                override_channel_id=1491765596403273869,
+                override_channel_id=cfg.get("account_sale_ticket_channel_id"),
             )
         except Exception as err:
             await interaction.followup.send(

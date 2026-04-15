@@ -875,16 +875,15 @@ if ticket_ch_id and guild:
                     update_ticket_activity(ticket_ch_id, guild.id)
                 except Exception as ex:
                     print(f"[WARN] Could not add booster to ticket: {ex}")
-
-        try:
-            dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
-            dm_e.description = (
+                try:
+                  dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
+                 dm_e.description = (
                 f"You've successfully claimed order **`{self.order_id}`**!\n\n"
                 "You have been added to the customer's ticket. Good luck! 🏆"
-            )
-            await booster.send(embed=dm_e)
-        except discord.Forbidden:
-            pass
+                )
+                await booster.send(embed=dm_e)
+               except discord.Forbidden:
+               pass
 
         await interaction.response.send_message(
             f"✅ You've claimed order `{self.order_id}`! Check the customer's ticket.",

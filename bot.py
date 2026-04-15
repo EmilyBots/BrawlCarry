@@ -2404,7 +2404,6 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
         await interaction.followup.send(f"✅ Account **#{listing_number}** posted in {sale_ch.mention}.", ephemeral=True)
 
 class AccountBuyView(ui.View):
-class AccountBuyView(ui.View):
     def __init__(self, listing_id: int):
         super().__init__(timeout=None)
         self.listing_id = listing_id

@@ -478,7 +478,6 @@ async def create_ticket_thread(
                 )
                 
             await thread.add_user(member)
-
             await thread.send(content=member.mention, embed=topic_embed, view=view)
             pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
             if pings:

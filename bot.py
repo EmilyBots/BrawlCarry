@@ -2418,8 +2418,8 @@ class AccountSaleModal(ui.Modal, title="Post Account For Sale"):
 
         guild = interaction.guild
         cfg   = get_config(guild.id)
-        sale_ch_id        = cfg["account_sale_channel_id"] if cfg else None
-        acct_ticket_ch_id = cfg["account_sale_ticket_channel_id"] if cfg else None
+        sale_ch_id = cfg.get("account_sale_channel_id") if cfg else None
+        acct_ticket_ch_id = cfg.get("account_sale_ticket_channel_id") if cfg else None
         sale_ch           = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
 
         conn = get_db()
@@ -2484,10 +2484,10 @@ class AccountBuyView(ui.View):
         conn.close()
 
         if not listing or listing["status"] != "available":
-            await interaction.followup.send("❌ This account is no longer available.", ephemeral=True)
+            await interaction.response.send_message("❌ This account is no longer available.", ephemeral=True)
             return
 
-        sale_ch_id = cfg["account_sale_channel_id"] if cfg else None
+        sale_ch_id = cfg.get("account_sale_channel_id") if cfg else None
         sale_ch    = guild.get_channel(sale_ch_id) if sale_ch_id else interaction.channel
 
         e = base_embed(f"🛒 Account Purchase — {listing['game']}", color=GOLD)
@@ -2503,7 +2503,7 @@ class AccountBuyView(ui.View):
         )
         e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True)  # must move to line 2473, as the FIRST line of the function
 
         try:
             thread = await create_ticket_thread(

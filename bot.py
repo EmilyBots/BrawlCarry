@@ -729,7 +729,7 @@ class BoosterRatingView(ui.View):
         for item in self.children:
             item.disabled = True
         await interaction.response.send_message(embed=e, ephemeral=True)
-await interaction.message.edit(view=self)
+        await interaction.message.edit(view=self)
 
 # ---------------------------------------------------------------------------
 # DIRECT BOOSTER CLAIM VIEW
@@ -1027,8 +1027,8 @@ class OrderActionsView(ui.View):
         if cfg:
             panel_ch_id = (
                 cfg.get("ranked_panel_channel_id") if self.order_type == "ranked"
-else cfg.get("prestige_panel_channel_id")
-            )
+            else cfg.get("prestige_panel_channel_id")
+        )
 
         await interaction.response.send_modal(
             PublishToBoostersModal(
@@ -2186,7 +2186,7 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-    @ui.button(label="Enter Giveaway", ..., custom_id=f"ga_enter_{self.giveaway_id}")
+    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v1")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()

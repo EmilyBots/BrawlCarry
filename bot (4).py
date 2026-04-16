@@ -728,8 +728,8 @@ class BoosterRatingView(ui.View):
 
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
         await interaction.response.send_message(embed=e, ephemeral=True)
+await interaction.message.edit(view=self)
 
 # ---------------------------------------------------------------------------
 # DIRECT BOOSTER CLAIM VIEW
@@ -1026,8 +1026,8 @@ class OrderActionsView(ui.View):
         panel_ch_id = None
         if cfg:
             panel_ch_id = (
-                cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
-                else cfg["prestige_panel_channel_id"]
+                cfg.get("ranked_panel_channel_id") if self.order_type == "ranked"
+else cfg.get("prestige_panel_channel_id")
             )
 
         await interaction.response.send_modal(
@@ -2186,7 +2186,7 @@ class GiveawayView(ui.View):
         super().__init__(timeout=None)
         self.giveaway_id = giveaway_id
 
-    @ui.button(label="Enter Giveaway", style=discord.ButtonStyle.success, emoji="🎉", custom_id="ga_enter_v2")
+    @ui.button(label="Enter Giveaway", ..., custom_id=f"ga_enter_{self.giveaway_id}")
     async def enter(self, interaction: discord.Interaction, button: ui.Button):
         conn = get_db()
         c    = conn.cursor()
@@ -2326,7 +2326,7 @@ class TicketCloseView(ui.View):
         conn.close()
 
         cfg       = get_config(guild.id) if guild else None
-        log_ch_id = cfg["ticket_log_channel_id"] if cfg else None
+        log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
         log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
 
         if log_ch:
@@ -2470,7 +2470,7 @@ class AccountBuyView(ui.View):
         btn.callback = self._buy_callback
         self.add_item(btn)
 
-    async def _buy_callback(self, interaction: discord.Interaction, button: ui.Button):
+    async def _buy_callback(self, interaction: discord.Interaction):
         # Always derive listing_id from custom_id — correct even after bot restart
         self.listing_id = int(interaction.data["custom_id"].split("_")[-1])
         guild  = interaction.guild

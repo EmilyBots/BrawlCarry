@@ -2472,7 +2472,7 @@ class AccountBuyView(ui.View):
 
     async def _buy_callback(self, interaction: discord.Interaction, button: ui.Button):
         # Always derive listing_id from custom_id — correct even after bot restart
-        self.listing_id = int(button.custom_id.split("_")[-1])
+        self.listing_id = int(interaction.data["custom_id"].split("_")[-1])
         guild  = interaction.guild
         member = interaction.user
         await interaction.response.defer(ephemeral=True)

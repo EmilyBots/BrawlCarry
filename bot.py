@@ -814,7 +814,7 @@ class BoosterClaimView(ui.View):
         )
         active_count = c.fetchone()["cnt"]
 
-        if active_count > 2:
+        if active_count > 3:
             # Revert the claim
             c.execute(
                 "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = %s",
@@ -854,7 +854,13 @@ class BoosterClaimView(ui.View):
                 try:
                     ticket_ch = await guild.fetch_channel(ticket_ch_id)
                 except Exception:
-                    ticket_ch = None
+                    pass
+            if ticket_ch is None:
+                try:
+                    all_threads = await guild.active_threads()
+                    ticket_ch = discord.utils.get(all_threads, id=ticket_ch_id)
+                except Exception:
+                    ticket_ch = None 
             if ticket_ch:
                 try:
                     if isinstance(ticket_ch, discord.Thread):

@@ -191,6 +191,7 @@ def init_db():
         ("giveaways",    "extra_entries TEXT"),
         ("giveaways",    "ping TEXT"),
         ("giveaways",    "bonus_role_id BIGINT"),
+        ("giveaways",    "channel_id BIGINT"),
         ("guild_config", "completed_channel_id BIGINT"),
         ("guild_config", "ticket_category_id BIGINT"),
         ("vouchers",     "method TEXT"),
@@ -2942,8 +2943,8 @@ async def giveaway(
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     c.execute(
-"INSERT INTO giveaways (id, prize, description, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at)
-    )
+"INSERT INTO giveaways (id, prize, description, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at, channel_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at, interaction.channel.id)
     conn.commit()
     conn.close()
 
@@ -2989,7 +2990,8 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
         conn.close()
         await interaction.response.send_message("❌ No participants to draw from.", ephemeral=True)
         return
-    winner_ids = random.sample(participants, min(ga["winners"], len(participants)))
+    unique_participants = list(set(participants))
+    winner_ids = random.sample(unique_participants, min(ga["winners"], len(unique_participants)))
     c.execute("UPDATE giveaways SET winner_ids = %s WHERE id = %s", (json.dumps(winner_ids), giveaway_id))
     conn.commit()
     conn.close()
@@ -3476,6 +3478,114 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
 # ---------------------------------------------------------------------------
 # BACKGROUND TASKS
 # ---------------------------------------------------------------------------
+async def giveaway_end_loop():
+    """Automatically pick winners and announce results when a giveaway's time expires."""
+    await bot.wait_until_ready()
+
+    while not bot.is_closed():
+        try:
+            conn = get_db()
+            c    = conn.cursor()
+            c.execute(
+                "SELECT * FROM giveaways "
+                "WHERE ended_at IS NOT NULL "
+                "  AND ended_at <= %s "
+                "  AND (winner_ids IS NULL OR winner_ids = '' OR winner_ids = '[]')",
+                (datetime.utcnow(),)
+            )
+            expired = c.fetchall()
+            conn.close()
+
+            for ga in expired:
+                ga_id        = ga["id"]
+                participants = json.loads(ga["participants"]) if ga["participants"] else []
+                unique_participants = list(set(participants))
+
+                if not unique_participants:
+                    # No entries — write [] so this row isn't retried on every tick
+                    conn2 = get_db()
+                    c2    = conn2.cursor()
+                    c2.execute("UPDATE giveaways SET winner_ids = %s WHERE id = %s", ("[]", ga_id))
+                    conn2.commit()
+                    conn2.close()
+
+                    ch = None
+                    if ga.get("channel_id"):
+                        for guild in bot.guilds:
+                            ch = guild.get_channel(ga["channel_id"])
+                            if ch:
+                                break
+                    if ch:
+                        try:
+                            e = base_embed(f"🎁 {ga['prize']} — Giveaway Ended", color=DANGER)
+                            e.description = "😔 No one entered this giveaway — there are no winners."
+                            e.set_footer(text=f"{FOOTER_BRAND} | ID: {ga_id}")
+                            await ch.send(embed=e)
+                        except Exception:
+                            pass
+                    continue
+
+                winner_ids = random.sample(unique_participants, min(ga["winners"], len(unique_participants)))
+
+                # Save winners to the database
+                conn2 = get_db()
+                c2    = conn2.cursor()
+                c2.execute(
+                    "UPDATE giveaways SET winner_ids = %s WHERE id = %s",
+                    (json.dumps(winner_ids), ga_id)
+                )
+                conn2.commit()
+                conn2.close()
+
+                # Find the channel to announce in
+                ch = None
+                if ga.get("channel_id"):
+                    for guild in bot.guilds:
+                        ch = guild.get_channel(ga["channel_id"])
+                        if ch:
+                            break
+
+                if not ch:
+                    # Fallback: scan channels for the original embed
+                    for guild in bot.guilds:
+                        if ch:
+                            break
+                        for text_ch in guild.text_channels:
+                            if ch:
+                                break
+                            try:
+                                async for msg in text_ch.history(limit=200):
+                                    if (msg.author == guild.me and msg.embeds
+                                            and ga_id in (msg.embeds[0].footer.text or "")):
+                                        ch = text_ch
+                                        break
+                            except Exception:
+                                pass
+
+                if not ch:
+                    print(f"[WARN] giveaway_end_loop: could not find channel for giveaway {ga_id}")
+                    continue
+
+                try:
+                    winner_mentions = " ".join(f"<@{w}>" for w in winner_ids)
+                    e = base_embed(f"🎁 {ga['prize']} — Giveaway Ended", color=SUCCESS)
+                    e.add_field(name="🏆 Winners",            value=winner_mentions,                     inline=False)
+                    e.add_field(name="👥 Total Participants", value=f"**{len(unique_participants):,}**", inline=True)
+                    e.add_field(name="🆔 Giveaway ID",        value=f"`{ga_id}`",                       inline=True)
+                    e.set_footer(text=f"{FOOTER_BRAND} | ID: {ga_id}")
+                    e.timestamp = datetime.utcnow()
+                    await ch.send(
+                        content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
+                        embed=e,
+                        allowed_mentions=discord.AllowedMentions(users=True)
+                    )
+                except Exception as ex:
+                    print(f"[WARN] giveaway_end_loop: failed to announce {ga_id}: {ex}")
+
+        except Exception as ex:
+            print(f"[WARN] giveaway_end_loop error: {ex}")
+
+        await asyncio.sleep(60)  # Check every minute
 async def giveaway_reminder_loop():
     await bot.wait_until_ready()
     reminded = {}  # ga_id -> set of labels already sent
@@ -3688,6 +3798,7 @@ async def on_ready():
     conn.close()
     print(f"[OK] Persistent views registered")
 
+    bot.loop.create_task(giveaway_end_loop())
     bot.loop.create_task(giveaway_reminder_loop())
     bot.loop.create_task(inactive_ticket_loop())
     print(f"[OK] Background tasks started")

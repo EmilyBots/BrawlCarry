@@ -2942,9 +2942,11 @@ async def giveaway(
     c       = conn.cursor()
     ga_id   = f"G{uuid.uuid4().hex[:8].upper()}"
     ends_at = datetime.utcnow() + timedelta(hours=hours)
+    # FIXED — closing ) added after the tuple
     c.execute(
-"INSERT INTO giveaways (id, prize, description, winners, hosted_by, participants, image_url, extra_entries, ping, bonus_role_id, ended_at, channel_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (ga_id, prize, description, winners, interaction.user.id, "[]", image_url, extra_entries_json, ping, None, ends_at, interaction.channel.id)
+        "INSERT INTO giveaways (...) VALUES (...)",
+        (ga_id, ..., interaction.channel.id)
+    )               # ← closes c.execute(
     conn.commit()
     conn.close()
 

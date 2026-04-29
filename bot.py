@@ -1649,6 +1649,10 @@ class RankedOrderView(ui.View):
             )
             return
 
+        est_price = calculate_rank_price(self.current_rank, self.desired_rank, self.p11, self.service_type, interaction.guild_id)
+        if self.service_type == "carry":
+            est_price *= 2
+
         fe = rank_emoji(self.current_rank)
         te = rank_emoji(self.desired_rank)
         e = base_embed("📋 Order Summary", color=PRIMARY)
@@ -1658,6 +1662,7 @@ class RankedOrderView(ui.View):
             f"{P11_EMOJI} **P11 Brawlers:** {self.p11}\n"
             f"🛠 **Service:** {'Carry 🔴 (2x price)' if self.service_type == 'carry' else 'Boost 🟢'}\n"
             f"💰 **Payment:** {self.payment}\n\n"
+            f"💶 **Estimated Price:** ~{est_price:.2f}€\n\n"
             "Click **Confirm & Continue** to open your ticket."
         )
 

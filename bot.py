@@ -361,8 +361,12 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
             # Sum division-by-division using tier prices
             base = 0.0
             for i in range(fi, min(ti, len(ALL_RANKS) - 1)):
-                tier = ALL_RANKS[i].split()[0]
-                base += TIER_DIVISION_PRICES.get(tier, 0.80)
+                step = (ALL_RANKS[i], ALL_RANKS[i + 1])
+                if step in EXPLICIT_RANK_PRICES:
+                    base += EXPLICIT_RANK_PRICES[step]
+                else:
+                    tier = ALL_RANKS[i].split()[0]
+                    base += TIER_DIVISION_PRICES.get(tier, 0.80)
             if to_rank == "Pro" and ALL_RANKS[-1].startswith("Masters"):
                 base += TIER_DIVISION_PRICES.get("Masters", 10.00)
 

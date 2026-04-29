@@ -328,7 +328,7 @@ EXPLICIT_RANK_PRICES = {
     ("Legendary III","Masters I"):     15.00,
     # Pro boost single steps
     ("Masters I",   "Masters II"):   35.00,
-    ("Masters II",  "Masters III"):  80.00,
+    ("Masters II",  "Masters III"):  65.00,
     ("Masters III", "Pro"):          95.00,
 }
 
@@ -615,7 +615,7 @@ PRESTIGE_OPTIONS = [
 PRESTIGE_PRICES = {
     "Prestige 0 -> Prestige 1": "8",
     "Prestige 1 -> Prestige 2": "20",
-    "Prestige 2 -> Prestige 3": "65",
+    "Prestige 2 -> Prestige 3": "90",
 }
 
 PRESTIGE_BASE_TROPHIES = {

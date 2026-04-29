@@ -1669,7 +1669,7 @@ class RankedOrderView(ui.View):
 
         await interaction.response.send_message(
             embed=e,
-            view=_RankedConfirmView(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, 0.0),
+            view=_RankedConfirmView(self.current_rank, self.desired_rank, self.p11, self.payment, self.service_type, est_price),
             ephemeral=True
         )
 

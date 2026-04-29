@@ -367,9 +367,12 @@ def calculate_rank_price(from_rank: str, to_rank: str, p11_str: str, service_typ
                 else:
                     tier = ALL_RANKS[i].split()[0]
                     base += TIER_DIVISION_PRICES.get(tier, 0.80)
-            if to_rank == "Pro" and ALL_RANKS[-1].startswith("Masters"):
-                base += TIER_DIVISION_PRICES.get("Masters", 10.00)
-
+            if to_rank == "Pro":
+                final_step = (ALL_RANKS[-1], "Pro")
+                if final_step in EXPLICIT_RANK_PRICES:
+                    base += EXPLICIT_RANK_PRICES[final_step]
+                else:
+                    base += TIER_DIVISION_PRICES.get("Masters", 10.00)
     # P11 adjustment
     p11_num = 0
     if p11_str:

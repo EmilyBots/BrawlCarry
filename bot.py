@@ -304,7 +304,7 @@ TIER_DIVISION_PRICES = {
     "Bronze":    0.80,
     "Silver":    0.80,
     "Gold":      1.00,
-    "Diamond":   1.00,
+    "Diamond":   2.00,
     "Mythic":    2.00,
     "Legendary": 4.00,
     "Masters":   10.00,
@@ -314,14 +314,16 @@ TIER_DIVISION_PRICES = {
 EXPLICIT_RANK_PRICES = {
     ("Silver I",    "Gold I"):       2.60,
     ("Gold I",      "Diamond I"):    4.00,
-    ("Diamond I",   "Mythic I"):     10.00,
+    ("Diamond I",   "Mythic I"):     7.00,
     ("Mythic I",    "Legendary I"):  15.00,  # M1->L1 (Legendary boost M1-L1)
     ("Legendary I", "Masters I"):    35.00,  # L1->M1 (Master boost L1-M1); note: m1-m3 in legendary boost = Mythic
-    ("Masters I",   "Pro"):          210.00,
+    ("Masters I",   "Pro"):          195.00,
     # Legendary boost single steps (from_mythic to legendary)
     ("Mythic I",    "Mythic II"):    4.00,
     ("Mythic II",   "Mythic III"):   5.00,
     ("Mythic III",  "Legendary I"):  6.00,
+    ("Diamond III", "Mythic I"):     3.00,
+    # Master boost single steps
     # Master boost single steps
     ("Legendary I",  "Legendary II"):  10.00,
     ("Legendary II", "Legendary III"): 10.00,
@@ -1262,7 +1264,8 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
             f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
             f"🛠 **Service:** {svc_label}\n"
             f"{pay_emoji} **Payment:** {self.payment}\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
+            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n"
+            f"💶 **Estimated Price:** ~{self.estimated_price:.2f}€\n\n"
             "Our staff will contact you shortly to complete your order. "
             "Please have your payment ready!"
         )
@@ -1650,8 +1653,6 @@ class RankedOrderView(ui.View):
             return
 
         est_price = calculate_rank_price(self.current_rank, self.desired_rank, self.p11, self.service_type, interaction.guild_id)
-        if self.service_type == "carry":
-            est_price *= 2
 
         fe = rank_emoji(self.current_rank)
         te = rank_emoji(self.desired_rank)

@@ -2599,6 +2599,10 @@ class AvailabilityView(ui.View):
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
+    # Auto-delete any non-"/invites" message in the invites-only channel
+    if message.channel.id == 1495726939099500585 and message.content.strip() != "/invites":
+        await message.delete()
+        return
     if message.guild and isinstance(message.channel, discord.Thread):
         # Only update activity for channels already tracked as tickets
         conn = get_db()

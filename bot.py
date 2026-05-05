@@ -1505,11 +1505,12 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         e.add_field(name="Order Amount <:Amount:1501221154650853450>", value=f"➜ **€{price_val:.2f}**", inline=False)
 
         # 4. Order type
-        result_text = details.split("\n")[0]
-        mode = svc_label.capitalize()  # Boost or Carry
+        raw_text    = details.split("\n")[0]
+        mode        = "Carry" if svc_type == "carry" else "Boost"   # clean, no emoji
+        result_text = raw_text.replace("Carry ", "", 1).replace("Boost ", "", 1).strip()
         base_type = "Prestige" if ord_type == "prestige" else "Ranked"
         emoji = "<:Carry:1501221214251651082>" if mode.lower() == "carry" else "<:rocket:1491490870979985438>"
-        type_label = f"➜ {base_type} + **{mode}**"
+        type_label = f"➜ {base_type} **{mode}**"
         e.add_field(name=f"Order Type {emoji}", value=type_label, inline=False)
         # 5. Order details / notes
         e.add_field(name="Order Details <:Info:1501221322183934002>", value=f"➜ {result_text}", inline=False)

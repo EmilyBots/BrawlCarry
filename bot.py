@@ -1465,8 +1465,8 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
             if claimed_dt:
                 completion_secs = int((now - claimed_dt).total_seconds())
         c.execute(
-            "UPDATE orders SET status = 'completed', price = %s, method = %s, completed_at = %s, completion_time_seconds = %s WHERE id = %s",
-            (price_val, self.payment_used.value.strip(), now, completion_secs, order_id)
+            "UPDATE orders SET status = 'completed', price = %s, completed_at = %s, completion_time_seconds = %s WHERE id = %s",
+            (price_val, now, completion_secs, order_id)
         )
         conn.commit()
 
@@ -1484,7 +1484,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         ord_type   = order["order_type"] or "ranked"
         details    = _build_order_details_str(ord_type, order["from_tier"] or "", order["to_tier"] or "", svc_type)
         svc_label  = "Carry 🔴" if svc_type == "carry" else "Boost 🟢"
-        pay_emoji  = _payment_emoji(self.payment_used.value.strip(), guild_id or 0)
+        pay_emoji  = _payment_emoji(order["method"] or "", guild_id or 0)
         booster_mention = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
 
         conn.close()
@@ -1500,8 +1500,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
 
         # 2. Customer + payment
         customer_val = customer.mention if customer else f"<@{order['user_id']}>"
-        e.add_field(name="Customer <:Customer:1501221119900778506>", value=f"{customer_val}  ·  {pay_emoji} **{self.payment_used.value.strip()}**", inline=False)
-
+        e.add_field(name="Customer <:Customer:1501221119900778506>", value=f"{customer_val}  ·  {pay_emoji} **{order['method'] or '—'}**", inline=False)
         # 3. Order amount
         e.add_field(name="Order Amount <:Amount:1501221154650853450>", value=f"➜ **€{price_val:.2f}**", inline=False)
 
@@ -1513,7 +1512,6 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         type_label = f"➜ {base_type} + **{mode}**"
         e.add_field(name=f"Order Type {emoji}", value=type_label, inline=False)
         # 5. Order details / notes
-        notes_val = self.notes.value.strip() if self.notes.value else details
         e.add_field(name="Order Details <:Info:1501221322183934002>", value=f"➜ {result_text}", inline=False)
         wm_file = None
         if img:
@@ -1542,7 +1540,7 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
                     f"Great news! Your order **`{order_id}`** has been completed.\n\n"
                     f"📦 **Result:** {details}\n"
                     f"💰 **Amount:** €{price_val:.2f}\n"
-                    f"{pay_emoji} **Payment:** {self.payment_used.value.strip()}\n"
+                    f"{pay_emoji} **Payment:** {order['method'] or '—'}\n"
                     f"⏱ **Time taken:** {format_duration(completion_secs) if completion_secs else 'N/A'}\n\n"
                     "Please rate your booster below! ⭐"
                 )

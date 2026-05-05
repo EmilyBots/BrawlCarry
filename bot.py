@@ -1435,8 +1435,6 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 class OrderCompleteModal(ui.Modal, title="Complete Order"):
     order_id_input = ui.TextInput(label="Order ID",                   placeholder="RANKED-XXXXXX / PREST-XXXXXX", style=discord.TextStyle.short)
     final_price    = ui.TextInput(label="Final Price Paid (EUR)",      placeholder="44.99",                        style=discord.TextStyle.short)
-    payment_used   = ui.TextInput(label="Payment Method Used",         placeholder="PayPal / Bank Transfer / Crypto", style=discord.TextStyle.short)
-    notes          = ui.TextInput(label="Completion Notes (Optional)", placeholder="e.g. Reached Masters III",     required=False, style=discord.TextStyle.long, max_length=500)
     image_url      = ui.TextInput(label="Proof Image URL (Optional)",  placeholder="https://i.imgur.com/...",      required=False, style=discord.TextStyle.short)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -1509,16 +1507,14 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
 
         # 4. Order type
         result_text = details.split("\n")[0]
-        result_text = result_text.replace("Carry", "").replace("carry", "")
-        result_text = result_text.replace("Boost", "").replace("boost", "")
-        result_text = " ".join(result_text.split())
-        mode = svc_label.upper()
-        emoji = "<:Carry:1501221214251651082>" if mode == "CARRY" else "<:rocket:1491490870979985438>"
-        type_label = f"{result_text} ➜ {mode} {emoji}"
-        e.add_field(name="Order Type", value=type_label, inline=False)
+        mode = svc_label.capitalize()  # Boost or Carry
+        base_type = "Prestige" if ord_type == "prestige" else "Ranked"
+        emoji = "<:Carry:1501221214251651082>" if mode.lower() == "carry" else "<:rocket:1491490870979985438>"
+        type_label = f"➜ {base_type} + **{mode}**"
+        e.add_field(name=f"Order Type {emoji}", value=type_label, inline=False)
         # 5. Order details / notes
         notes_val = self.notes.value.strip() if self.notes.value else details
-        e.add_field(name="Order Details <:Info:1501221322183934002>", value=notes_val, inline=False)
+        e.add_field(name="Order Details <:Info:1501221322183934002>", value=f"➜ {result_text}", inline=False)
         wm_file = None
         if img:
             wm_file = await fetch_and_watermark(img)

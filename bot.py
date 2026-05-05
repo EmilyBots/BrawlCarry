@@ -1502,22 +1502,23 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
 
         # 2. Customer + payment
         customer_val = customer.mention if customer else f"<@{order['user_id']}>"
-        e.add_field(name="<:Customer:1501221119900778506>  Customer", value=f"{customer_val}  ·  {pay_emoji} **{self.payment_used.value.strip()}**", inline=False)
+        e.add_field(name="Customer <:Customer:1501221119900778506>", value=f"{customer_val}  ·  {pay_emoji} **{self.payment_used.value.strip()}**", inline=False)
 
         # 3. Order amount
-        e.add_field(name="<:Amount:1501221154650853450>  Order Amount", value=f"➜ **€{price_val:.2f}**", inline=False)
+        e.add_field(name="Order Amount <:Amount:1501221154650853450>", value=f"➜ **€{price_val:.2f}**", inline=False)
 
         # 4. Order type
         result_text = details.split("\n")[0]
         result_text = result_text.replace("Carry", "").replace("carry", "")
         result_text = result_text.replace("Boost", "").replace("boost", "")
         result_text = " ".join(result_text.split())
-        emoji = "<:Carry:1501221214251651082>" if svc_label.lower() == "carry" else "<:rocket:1491490870979985438>"
-        type_label = f"{emoji} {result_text} ➜ {svc_label.upper()}"
-        e.add_field(name="📦  Order Type", value=type_label, inline=False)
+        mode = svc_label.upper()
+        emoji = "<:Carry:1501221214251651082>" if mode == "CARRY" else "<:rocket:1491490870979985438>"
+        type_label = f"{result_text} ➜ {mode} {emoji}"
+        e.add_field(name="Order Type", value=type_label, inline=False)
         # 5. Order details / notes
         notes_val = self.notes.value.strip() if self.notes.value else details
-        e.add_field(name="<:Info:1501221322183934002>  Order Details", value=notes_val, inline=False)
+        e.add_field(name="Order Details <:Info:1501221322183934002>", value=notes_val, inline=False)
         wm_file = None
         if img:
             wm_file = await fetch_and_watermark(img)
@@ -2157,7 +2158,7 @@ class CompletedCTAView(ui.View):
     def __init__(self, order_kind: str = "ranked"):
         super().__init__(timeout=None)
         url = self.RANKED_URL if order_kind == "ranked" else self.PRESTIGE_URL
-        self.add_item(ui.Button(label="<:rocket:1491490870979985438> Order now", style=discord.ButtonStyle.link, url=url))
+        self.add_item(ui.Button(label="Order now", emoji="<:rocket:1491490870979985438>", style=discord.ButtonStyle.link, url=url))
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)
 # ---------------------------------------------------------------------------

@@ -1505,12 +1505,12 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         e.add_field(name="👤  Customer", value=f"{customer_val}  ·  {pay_emoji} **{self.payment_used.value.strip()}**", inline=False)
 
         # 3. Order amount
-        e.add_field(name="💶  Order Amount", value=f"**€{price_val:.2f}**", inline=False)
+        e.add_field(name="💶  Order Amount", value=f"➜ **€{price_val:.2f}**", inline=False)
 
         # 4. Order type
-        type_label = f"{'Prestige' if ord_type == 'prestige' else 'Ranked'}  ·  {svc_label}"
+        result_text = details.split("\n")[0]
+        type_label = f"{result_text} • {svc_label.replace('🔴', '').replace('🟢', '').strip().upper()}"
         e.add_field(name="📦  Order Type", value=type_label, inline=False)
-
         # 5. Order details / notes
         notes_val = self.notes.value.strip() if self.notes.value else details
         e.add_field(name="📋  Order Details", value=notes_val, inline=False)
@@ -2152,9 +2152,8 @@ class CompletedCTAView(ui.View):
 
     def __init__(self, order_kind: str = "ranked"):
         super().__init__(timeout=None)
-        label = "Upgrade your rank now 🚀" if order_kind == "ranked" else "Buy now 👑"
-        url   = self.RANKED_URL if order_kind == "ranked" else self.PRESTIGE_URL
-        self.add_item(ui.Button(label=label, style=discord.ButtonStyle.link, url=url))
+        url = self.RANKED_URL if order_kind == "ranked" else self.PRESTIGE_URL
+        self.add_item(ui.Button(label="🚀 Order now", style=discord.ButtonStyle.link, url=url))
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)
 # ---------------------------------------------------------------------------

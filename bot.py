@@ -1494,38 +1494,43 @@ class OrderCompleteModal(ui.Modal, title="Complete Order"):
         img = self.image_url.value.strip() if self.image_url.value else None
 
         # Order Summary Embed
-        e = base_embed("✅ Order Completed — Summary", color=SUCCESS)
-        e.set_author(name="BrawlCarry | Order Summary", icon_url=interaction.user.display_avatar.url)
-        e.add_field(name="🆔 Order ID",      value=f"`{order_id}`",                                               inline=True)
-        e.add_field(name="👤 Customer",      value=customer.mention if customer else f"<@{order['user_id']}>",    inline=True)
-        e.add_field(name="🟠 Booster",       value=booster_mention,                                               inline=True)
-        e.add_field(name="💰 Amount Paid",   value=f"**€{price_val:.2f}**",                                       inline=True)
-        e.add_field(name=f"{pay_emoji} Payment", value=f"**{self.payment_used.value.strip()}**",                  inline=True)
-        e.add_field(name="📦 Result",        value=details,                                                        inline=True)
-        e.add_field(name="🛠 Service",       value=svc_label,                                                     inline=True)
-        e.add_field(name="✅ Completed By",  value=interaction.user.mention,                                      inline=True)
-        if completion_secs is not None:
-            e.add_field(name="⏱ Time Taken",  value=format_duration(completion_secs),                            inline=True)
-        e.add_field(name="🕐 Completed At",  value=f"<t:{int(now.timestamp())}:F>",                              inline=False)
-        if self.notes.value:
-            e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
+        order_title = "PRESTIGE ORDER" if ord_type == "prestige" else "RANKED ORDER"
+        order_kind  = "prestige" if ord_type == "prestige" else "ranked"
 
+        e = base_embed(f"◈  {order_title}", color=SUCCESS)
+        e.set_author(name="BrawlCarry", icon_url=interaction.guild.icon.url if interaction.guild and interaction.guild.icon else discord.Embed.Empty)
+
+        # 2. Customer + payment
+        customer_val = customer.mention if customer else f"<@{order['user_id']}>"
+        e.add_field(name="👤  Customer", value=f"{customer_val}  ·  {pay_emoji} **{self.payment_used.value.strip()}**", inline=False)
+
+        # 3. Order amount
+        e.add_field(name="💶  Order Amount", value=f"**€{price_val:.2f}**", inline=False)
+
+        # 4. Order type
+        type_label = f"{'Prestige' if ord_type == 'prestige' else 'Ranked'}  ·  {svc_label}"
+        e.add_field(name="📦  Order Type", value=type_label, inline=False)
+
+        # 5. Order details / notes
+        notes_val = self.notes.value.strip() if self.notes.value else details
+        e.add_field(name="📋  Order Details", value=notes_val, inline=False)
         wm_file = None
         if img:
             wm_file = await fetch_and_watermark(img)
             if wm_file:
                 e.set_image(url="attachment://proof.jpg")
 
+        cta_view = CompletedCTAView(order_kind)
         if completed_ch:
             if wm_file:
-                await completed_ch.send(embed=e, file=wm_file)
+                await completed_ch.send(embed=e, file=wm_file, view=cta_view)
             else:
-                await completed_ch.send(embed=e)
+                await completed_ch.send(embed=e, view=cta_view)
         else:
             if wm_file:
-                await interaction.channel.send(embed=e, file=wm_file)
+                await interaction.channel.send(embed=e, file=wm_file, view=cta_view)
             else:
-                await interaction.channel.send(embed=e)
+                await interaction.channel.send(embed=e, view=cta_view)
             await interaction.followup.send("⚠️ No completed-orders channel configured. Use `/setup` to set one.", ephemeral=True)
 
         # DM customer with rating request
@@ -2138,6 +2143,18 @@ class CombinedPanelView(ui.View):
         await ticket.send(embed=role_e, view=ApplicationPanelView())
         await interaction.response.send_message(f"✅ Application ticket created: {ticket.mention}", ephemeral=True)
 
+# ---------------------------------------------------------------------------
+# ORDER COMPLETED — CTA BUTTON (links to ranked or prestige panel)
+# ---------------------------------------------------------------------------
+class CompletedCTAView(ui.View):
+    RANKED_URL   = "https://discord.com/channels/1355262062095372429/1477338397570760784"
+    PRESTIGE_URL = "https://discord.com/channels/1355262062095372429/1355262063437414564"
+
+    def __init__(self, order_kind: str = "ranked"):
+        super().__init__(timeout=None)
+        label = "Upgrade your rank now 🚀" if order_kind == "ranked" else "Buy now 👑"
+        url   = self.RANKED_URL if order_kind == "ranked" else self.PRESTIGE_URL
+        self.add_item(ui.Button(label=label, style=discord.ButtonStyle.link, url=url))
 # ---------------------------------------------------------------------------
 # PANEL BUTTON VIEWS  (persistent)
 # ---------------------------------------------------------------------------

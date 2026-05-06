@@ -2536,7 +2536,8 @@ class TicketCloseView(ui.View):
                 await interaction.followup.send(f"❌ Failed to delete: `{ex}`")
             except Exception:
                 pass
-        @ui.button(label="Close with Reason", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="ticket_close_reason_v1")
+
+    @ui.button(label="Close with Reason", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="ticket_close_reason_v1")
     async def close_with_reason(self, interaction: discord.Interaction, button: ui.Button):
         await interaction.response.send_modal(CloseWithReasonModal())
     

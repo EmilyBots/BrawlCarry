@@ -2202,20 +2202,30 @@ class ReviewActionsView(ui.View):
     def __init__(self, order_kind: str = "ranked"):
         super().__init__(timeout=None)
         self.order_kind = order_kind
-        # Order Now — link button reusing CompletedCTAView URLs
+
+        # Row 0 — Order Now (link button, no callback needed)
         url = CompletedCTAView.RANKED_URL if order_kind != "prestige" else CompletedCTAView.PRESTIGE_URL
-        self.add_item(ui.Button(
+        order_btn = ui.Button(
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",
             style=discord.ButtonStyle.link,
             url=url,
             row=0
-        ))
+        )
+        self.add_item(order_btn)
 
-    @ui.button(label="Submit Review", emoji="⭐", style=discord.ButtonStyle.success, custom_id="review_submit_v1", row=1)
-    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
-    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
-        # Role gate — only customers can submit
+        # Row 1 — Submit Review (callback button)
+        review_btn = ui.Button(
+            label="Submit Review",
+            emoji="⭐",
+            style=discord.ButtonStyle.success,
+            custom_id="review_submit_v1",
+            row=1
+        )
+        review_btn.callback = self._submit_review_callback
+        self.add_item(review_btn)
+
+    async def _submit_review_callback(self, interaction: discord.Interaction):
         role_ids = {r.id for r in interaction.user.roles}
         if CUSTOMER_ROLE_ID not in role_ids:
             await interaction.response.send_message(

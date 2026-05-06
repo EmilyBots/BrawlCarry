@@ -1023,59 +1023,7 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
 # ---------------------------------------------------------------------------
 # SEND TO BOOSTERS VIEW — staff-only button shown under order details embed
 # ---------------------------------------------------------------------------
-class SendToBoostersView(ui.View):
-    def __init__(self, order_id: str, ticket_channel_id: int, order_type: str):
-        super().__init__(timeout=None)
-        self.order_id          = order_id
-        self.ticket_channel_id = ticket_channel_id
-        self.order_type        = order_type
-        btn = ui.Button(
-            label="Send to Boosters",
-            emoji="📤",
-            style=discord.ButtonStyle.primary,
-            custom_id=f"send_boosters_{order_id}"
-        )
-        btn.callback = self._send_to_boosters
-        self.add_item(btn)
 
-    async def _send_to_boosters(self, interaction: discord.Interaction):
-        # Staff-only gate
-        if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("You are not allowed to use this.", ephemeral=True)
-            return
-
-        await interaction.response.defer(ephemeral=True)
-
-        conn = get_db()
-        c    = conn.cursor()
-        c.execute("SELECT * FROM orders WHERE id = %s", (self.order_id,))
-        order = c.fetchone()
-        conn.close()
-        if not order:
-            await interaction.followup.send("❌ Order not found.", ephemeral=True)
-            return
-
-        guild    = interaction.guild
-        cfg      = get_config(guild.id)
-        panel_ch_id = (
-            cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
-            else cfg["prestige_panel_channel_id"]
-        ) if cfg else None
-        panel_ch = guild.get_channel_or_thread(panel_ch_id) if panel_ch_id else None
-        if not panel_ch:
-            await interaction.followup.send("❌ Panel channel not configured. Use `/setup`.", ephemeral=True)
-            return
-
-        svc_type  = order["service_type"] or "boost"
-        svc_label = "Carry 🔴" if svc_type == "carry" else "Boost 🟢"
-        from_tier = order["from_tier"] or "?"
-        to_tier   = order["to_tier"]   or "?"
-        details   = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
-        price_val = order["estimated_price"] or order["price"] or 0.0
-        color     = PRIMARY if self.order_type == "ranked" else ACCENT
-        title_str = "🔥 Ranked Boost Available" if self.order_type == "ranked" else "✨ Prestige Boost Available"
-
-        booster_role_id = cfg.get("booster_role_id") if cfg else None
 class SendToBoostersView(ui.View):
     def __init__(self, order_id: str, ticket_channel_id: int, order_type: str):
         super().__init__(timeout=None)

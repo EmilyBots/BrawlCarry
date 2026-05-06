@@ -1021,6 +1021,82 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
 
 
 # ---------------------------------------------------------------------------
+# SEND TO BOOSTERS VIEW — staff-only button shown under order details embed
+# ---------------------------------------------------------------------------
+class SendToBoostersView(ui.View):
+    def __init__(self, order_id: str, ticket_channel_id: int, order_type: str):
+        super().__init__(timeout=None)
+        self.order_id          = order_id
+        self.ticket_channel_id = ticket_channel_id
+        self.order_type        = order_type
+        btn = ui.Button(
+            label="Send to Boosters",
+            emoji="📤",
+            style=discord.ButtonStyle.primary,
+            custom_id=f"send_boosters_{order_id}"
+        )
+        btn.callback = self._send_to_boosters
+        self.add_item(btn)
+
+    async def _send_to_boosters(self, interaction: discord.Interaction):
+        # Staff-only gate
+        if not interaction.user.guild_permissions.manage_channels:
+            await interaction.response.send_message("You are not allowed to use this.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT * FROM orders WHERE id = %s", (self.order_id,))
+        order = c.fetchone()
+        conn.close()
+        if not order:
+            await interaction.followup.send("❌ Order not found.", ephemeral=True)
+            return
+
+        guild    = interaction.guild
+        cfg      = get_config(guild.id)
+        panel_ch_id = (
+            cfg["ranked_panel_channel_id"] if self.order_type == "ranked"
+            else cfg["prestige_panel_channel_id"]
+        ) if cfg else None
+        panel_ch = guild.get_channel_or_thread(panel_ch_id) if panel_ch_id else None
+        if not panel_ch:
+            await interaction.followup.send("❌ Panel channel not configured. Use `/setup`.", ephemeral=True)
+            return
+
+        svc_type  = order["service_type"] or "boost"
+        svc_label = "Carry 🔴" if svc_type == "carry" else "Boost 🟢"
+        from_tier = order["from_tier"] or "?"
+        to_tier   = order["to_tier"]   or "?"
+        details   = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
+        price_val = order["estimated_price"] or order["price"] or 0.0
+        color     = PRIMARY if self.order_type == "ranked" else ACCENT
+        title_str = "🔥 Ranked Boost Available" if self.order_type == "ranked" else "✨ Prestige Boost Available"
+
+        booster_role_id = cfg.get("booster_role_id") if cfg else None
+        ping = f"<@&{booster_role_id}>" if booster_role_id else ""
+
+        ticket_ch = guild.get_channel_or_thread(self.ticket_channel_id)
+        ticket_ref = ticket_ch.mention if ticket_ch else f"`{self.ticket_channel_id}`"
+
+        claim_e = base_embed(title_str, color=color)
+        claim_e.add_field(name="📦 Order Details", value=details,             inline=False)
+        claim_e.add_field(name="🛠 Service",        value=svc_label,           inline=True)
+        claim_e.add_field(name="💶 Price",           value=f"**€{price_val:.2f}**", inline=True)
+        claim_e.add_field(name="🎫 Ticket",          value=ticket_ref,          inline=True)
+        claim_e.add_field(name="🆔 Order ID",        value=f"`{self.order_id}`", inline=True)
+        claim_e.set_footer(text=f"{FOOTER_BRAND} | Click below to claim")
+
+        await panel_ch.send(
+            content=ping,
+            embed=claim_e,
+            view=BoosterClaimView(self.order_id, ticket_channel_id=self.ticket_channel_id),
+            allowed_mentions=discord.AllowedMentions(roles=True)
+        )
+        await interaction.followup.send("✅ Order successfully sent to boosters.", ephemeral=True)        
+# ---------------------------------------------------------------------------
 # ORDER ACTIONS VIEW
 # ---------------------------------------------------------------------------
 class OrderActionsView(ui.View):
@@ -1261,26 +1337,22 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         svc_label = "Carry 🔴 (2x price)" if self.service_type == "carry" else "Boost 🟢"
 
         welcome = base_embed("🔥 Ranked Boost Ticket", color=PRIMARY)
-        welcome.description = (
-            f"Welcome, {member.mention}! 🎮\n\n"
-            f"📋 **Order:** `{order_id}`\n"
-            f"📦 **Order Details:** {fe} `{self.current_rank}` → {te} `{self.desired_rank}`\n"
-            f"⚡ **P11 Brawlers:** {P11_EMOJI} {self.p11}\n"
-            f"🛠 **Service:** {svc_label}\n"
-            f"{pay_emoji} **Payment:** {self.payment}\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n"
-            f"💶 **Estimated Price:** ~{self.estimated_price:.2f}€\n\n"
-            "Our staff will contact you shortly to complete your order. "
-            "Please have your payment ready!"
+        # ── Embed 1: Ticket Activated (customer-facing, with close buttons) ─
+        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+        activated_e = base_embed("🚀 Ticket Activated", color=PRIMARY)
+        activated_e.description = (
+            f"{staff_pings}\n\n"
+            f"Your **Ranked** request has been successfully created.\n"
+            "Our team will review and begin processing it shortly.\n\n"
+            "You can manage your ticket using the options below."
         )
-        welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
         try:
             ticket = await create_ticket_thread(
                 guild=guild,
                 member=member,
                 name=f"ranked-{member.name[:12].lower()}",
-                topic_embed=welcome,
+                topic_embed=activated_e,
                 view=TicketCloseView(),
                 cfg=cfg,
                 override_channel_id=ranked_ticket_ch_id,
@@ -1298,24 +1370,19 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         conn2.commit()
         conn2.close()
 
-        order_e = base_embed("🔥 New Ranked Boost Order", color=PRIMARY)
-        order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-        order_e.add_field(name="👤 Customer",       value=member.mention,                                               inline=True)
-        order_e.add_field(name="📦 Order Details",  value=f"{fe} `{self.current_rank}` → {te} `{self.desired_rank}`",  inline=True)
-        order_e.add_field(name=f"⚡ P11",            value=f"{P11_EMOJI} {self.p11}",                                   inline=True)                          
-        svc_field_name = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
-        order_e.add_field(name=svc_field_name,      value=svc_label,                                                    inline=True)
-        order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,                                             inline=True)
-        order_e.add_field(name="🕐 Placed",         value=f"<t:{int(datetime.utcnow().timestamp())}:R>",               inline=True)
-        if self.notes.value:
-            order_e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
-        order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
+        # ── Embed 2: Order Details + Send to Boosters button (staff-only) ──
+        mode_clean = "Carry" if self.service_type == "carry" else "Boost"
+        order_e = base_embed("📦 Order Details", color=PRIMARY)
+        order_e.description = f"Your **Ranked** order"
+        order_e.add_field(name="Current Rank",    value=f"→ {fe} {self.current_rank}",     inline=False)
+        order_e.add_field(name="Desired Rank",    value=f"→ {te} {self.desired_rank}",     inline=False)
+        order_e.add_field(name="Order Type",      value=f"→ {mode_clean}",                 inline=False)
+        order_e.add_field(name="Estimated Price", value=f"→ 💰 €{self.estimated_price:.2f}", inline=False)
 
         await ticket.send(
             embed=order_e,
-            view=OrderActionsView(order_id, ticket_channel_id=ticket.id, order_type="ranked")
+            view=SendToBoostersView(order_id, ticket_channel_id=ticket.id, order_type="ranked")
         )
-
         await interaction.response.send_message(
             f"✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: {ticket.mention}",
             ephemeral=True
@@ -1363,27 +1430,22 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         pay_emoji = _payment_emoji(self.payment, guild.id)
         svc_label = "Carry 🔴 (2x price)" if self.service_type == "carry" else "Boost 🟢"
 
-        welcome = base_embed("✨ Prestige Boost Ticket", color=ACCENT)
-        welcome.description = (
-            f"Welcome, {member.mention}! ✨\n\n"
-            f"📋 **Order:** `{order_id}`\n"
-            f"{pe} **Prestige:** {self.prestige_spec}\n"
-            f"🎮 **Brawler:** {self.brawler_name}\n"
-            f"🏆 **Current Trophies:** {self.trophy_val:,}\n"
-            f"🛠 **Service:** {svc_label}\n"
-            f"{pay_emoji} **Payment:** {self.payment}\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
-            "Our staff will contact you shortly to complete your prestige boost. "
-            "Please have your payment ready!"
+        # ── Embed 1: Ticket Activated ────────────────────────────────────────
+        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+        activated_e = base_embed("🚀 Ticket Activated", color=ACCENT)
+        activated_e.description = (
+            f"{staff_pings}\n\n"
+            f"Your **Prestige** request has been successfully created.\n"
+            "Our team will review and begin processing it shortly.\n\n"
+            "You can manage your ticket using the options below."
         )
-        welcome.set_author(name=member.display_name, icon_url=member.display_avatar.url)
 
         try:
             ticket = await create_ticket_thread(
                 guild=guild,
                 member=member,
                 name=f"prestige-{member.name[:12].lower()}",
-                topic_embed=welcome,
+                topic_embed=activated_e,
                 view=TicketCloseView(),
                 cfg=cfg,
                 override_channel_id=prestige_ticket_ch_id,
@@ -1401,23 +1463,19 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         conn2.commit()
         conn2.close()
 
-        order_e = base_embed("✨ New Prestige Boost Order", color=ACCENT)
-        order_e.set_author(name="BrawlCarry | Staff View", icon_url=guild.icon.url if guild.icon else discord.Embed.Empty)
-        order_e.add_field(name="👤 Customer",          value=member.mention,      inline=True)
-        order_e.add_field(name=f"{pe} Prestige",       value=self.prestige_spec,  inline=True)
-        order_e.add_field(name="🎮 Brawler",            value=self.brawler_name,      inline=True)
-        order_e.add_field(name="🏆 Trophies",           value=f"{self.trophy_val:,}", inline=True)
-        svc_field_name2 = "🔴 Carry" if self.service_type == "carry" else "🟢 Boost"
-        order_e.add_field(name=svc_field_name2,        value=svc_label,           inline=True)
-        order_e.add_field(name=f"{pay_emoji} Payment", value=self.payment,        inline=True)
-        order_e.add_field(name="🕐 Placed",            value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-        if self.notes.value:
-            order_e.add_field(name="📝 Notes", value=self.notes.value, inline=False)
-        order_e.set_footer(text=f"{FOOTER_BRAND} | Press 'Publish to Boosters' to release this order")
+        # ── Embed 2: Order Details + Send to Boosters button (staff-only) ──
+        mode_clean  = "Carry" if self.service_type == "carry" else "Boost"
+        price_val   = getattr(self, "estimated_price", 0.0) or 0.0
+        order_e = base_embed("📦 Order Details", color=ACCENT)
+        order_e.description = f"Your **Prestige** order"
+        order_e.add_field(name="Prestige",        value=f"→ {pe} {self.prestige_spec}",  inline=False)
+        order_e.add_field(name="Brawler",         value=f"→ 🎮 {self.brawler_name}",     inline=False)
+        order_e.add_field(name="Order Type",      value=f"→ {mode_clean}",               inline=False)
+        order_e.add_field(name="Estimated Price", value=f"→ 💰 €{price_val:.2f}",        inline=False)
 
         await ticket.send(
             embed=order_e,
-            view=OrderActionsView(order_id, ticket_channel_id=ticket.id, order_type="prestige")
+            view=SendToBoostersView(order_id, ticket_channel_id=ticket.id, order_type="prestige")
         )
 
         await interaction.response.send_message(
@@ -2459,25 +2517,7 @@ class TicketCloseView(ui.View):
             except Exception:
                 pass
 
-    @ui.button(label="Send Vouch Panel", style=discord.ButtonStyle.success, emoji="⭐", custom_id="ticket_send_vouch_v2")
-    async def send_vouch(self, interaction: discord.Interaction, button: ui.Button):
-        if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("❌ Staff only.", ephemeral=True)
-            return
-        ch_name    = getattr(interaction.channel, "name", "") or ""
-        order_kind = "prestige" if "prestige" in ch_name else "ranked"
-
-        e = base_embed("⭐ Leave a Vouch", color=GOLD)
-        e.description = (
-            "Thank you for your order! We'd love your feedback.\n\n"
-            "📸 Attach a screenshot as proof\n"
-            "⭐ Rate your experience (1-5)\n"
-            "💬 Leave honest feedback\n\n"
-            "Click the button below to submit."
-        )
-        await interaction.channel.send(embed=e, view=VouchButtonView(order_kind=order_kind))
-        await interaction.response.send_message("✅ Vouch panel sent.", ephemeral=True)
-
+    
 
 # ---------------------------------------------------------------------------
 # ACCOUNT SALE MODAL

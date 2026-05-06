@@ -1113,14 +1113,14 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         empty    = "⬜"
         star_vis = filled * stars + empty * (5 - stars)
 
-        custom_star  = "<:star:1501523168953761862>"
+        custom_star  = "<:star:1501524038344769546>"
         star_display = custom_star * stars
         e = discord.Embed(color=GOLD)
-        e.title = f"<:Customer:1501221119900778506> Customer Review from @{interaction.user.display_name}"
+        e.title = f"<:Customer:1501221119900778506> Customer Review from {interaction.user.mention}"
         e.set_thumbnail(url=interaction.user.display_avatar.url)
         e.add_field(name="<:Info:1501221322183934002> Feedback",     value=f"➜ {self.feedback.value}",   inline=False)
         e.add_field(name="<:Amount:1501221154650853450> Amount Paid", value=f"➜ **€{amount_val:.2f}**",  inline=False)
-        e.add_field(name=f"<:star:1501523168953761862> Rating ({stars}/5)", value=f"➜ {star_display}",   inline=False)
+        e.add_field(name=f"<:star:1501524038344769546> Rating ({stars}/5)", value=f"➜ {star_display}",   inline=False)
         e.set_footer(text=FOOTER_BRAND)
         e.timestamp = datetime.utcnow()
 
@@ -2208,10 +2208,12 @@ class ReviewActionsView(ui.View):
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",
             style=discord.ButtonStyle.link,
-            url=url
+            url=url,
+            row=0
         ))
 
-    @ui.button(label="Submit Review", emoji="⭐", style=discord.ButtonStyle.success, custom_id="review_submit_v1")
+    @ui.button(label="Submit Review", emoji="⭐", style=discord.ButtonStyle.success, custom_id="review_submit_v1", row=1)
+    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
     async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
         # Role gate — only customers can submit
         role_ids = {r.id for r in interaction.user.roles}

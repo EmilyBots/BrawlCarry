@@ -1113,18 +1113,14 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         empty    = "⬜"
         star_vis = filled * stars + empty * (5 - stars)
 
+        custom_star  = "<:star:1501523168953761862>"
+        star_display = custom_star * stars
         e = discord.Embed(color=GOLD)
-        e.set_author(
-            name=f"{interaction.user.display_name}",
-            icon_url=interaction.user.display_avatar.url
-        )
-        e.title = f"⭐ Vouch N°{vouch_number}  |  {star_vis}"
-        e.add_field(name="👤 Customer",         value=interaction.user.mention,       inline=True)
-        e.add_field(name="💰 Amount Paid",       value=f"**€{amount_val:.2f}**",       inline=True)
-        e.add_field(name=f"{pay_emoji} Payment", value=f"**{self.payment_method}**",   inline=True)
-        e.add_field(name=f"{svc_icon} Service",  value=f"**{kind_label}**",            inline=True)
-        e.add_field(name="⭐ Rating",            value=star_str,                       inline=True)
-        e.add_field(name="💬 Feedback",          value=f"> {self.feedback.value}",     inline=False)
+        e.title = f"<:Customer:1501221119900778506> Customer Review from @{interaction.user.display_name}"
+        e.set_thumbnail(url=interaction.user.display_avatar.url)
+        e.add_field(name="<:Info:1501221322183934002> Feedback",     value=f"➜ {self.feedback.value}",   inline=False)
+        e.add_field(name="<:Amount:1501221154650853450> Amount Paid", value=f"➜ **€{amount_val:.2f}**",  inline=False)
+        e.add_field(name=f"<:star:1501523168953761862> Rating ({stars}/5)", value=f"➜ {star_display}",   inline=False)
         e.set_footer(text=FOOTER_BRAND)
         e.timestamp = datetime.utcnow()
 
@@ -1139,10 +1135,11 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         if vouch_ch_id and interaction.guild:
             ch = interaction.guild.get_channel(vouch_ch_id)
             if ch:
+                review_view = ReviewActionsView(order_kind=self.order_kind)
                 if wm_file:
-                    await ch.send(embed=e, file=wm_file)
+                    await ch.send(embed=e, file=wm_file, view=review_view)
                 else:
-                    await ch.send(embed=e)
+                    await ch.send(embed=e, view=review_view)
 
 
 # ---------------------------------------------------------------------------
@@ -2195,6 +2192,43 @@ class PrestigePanelButton(ui.View):
         await interaction.response.send_message(embed=e, view=PrestigeOrderView(interaction.guild_id), ephemeral=True)
 
 
+
+# ---------------------------------------------------------------------------
+# REVIEW ACTIONS VIEW — Order Now + Submit Review buttons on vouch posts
+# ---------------------------------------------------------------------------
+CUSTOMER_ROLE_ID = 1484297795094581373
+
+class ReviewActionsView(ui.View):
+    def __init__(self, order_kind: str = "ranked"):
+        super().__init__(timeout=None)
+        self.order_kind = order_kind
+        # Order Now — link button reusing CompletedCTAView URLs
+        url = CompletedCTAView.RANKED_URL if order_kind != "prestige" else CompletedCTAView.PRESTIGE_URL
+        self.add_item(ui.Button(
+            label="Order Now",
+            emoji="<:rocket:1491490870979985438>",
+            style=discord.ButtonStyle.link,
+            url=url
+        ))
+
+    @ui.button(label="Submit Review", emoji="⭐", style=discord.ButtonStyle.success, custom_id="review_submit_v1")
+    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
+        # Role gate — only customers can submit
+        role_ids = {r.id for r in interaction.user.roles}
+        if CUSTOMER_ROLE_ID not in role_ids:
+            await interaction.response.send_message(
+                "You must be a customer to send a review.", ephemeral=True
+            )
+            return
+        guild_id = interaction.guild.id if interaction.guild else 0
+        e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+        e.description = (
+            "Select your **rating**, **payment method** and **service type**, then click **Continue** "
+            "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
+        )
+        await interaction.response.send_message(
+            embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True
+        )
 # ---------------------------------------------------------------------------
 # VOUCH BUTTON VIEW
 # ---------------------------------------------------------------------------

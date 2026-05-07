@@ -1424,7 +1424,8 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
                 cfg=cfg,
                 override_channel_id=prestige_ticket_ch_id,
             )
-        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            # Send staff ping as plain content so Discord triggers actual notifications
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
         except Exception as ticket_err:
             await interaction.response.send_message(

@@ -1311,11 +1311,9 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         svc_label = "Carry 🔴 (2x price)" if self.service_type == "carry" else "Boost 🟢"
 
         # ── Embed 1: Ticket Activated ────────────────────────────────────────
-        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
         activated_e = base_embed("<:rocket:1491490870979985438> Order Ticket", color=PRIMARY)
         activated_e.description = (
-            f"{staff_pings}\n\n"
-            f"## Your Ranked request has been successfully created.\n\n"
+            "## Your Ranked request has been successfully created.\n\n"
             "Our team will review and begin processing it shortly.\n\n"
             "You can manage your ticket using the options below."
         )
@@ -1330,6 +1328,9 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
                 cfg=cfg,
                 override_channel_id=ranked_ticket_ch_id,
             )
+            # Send staff ping as plain content so Discord triggers actual notifications
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
         except Exception as ticket_err:
             await interaction.response.send_message(
                 f"❌ Failed to create ticket: `{ticket_err}`\n\nAsk an admin to check `/setup` channel permissions.",
@@ -1406,11 +1407,9 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         svc_label = "Carry 🔴 (2x price)" if self.service_type == "carry" else "Boost 🟢"
 
         # ── Embed 1: Ticket Activated ────────────────────────────────────────
-        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
         activated_e = base_embed("<:rocket:1491490870979985438> Order Ticket", color=ACCENT)
         activated_e.description = (
-            f"{staff_pings}\n\n"
-            f"## Your Prestige request has been successfully created.\n\n"
+            "## Your Prestige request has been successfully created.\n\n"
             "Our team will review and begin processing it shortly.\n\n"
             "You can manage your ticket using the options below."
         )
@@ -1425,6 +1424,8 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
                 cfg=cfg,
                 override_channel_id=prestige_ticket_ch_id,
             )
+        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
         except Exception as ticket_err:
             await interaction.response.send_message(
                 f"❌ Failed to create ticket: `{ticket_err}`\n\nAsk an admin to check `/setup` channel permissions.",
@@ -2197,8 +2198,8 @@ class RankedPanelButton(ui.View):
     async def open_ranked(self, interaction: discord.Interaction, button: ui.Button):
         e = base_embed("<:master:1491521740860428459> Ranked Order", color=PRIMARY)
         e.description = (
-            "Select your ranks, Power 11 count, payment method and service type.\n"
-            "The bot will show you a **price estimate** before you confirm.\n\n"
+            ">>> **Climb the Ranked leaderboard quickly and safely with our experienced boosters.**\n\n"
+            "⚡ Fast • 🔒 Secure • ⭐ Trusted\n\n"
             "⚠️ Minimum desired rank is **Diamond I**. Desired rank must be higher than current rank."
         )
         await interaction.response.send_message(embed=e, view=RankedOrderView(interaction.guild_id), ephemeral=True)
@@ -2212,8 +2213,8 @@ class PrestigePanelButton(ui.View):
     async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
         e = base_embed("<:copyright:1485657838897467534> Prestige Order", color=ACCENT)
         e.description = (
-            "Create your Prestige order by selecting your spec, current trophies and service type.\n\n"
-            "⚠️ Do not share passwords or sensitive information."
+            ">>> **Reach your desired Prestige quickly and safely with our experienced boosters.**\n\n"
+            "⚡ Fast • 🔒 Secure • ⭐ Trusted\n\n"
         )
         await interaction.response.send_message(embed=e, view=PrestigeOrderView(interaction.guild_id), ephemeral=True)
 
@@ -2943,8 +2944,8 @@ async def list_payment_methods(interaction: discord.Interaction):
 async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
     e = base_embed("<:master:1491521740860428459> Ranked Service", color=PRIMARY)
     e.description = (
-        "Create your Ranked order by selecting your ranks, Power 11 range and service type.\n\n"
-        "⚡ Fast & Reliable • 🔒 Secure • ⭐ Trusted Service"
+        ">>> **Climb the Ranked leaderboard quickly and safely with our experienced boosters.**\n\n"
+        "⚡ Fast • 🔒 Secure • ⭐ Trusted"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
     if image_urls:
@@ -2967,8 +2968,8 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
 async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
     e = base_embed("<:copyright:1485657838897467534> Prestige Service", color=ACCENT)
     e.description = (
-        "Create your Prestige order by selecting your spec, current trophies and service type.\n\n"
-        "⚡ Fast & Reliable • 🔒 Secure • ⭐ Trusted Service"
+        ">>> **Reach your desired Prestige quickly and safely with our experienced boosters.**\n\n"
+        "⚡ Fast • 🔒 Secure • ⭐ Trusted"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
     if image_urls:

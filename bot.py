@@ -1350,9 +1350,9 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.description = f"## Your Ranked {mode_clean} Order"
         order_e.add_field(name=f"Current Rank {fe}",       value=f"→ {self.current_rank}",  inline=False)
         order_e.add_field(name=f"Desired Rank {te}",       value=f"→ {self.desired_rank}",  inline=False)
-        order_e.add_field(name="Power Level <:copyright:1489943698203480214>", value="→ Power 11", inline=False)
+        order_e.add_field(name="Power Level <:copyright:1489943698203480214>", value=f"→ {self.p11} Power 11", inline=False)
         order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",         inline=False)
-        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"### €{self.estimated_price:.2f}", inline=False)
+        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"** ╔══ 💰  €{self.estimated_price:.2f}  ══╗**", inline=False)
 
         await ticket.send(
             embed=order_e,
@@ -1447,7 +1447,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.add_field(name=f"Prestige {pe}",           value=f"→ {self.prestige_spec}", inline=False)
         order_e.add_field(name="Brawler 🎮",               value=f"→ {self.brawler_name}",  inline=False)
         order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",          inline=False)
-        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"### €{price_val:.2f}", inline=False)
+        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"** ╔══ 💰  €{price_val:.2f}  ══╗**", inline=False)
         await ticket.send(
             embed=order_e,
             view=SendToBoostersView(order_id, ticket_channel_id=ticket.id, order_type="prestige")
@@ -3862,7 +3862,7 @@ async def inactive_ticket_loop():
                         warn_e = base_embed("⚠️ Ticket Inactivity Warning", color=GOLD)
                         warn_e.description = (
                             f"This ticket has been inactive for **{int(hours_inactive)}** hours.\n\n"
-                            f"If there is no activity within **1 hour**, this ticket will be automatically closed."
+                            f"If there is no activity within **12 hours**, this ticket will be automatically closed."
                         )
                         await channel.send(embed=warn_e)
                         # Mark as warned
@@ -3874,7 +3874,7 @@ async def inactive_ticket_loop():
                     except Exception as ex:
                         print(f"[WARN] Could not warn ticket {row['channel_id']}: {ex}")
 
-                elif hours_inactive >= (threshold_hours + 1) and row["warned"]:
+                elif hours_inactive >= (threshold_hours + 12) and row["warned"]:
                     # Safety guard: ONLY delete actual threads, never text channels
                     if not isinstance(channel, discord.Thread):
                         print(f"[WARN] Inactivity system skipped non-thread channel {channel.id} ({channel.name})")

@@ -2193,18 +2193,14 @@ class RankedPanelButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Ranked Boost Order", style=discord.ButtonStyle.danger, emoji="🔥", custom_id="ranked_panel_btn_v1")
+    @ui.button(label="Ranked Order", style=discord.ButtonStyle.danger, emoji="<:master:1491521740860428459>", custom_id="ranked_panel_btn_v1")
     async def open_ranked(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("🔥 Ranked Boost Order", color=PRIMARY)
+        e = base_embed("<:master:1491521740860428459> Ranked Order", color=PRIMARY)
         e.description = (
             "Select your ranks, Power 11 count, payment method and service type.\n"
             "The bot will show you a **price estimate** before you confirm.\n\n"
-            "> 🟢 **Boost** — we play on your account (standard price)\n"
-            "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
             "⚠️ Minimum desired rank is **Diamond I**. Desired rank must be higher than current rank."
         )
-        e.add_field(name="🏆 Rank Emojis",
-                    value=" ".join(v for v in RANK_EMOJI.values()), inline=False)
         await interaction.response.send_message(embed=e, view=RankedOrderView(interaction.guild_id), ephemeral=True)
 
 

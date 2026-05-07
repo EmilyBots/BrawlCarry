@@ -482,10 +482,7 @@ async def create_ticket_thread(
             await thread.add_user(member)
 
             await thread.send(content=member.mention, embed=topic_embed, view=view)
-            pings = [f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES]
-            if pings:
-                await thread.send(" ".join(pings), allowed_mentions=discord.AllowedMentions(roles=True))
-            update_ticket_activity(thread.id, guild.id)
+        update_ticket_activity(thread.id, guild.id)
             return thread
 
     category = guild.get_channel(category_id) if category_id else None
@@ -1315,11 +1312,11 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
 
         # ── Embed 1: Ticket Activated ────────────────────────────────────────
         staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
-        activated_e = base_embed("Order Ticket <:rocket:1491490870979985438>", color=PRIMARY)
+        activated_e = base_embed("<:rocket:1491490870979985438> Order Ticket", color=PRIMARY)
         activated_e.description = (
             f"{staff_pings}\n\n"
             f"## Your Ranked request has been successfully created.\n\n"
-            "Our team will review and begin processing it shortly.\n"
+            "Our team will review and begin processing it shortly.\n\n"
             "You can manage your ticket using the options below."
         )
 
@@ -1349,12 +1346,13 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         # ── Embed 2: Order Details + Send to Boosters button (staff-only) ──
         mode_clean  = "Carry" if self.service_type == "carry" else "Boost"
         mode_emoji  = "<:Carry:1501221214251651082>" if self.service_type == "carry" else "<:rocket:1491490870979985438>"
-        order_e = base_embed("Order Details <:Info:1501221322183934002>", color=PRIMARY)
+        order_e = base_embed("<:Info:1501221322183934002> Order Details", color=PRIMARY)
         order_e.description = f"## Your Ranked {mode_clean} Order"
-        order_e.add_field(name=f"Current Rank {fe}",    value=f"→ {self.current_rank}",              inline=False)
-        order_e.add_field(name=f"Desired Rank {te}",    value=f"→ {self.desired_rank}",              inline=False)
-        order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",                  inline=False)
-        order_e.add_field(name="Estimated Price <:Amount:1501221154650853450>", value=f"→ **€{self.estimated_price:.2f}**", inline=False)
+        order_e.add_field(name=f"Current Rank {fe}",       value=f"→ {self.current_rank}",  inline=False)
+        order_e.add_field(name=f"Desired Rank {te}",       value=f"→ {self.desired_rank}",  inline=False)
+        order_e.add_field(name="Power Level <:copyright:1489943698203480214>", value="→ Power 11", inline=False)
+        order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",         inline=False)
+        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"### €{self.estimated_price:.2f}", inline=False)
 
         await ticket.send(
             embed=order_e,
@@ -1409,11 +1407,11 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 
         # ── Embed 1: Ticket Activated ────────────────────────────────────────
         staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
-        activated_e = base_embed("Order Ticket <:rocket:1491490870979985438>", color=ACCENT)
+        activated_e = base_embed("<:rocket:1491490870979985438> Order Ticket", color=ACCENT)
         activated_e.description = (
             f"{staff_pings}\n\n"
             f"## Your Prestige request has been successfully created.\n\n"
-            "Our team will review and begin processing it shortly.\n"
+            "Our team will review and begin processing it shortly.\n\n"
             "You can manage your ticket using the options below."
         )
 
@@ -1444,12 +1442,12 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         mode_clean  = "Carry" if self.service_type == "carry" else "Boost"
         mode_emoji  = "<:Carry:1501221214251651082>" if self.service_type == "carry" else "<:rocket:1491490870979985438>"
         price_val   = getattr(self, "estimated_price", 0.0) or 0.0
-        order_e = base_embed("Order Details <:Info:1501221322183934002>", color=ACCENT)
+        order_e = base_embed("<:Info:1501221322183934002> Order Details", color=ACCENT)
         order_e.description = f"## Your Prestige {mode_clean} Order"
-        order_e.add_field(name=f"Prestige {pe}",      value=f"→ {self.prestige_spec}",   inline=False)
-        order_e.add_field(name="Brawler 🎮",           value=f"→ {self.brawler_name}",    inline=False)
-        order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",       inline=False)
-        order_e.add_field(name="Estimated Price <:Amount:1501221154650853450>", value=f"→ **€{price_val:.2f}**", inline=False)
+        order_e.add_field(name=f"Prestige {pe}",           value=f"→ {self.prestige_spec}", inline=False)
+        order_e.add_field(name="Brawler 🎮",               value=f"→ {self.brawler_name}",  inline=False)
+        order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",          inline=False)
+        order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"### €{price_val:.2f}", inline=False)
         await ticket.send(
             embed=order_e,
             view=SendToBoostersView(order_id, ticket_channel_id=ticket.id, order_type="prestige")

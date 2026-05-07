@@ -482,7 +482,7 @@ async def create_ticket_thread(
             await thread.add_user(member)
 
             await thread.send(content=member.mention, embed=topic_embed, view=view)
-        update_ticket_activity(thread.id, guild.id)
+            update_ticket_activity(thread.id, guild.id)
             return thread
 
     category = guild.get_channel(category_id) if category_id else None

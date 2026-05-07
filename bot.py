@@ -2946,13 +2946,9 @@ async def list_payment_methods(interaction: discord.Interaction):
 @app_commands.describe(image_url="Image URLs separated by commas")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
-    rank_icons = " ".join(RANK_EMOJI.values())
-    e = base_embed("🔥 Ranked Boost", color=PRIMARY)
+    e = base_embed("<:master:1491521740860428459> Ranked Boost", color=PRIMARY)
     e.description = (
-        "Climb the ranks! Click the button below to place your **Ranked Boost** order.\n\n"
-        f"{rank_icons}\n\n"
-        "> 🟢 **Boost** — we play on your account\n"
-        "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+        "Create your Ranked order by selecting your ranks, Power 11 range and service type.\n\n"
         "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []

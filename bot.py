@@ -52,7 +52,7 @@ ACCENT       = 0xA855F7
 
 HARDCODED_SUPPORT_ROLES = [1491447093078921267, 1355262062124859600, 1479079737052762205]  # Replace with your role IDs
 
-FOOTER_BRAND = "Powered by Brawl Carry (TM)"
+FOOTER_BRAND = "Brawl Carry™"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -1353,8 +1353,8 @@ class RankedOrderModal(ui.Modal, title="Ranked Boost Order"):
         order_e.add_field(name=f"Desired Rank {te}",       value=f"→ {self.desired_rank}",  inline=False)
         order_e.add_field(name="Power Level <:copyright:1489943698203480214>", value=f"→ {self.p11} Power 11", inline=False)
         order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",         inline=False)
+        order_e.add_field(name=f"Payment Method {pay_emoji}", value=f"→ {self.payment}",     inline=False)
         order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"** ╔══ 💰  €{self.estimated_price:.2f}  ══╗**", inline=False)
-
         await ticket.send(
             embed=order_e,
             view=SendToBoostersView(order_id, ticket_channel_id=ticket.id, order_type="ranked")
@@ -1449,6 +1449,7 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
         order_e.add_field(name=f"Prestige {pe}",           value=f"→ {self.prestige_spec}", inline=False)
         order_e.add_field(name="Brawler 🎮",               value=f"→ {self.brawler_name}",  inline=False)
         order_e.add_field(name=f"Order Type {mode_emoji}", value=f"→ {mode_clean}",          inline=False)
+        order_e.add_field(name=f"Payment Method {pay_emoji}", value=f"→ {self.payment}",     inline=False)
         order_e.add_field(name="<:Amount:1501221154650853450> Estimated Price", value=f"** ╔══ 💰  €{price_val:.2f}  ══╗**", inline=False)
         await ticket.send(
             embed=order_e,

@@ -561,7 +561,6 @@ async def fetch_and_watermark(url: str, blur: bool = False):
 def base_embed(title: str = None, color: int = PRIMARY, description: str = None) -> discord.Embed:
     e = discord.Embed(title=title, color=color, description=description)
     e.set_footer(text=FOOTER_BRAND)
-    e.timestamp = datetime.utcnow()
     return e
 
 def format_duration(seconds: int) -> str:
@@ -1171,8 +1170,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
         e.add_field(name="<:Info:1501221322183934002> Feedback",     value=f"➜ {self.feedback.value}",   inline=False)
         e.add_field(name="<:Amount:1501221154650853450> Amount Paid", value=f"➜ **€{amount_val:.2f}**",  inline=False)
         e.add_field(name=f"<:star:1501524038344769546> Rating ({stars}/5)", value=f"➜ {star_display}",   inline=False)
-        e.set_footer(text=FOOTER_BRAND)
-        e.timestamp = datetime.utcnow()
+        e.set_footer(text=FOOTER_BRAND) 
 
         wm_file = None
         if img:
@@ -2165,10 +2163,11 @@ class SupportCenterSelect(ui.Select):
                 name=f"support-{member.name[:12].lower()}",
                 topic_embed=e, view=TicketCloseView(), cfg=cfg,
             )
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
             await interaction.response.send_message(
                 f"✅ Support ticket created: {ticket.mention}", ephemeral=True
             )
-
         elif choice == "apply":
             e = base_embed("<:shield:1491489447445794866> Staff Application", color=PRIMARY)
             e.description = (
@@ -2190,6 +2189,8 @@ class SupportCenterSelect(ui.Select):
                 "Click a button below to begin your application."
             )
             await ticket.send(embed=role_e, view=ApplicationPanelView())
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
             await interaction.response.send_message(
                 f"✅ Application ticket created: {ticket.mention}", ephemeral=True
             )
@@ -2197,13 +2198,11 @@ class SupportCenterSelect(ui.Select):
         elif choice == "services":
             e = base_embed("<:rocket:1491490870979985438> Our Services", color=PRIMARY)
             e.description = (
-                "> <:master:1491521740860428459>  <#1477338397570760784>\n"
-                "> <:copyright:1485657838897467534>  <#1355262063437414564>\n\n"
-                "Head over to one of the channels above to create your order."
+                "> <:master:1491521740860428459> <#1477338397570760784>\n"
+                "> <:copyright:1485657838897467534> <#1355262063437414564>\n\n"
+                "-# Please head over to one of these channels to create your order."
             )
-            e.set_footer(text=FOOTER_BRAND)
             await interaction.response.send_message(embed=e, ephemeral=True)
-
 
 class CombinedPanelView(ui.View):
     def __init__(self):
@@ -3181,7 +3180,6 @@ async def end_giveaway(interaction: discord.Interaction, giveaway_id: str):
     e.add_field(name="👥 Total Participants", value=f"**{len(set(participants)):,}**", inline=True)
     e.add_field(name="🆔 Giveaway ID",        value=f"`{giveaway_id}`",            inline=True)
     e.set_footer(text=FOOTER_BRAND)
-    e.timestamp = datetime.utcnow()
     await interaction.channel.send(
         content=f"🎉 Congratulations {winner_mentions}! You won **{ga['prize']}**!",
         embed=e,

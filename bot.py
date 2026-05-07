@@ -2114,69 +2114,101 @@ class _AppConfirmView(ui.View):
 # ---------------------------------------------------------------------------
 # COMBINED TICKET + APPLICATION PANEL VIEW
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# SUPPORT CENTER DROPDOWN VIEW
+# ---------------------------------------------------------------------------
+class SupportCenterSelect(ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label="General Support",
+                value="support",
+                emoji="<:microphone:1491490055636647966>",
+                description="Open a ticket with our support team"
+            ),
+            discord.SelectOption(
+                label="Staff Applications",
+                value="apply",
+                emoji="<:shield:1491489447445794866>",
+                description="Apply for a staff or booster role"
+            ),
+            discord.SelectOption(
+                label="Buy Our Services",
+                value="services",
+                emoji="<:rocket:1491490870979985438>",
+                description="View our available boosting services"
+            ),
+        ]
+        super().__init__(
+            placeholder="Select an option…",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id="support_center_select_v1"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        choice = self.values[0]
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
+
+        if choice == "support":
+            e = base_embed("<:microphone:1491490055636647966> General Support", color=SUCCESS)
+            e.description = (
+                f"Welcome, {member.mention}!\n\n"
+                "Our staff will be with you shortly. Please describe your issue in detail."
+            )
+            e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+            ticket = await create_ticket_thread(
+                guild=guild, member=member,
+                name=f"support-{member.name[:12].lower()}",
+                topic_embed=e, view=TicketCloseView(), cfg=cfg,
+            )
+            await interaction.response.send_message(
+                f"✅ Support ticket created: {ticket.mention}", ephemeral=True
+            )
+
+        elif choice == "apply":
+            e = base_embed("<:shield:1491489447445794866> Staff Application", color=PRIMARY)
+            e.description = (
+                f"Welcome, {member.mention}!\n\n"
+                "Please select the role you'd like to apply for below."
+            )
+            e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
+            ticket = await create_ticket_thread(
+                guild=guild, member=member,
+                name=f"apply-{member.name[:12].lower()}",
+                topic_embed=e, view=TicketCloseView(), cfg=cfg,
+                override_channel_id=1491397629546860614,
+            )
+            role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)
+            role_e.description = (
+                "🟠 **Booster** — Masters III rank minimum\n"
+                "🛡️ **Admin** — Trustworthy & fluent in English\n"
+                "📰 **Reporter** — Active moderator & issue reporter\n\n"
+                "Click a button below to begin your application."
+            )
+            await ticket.send(embed=role_e, view=ApplicationPanelView())
+            await interaction.response.send_message(
+                f"✅ Application ticket created: {ticket.mention}", ephemeral=True
+            )
+
+        elif choice == "services":
+            e = base_embed("<:rocket:1491490870979985438> Our Services", color=PRIMARY)
+            e.description = (
+                "> <:master:1491521740860428459>  <#1477338397570760784>\n"
+                "> <:copyright:1485657838897467534>  <#1355262063437414564>\n\n"
+                "Head over to one of the channels above to create your order."
+            )
+            e.set_footer(text=FOOTER_BRAND)
+            await interaction.response.send_message(embed=e, ephemeral=True)
+
+
 class CombinedPanelView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-
-    @ui.button(label="General Support", style=discord.ButtonStyle.primary, emoji="ℹ️", custom_id="combined_support_v1")
-    async def open_support(self, interaction: discord.Interaction, button: ui.Button):
-        guild  = interaction.guild
-        member = interaction.user
-        cfg    = get_config(guild.id)
-
-        e = base_embed("ℹ️ General Support", color=SUCCESS)
-        e.description = (
-            f"Welcome, {member.mention}!\n\n"
-            f"📋 **Category:** General Support\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
-            "Staff will be with you shortly. Please describe your request in detail."
-        )
-        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
-
-        ticket = await create_ticket_thread(
-            guild=guild,
-            member=member,
-            name=f"support-{member.name[:12].lower()}",
-            topic_embed=e,
-            view=TicketCloseView(),
-            cfg=cfg,
-        )
-        await interaction.response.send_message(f"✅ Support ticket created: {ticket.mention}", ephemeral=True)
-
-    @ui.button(label="Apply for a Role", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="combined_apply_v1")
-    async def apply_role(self, interaction: discord.Interaction, button: ui.Button):
-        guild  = interaction.guild
-        member = interaction.user
-        cfg    = get_config(guild.id)
-
-        e = base_embed("📝 Role Application", color=PRIMARY)
-        e.description = (
-            f"Welcome, {member.mention}!\n\n"
-            f"📋 **Category:** Role Application\n"
-            f"🕐 **Opened:** <t:{int(datetime.utcnow().timestamp())}:F>\n\n"
-            "Please select the role you'd like to apply for below."
-        )
-        e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
-
-        ticket = await create_ticket_thread(
-            guild=guild,
-            member=member,
-            name=f"apply-{member.name[:12].lower()}",
-            topic_embed=e,
-            view=TicketCloseView(),
-            cfg=cfg,
-            override_channel_id=1491397629546860614,
-        )
-
-        role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)
-        role_e.description = (
-            "🟠 **Booster** — Masters III rank minimum\n"
-            "🛡️ **Admin** — Trustworthy & fluent in English\n"
-            "📰 **Reporter** — Active moderator & issue reporter\n\n"
-            "Click a button below to begin your application."
-        )
-        await ticket.send(embed=role_e, view=ApplicationPanelView())
-        await interaction.response.send_message(f"✅ Application ticket created: {ticket.mention}", ephemeral=True)
+        self.add_item(SupportCenterSelect())
 
 # ---------------------------------------------------------------------------
 # ORDER COMPLETED — CTA BUTTON (links to ranked or prestige panel)
@@ -2992,31 +3024,13 @@ async def prestige_panel(interaction: discord.Interaction, image_url: str = None
 @app_commands.describe(image_url="Optional banner image URL")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def ticket_panel(interaction: discord.Interaction, image_url: str = None):
-    cfg   = get_config(interaction.guild.id)
-    title = cfg["ticket_panel_title"] if cfg and cfg["ticket_panel_title"] else "🎫 Support Center"
-    desc  = (cfg["ticket_panel_desc"] if cfg and cfg["ticket_panel_desc"]
-             else "Need help or want to join the team? Use the buttons below.\n\n📌 Tickets are private and handled by staff only.")
-    e = discord.Embed(title=title, color=PRIMARY, description=desc)
-    e.add_field(
-        name="🎫 Support",
-        value="Click **General Support** to open a ticket with our staff.",
-        inline=False
-    )
-    e.add_field(
-        name="📝 Applications",
-        value=(
-            "🟠 **Booster** — Masters III minimum\n"
-            "🛡️ **Admin** — Trustworthy & fluent in English\n"
-            "📰 **Reporter** — Active moderator & issue reporter"
-        ),
-        inline=False
-    )
+    e = base_embed("<:Info:1501221322183934002> Support Center", color=PRIMARY)
+    e.description = ">>> Contact our team for support, applications, or server-related issues."
     if image_url:
         e.set_image(url=image_url)
     e.set_footer(text=FOOTER_BRAND)
-    e.timestamp = datetime.utcnow()
     await interaction.channel.send(embed=e, view=CombinedPanelView())
-    await interaction.response.send_message("✅ Combined panel posted.", ephemeral=True)
+    await interaction.response.send_message("✅ Support Center panel posted.", ephemeral=True)
 
 @bot.tree.command(name="configure_ticket_panel", description="Customise the ticket panel title and description")
 @app_commands.checks.has_permissions(administrator=True)

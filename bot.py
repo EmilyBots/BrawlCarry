@@ -2208,18 +2208,13 @@ class PrestigePanelButton(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @ui.button(label="Prestige Boost Order", style=discord.ButtonStyle.primary, emoji="✨", custom_id="prestige_panel_btn_v1")
+    @ui.button(label="Prestige Order", style=discord.ButtonStyle.primary, emoji="<:copyright:1485657838897467534>", custom_id="prestige_panel_btn_v1")
     async def open_prestige(self, interaction: discord.Interaction, button: ui.Button):
-        e = base_embed("✨ Prestige Boost Order", color=ACCENT)
+        e = base_embed("<:copyright:1485657838897467534> Prestige Order", color=ACCENT)
         e.description = (
-            "Select your prestige spec, current trophies, payment method and service type.\n"
-            "The bot will show you a **price estimate** before you confirm.\n\n"
-            "> 🟢 **Boost** — we play on your account (standard price)\n"
-            "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
+            "Create your Prestige order by selecting your spec, current trophies and service type.\n\n"
             "⚠️ Do not share passwords or sensitive information."
         )
-        pres_icons = " ".join(PRESTIGE_EMOJI.values())
-        e.add_field(name="✨ Prestige Icons", value=pres_icons, inline=False)
         await interaction.response.send_message(embed=e, view=PrestigeOrderView(interaction.guild_id), ephemeral=True)
 
 
@@ -2970,18 +2965,10 @@ async def ranked_panel(interaction: discord.Interaction, image_url: str = None):
 @app_commands.describe(image_url="Image URLs separated by commas")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def prestige_panel(interaction: discord.Interaction, image_url: str = None):
-    pres_icons = " ".join(PRESTIGE_EMOJI.values())
-    e = base_embed("✨ Prestige Boost", color=ACCENT)
+    e = base_embed("<:copyright:1485657838897467534> Prestige Service", color=ACCENT)
     e.description = (
-        "Unlock your prestige! Click the button below to place your **Prestige Boost** order.\n\n"
-        f"{pres_icons}\n\n"
-        "**Pricing** *(depends on brawler & power level)*\n"
-        f"{PRESTIGE_EMOJI['Prestige 0 -> Prestige 1']} Prestige 0 → 1 — from **{PRESTIGE_PRICES['Prestige 0 -> Prestige 1']}€**\n"
-        f"{PRESTIGE_EMOJI['Prestige 1 -> Prestige 2']} Prestige 1 → 2 — from **{PRESTIGE_PRICES['Prestige 1 -> Prestige 2']}€**\n"
-        f"{PRESTIGE_EMOJI['Prestige 2 -> Prestige 3']} Prestige 2 → 3 — from **{PRESTIGE_PRICES['Prestige 2 -> Prestige 3']}€**\n\n"
-        "> 🟢 **Boost** — we play on your account\n"
-        "> 🔴 **Carry** — we play alongside you (2x price)\n\n"
-        "⚡ Fast & reliable | 🔒 Secure | ⭐ 5-star rated"
+        "Create your Prestige order by selecting your spec, current trophies and service type.\n\n"
+        "⚡ Fast & Reliable • 🔒 Secure • ⭐ Trusted Service"
     )
     image_urls = [u.strip() for u in image_url.split(",")] if image_url else []
     if image_urls:

@@ -2261,21 +2261,28 @@ class ReviewActionsView(ui.View):
         self.add_item(review_btn)
 
     async def _submit_review_callback(self, interaction: discord.Interaction):
-        role_ids = {r.id for r in interaction.user.roles}
-        if CUSTOMER_ROLE_ID not in role_ids:
-            await interaction.response.send_message(
-                "You must be a customer to send a review.", ephemeral=True
+        try:
+            role_ids = {r.id for r in interaction.user.roles}
+            if CUSTOMER_ROLE_ID not in role_ids:
+                await interaction.response.send_message(
+                    "You must be a customer to send a review.", ephemeral=True
+                )
+                return
+            guild_id = interaction.guild.id if interaction.guild else 0
+            e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+            e.description = (
+                "Select your **rating**, **payment method** and **service type**, then click **Continue** "
+                "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
             )
-            return
-        guild_id = interaction.guild.id if interaction.guild else 0
-        e = base_embed("⭐ Submit Your Vouch", color=GOLD)
-        e.description = (
-            "Select your **rating**, **payment method** and **service type**, then click **Continue** "
-            "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
-        )
-        await interaction.response.send_message(
-            embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True
-        )
+            await interaction.response.send_message(
+                embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True
+            )
+        except Exception as ex:
+            print(f"[ERROR] ReviewActionsView._submit_review_callback: {ex}")
+            try:
+                await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+            except Exception:
+                pass
 # ---------------------------------------------------------------------------
 # VOUCH BUTTON VIEW
 # ---------------------------------------------------------------------------
@@ -3908,6 +3915,8 @@ async def on_ready():
     bot.add_view(TicketCloseView())
     bot.add_view(VouchButtonView())
     bot.add_view(VouchButtonView(order_kind="prestige"))
+    bot.add_view(ReviewActionsView())
+    bot.add_view(ReviewActionsView(order_kind="prestige"))
     bot.add_view(RankedPanelButton())
     bot.add_view(PrestigePanelButton())
     bot.add_view(ApplicationPanelView())

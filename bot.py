@@ -1463,19 +1463,21 @@ class PrestigeOrderModal(ui.Modal, title="Prestige Boost Order"):
 # ORDER COMPLETE MODAL
 # ---------------------------------------------------------------------------
 class OrderCompleteModal(ui.Modal, title="Complete Order"):
-    order_id_input = ui.TextInput(label="Order ID",                   placeholder="RANKED-XXXXXX / PREST-XXXXXX", style=discord.TextStyle.short)
     final_price    = ui.TextInput(label="Final Price Paid (EUR)",      placeholder="44.99",                        style=discord.TextStyle.short)
     image_url      = ui.TextInput(label="Proof Image URL (Optional)",  placeholder="https://i.imgur.com/...",      required=False, style=discord.TextStyle.short)
+
+    def __init__(self, order_id: str):
+        super().__init__()
+        self._order_id = order_id  # injected automatically — not entered by staff
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
-        order_id = self.order_id_input.value.strip().upper()
+        order_id = self._order_id
         conn     = get_db()
         c        = conn.cursor()
         c.execute("SELECT * FROM orders WHERE id = %s", (order_id,))
         order = c.fetchone()
-
         if not order:
             conn.close()
             await interaction.followup.send(f"❌ Order `{order_id}` not found.", ephemeral=True)
@@ -2868,10 +2870,43 @@ async def setup(
     await interaction.response.send_message(embed=e, ephemeral=True)
 
 
-@bot.tree.command(name="order_complete", description="Mark an order as completed")
+@bot.tree.command(name="order_complete", description="Mark an order as completed (run inside the ticket thread)")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def order_complete(interaction: discord.Interaction):
-    await interaction.response.send_modal(OrderCompleteModal())
+    channel = interaction.channel
+
+    # Validation 1 — must be run inside a thread
+    if not isinstance(channel, discord.Thread):
+        await interaction.response.send_message(
+            "❌ This command must be used **inside a ticket thread**.", ephemeral=True
+        )
+        return
+
+    # Validation 2 — find the order linked to this thread
+    conn = get_db()
+    c    = conn.cursor()
+    c.execute(
+        "SELECT * FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1",
+        (channel.id,)
+    )
+    order = c.fetchone()
+    conn.close()
+
+    if not order:
+        await interaction.response.send_message(
+            "❌ No order is linked to this ticket thread.", ephemeral=True
+        )
+        return
+
+    # Validation 3 — already completed
+    if order["status"] == "completed":
+        await interaction.response.send_message(
+            f"❌ Order `{order['id']}` is already marked as completed.", ephemeral=True
+        )
+        return
+
+    # All good — open modal with order ID pre-filled automatically
+    await interaction.response.send_modal(OrderCompleteModal(order_id=order["id"]))
 
 
 @bot.tree.command(name="add_payment_method", description="Add a payment method to the order forms")

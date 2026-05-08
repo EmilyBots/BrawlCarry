@@ -4106,10 +4106,10 @@ async def on_error(event: str, *args, **kwargs):
 
 # Patches ALL View callbacks to log exceptions instead of silently swallowing them
 original_dispatch = discord.ui.View._dispatch_item
-async def _patched_dispatch(self, interaction: discord.Interaction, item):
+async def _patched_dispatch(self, item, interaction: discord.Interaction):
     import traceback as tb_mod
     try:
-        await original_dispatch(self, interaction, item)
+        await original_dispatch(self, item, interaction)
     except Exception as ex:
         tb_str = "".join(tb_mod.format_exception(type(ex), ex, ex.__traceback__))
         print(f"\n[VIEW CALLBACK ERROR] view={type(self).__name__} item={getattr(item, 'custom_id', item)}\n{tb_str}")

@@ -4107,18 +4107,24 @@ async def on_ready():
     await bot.tree.sync()
     print(f"[OK] {bot.user} | Slash commands synced")
 
-    bot.add_view(TicketView())
-    bot.add_view(TicketCloseView())
-    bot.add_view(VouchButtonView())
-    bot.add_view(VouchButtonView(order_kind="prestige"))
-    bot.add_view(ReviewActionsView())
-    bot.add_view(ReviewActionsView(order_kind="prestige"))
-    bot.add_view(RankedPanelButton())
-    bot.add_view(PrestigePanelButton())
-    bot.add_view(ApplicationPanelView())  # registers ApplicationCenterSelect via custom_id
-    bot.add_view(CombinedPanelView())
-    bot.add_view(BackupPanelView())
-    bot.add_view(ApplicationReviewViewStub())
+    _persistent_views = [
+        TicketView(),
+        TicketCloseView(),
+        VouchButtonView(),
+        VouchButtonView(order_kind="prestige"),
+        ReviewActionsView(),
+        ReviewActionsView(order_kind="prestige"),
+        RankedPanelButton(),
+        PrestigePanelButton(),
+        ApplicationPanelView(),
+        CombinedPanelView(),
+        ApplicationReviewViewStub(),
+    ]
+    for _v in _persistent_views:
+        try:
+            bot.add_view(_v)
+        except Exception as _e:
+            print(f"[WARN] Could not register persistent view {type(_v).__name__}: {_e}")
     conn = get_db()
     c    = conn.cursor()
 

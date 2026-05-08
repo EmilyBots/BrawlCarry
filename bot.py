@@ -1940,7 +1940,7 @@ class ApplicationReviewView(ui.View):
         self.applicant_id = applicant_id
         self.role         = role
 
-    @ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅", custom_id="app_accept_v1")
+    @ui.button(label="Accept", style=discord.ButtonStyle.success, emoji="✅")
     async def accept(self, interaction: discord.Interaction, button: ui.Button):
         cfg = get_config(interaction.guild.id)
         reviewer_role_ids = set()
@@ -1988,7 +1988,7 @@ class ApplicationReviewView(ui.View):
         await interaction.message.edit(embed=orig, view=self)
         await interaction.response.send_message(f"✅ Application accepted.{result_text}", ephemeral=True)
 
-    @ui.button(label="Reject", style=discord.ButtonStyle.danger, emoji="❌", custom_id="app_reject_v1")
+    @ui.button(label="Reject", style=discord.ButtonStyle.danger, emoji="❌")
     async def reject(self, interaction: discord.Interaction, button: ui.Button):
         cfg = get_config(interaction.guild.id)
         reviewer_role_ids = set()

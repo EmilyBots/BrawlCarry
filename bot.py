@@ -2073,41 +2073,78 @@ class ApplicationReviewViewStub(ui.View):
         view = ApplicationReviewView(applicant_id, role_name)
         await view.reject(interaction, button)
 
+class ApplicationCenterSelect(ui.Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label="Booster Application",
+                value="apply_booster",
+                emoji="<:rocket:1491490870979985438>",
+                description="Apply as a booster"
+            ),
+            discord.SelectOption(
+                label="Staff Application",
+                value="apply_staff",
+                emoji="<:shield:1491489447445794866>",
+                description="Apply for staff team"
+            ),
+            discord.SelectOption(
+                label="Advertiser Application",
+                value="apply_advertiser",
+                emoji="<:Carry:1501221214251651082>",
+                description="Apply as an advertiser"
+            ),
+        ]
+        super().__init__(
+            placeholder="Select an application type...",
+            min_values=1,
+            max_values=1,
+            options=options,
+            custom_id="application_center_select_v1"
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        choice = self.values[0]
+        guild  = interaction.guild
+        member = interaction.user
+        cfg    = get_config(guild.id)
+
+        titles = {
+            "apply_booster":   "<:rocket:1491490870979985438> Booster Application",
+            "apply_staff":     "<:shield:1491489447445794866> Staff Application",
+            "apply_advertiser":"<:Carry:1501221214251651082> Advertiser Application",
+        }
+        labels = {
+            "apply_booster":    "booster",
+            "apply_staff":      "staff",
+            "apply_advertiser": "advertiser",
+        }
+        title     = titles[choice]
+        name_slug = labels[choice]
+
+        e = base_embed(title, color=PRIMARY)
+        e.description = (
+            f"## Your {name_slug} application has been successfully created.\n\n"
+            "Our management team will review your application shortly.\n\n"
+            "You can manage your ticket using the options below."
+        )
+        ticket = await create_ticket_thread(
+            guild=guild, member=member,
+            name=f"{name_slug}-{member.name[:12].lower()}",
+            topic_embed=e, view=TicketCloseView(), cfg=cfg,
+            override_channel_id=1491397629546860614,
+        )
+        staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+        await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
+        await interaction.response.send_message(
+            f"✅ {title} ticket created: {ticket.mention}", ephemeral=True
+        )
+
+
 class ApplicationPanelView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        styles = {
-            "Booster":  discord.ButtonStyle.danger,
-            "Admin":    discord.ButtonStyle.primary,
-            "Reporter": discord.ButtonStyle.secondary,
-        }
-        emojis = {"Booster": "🟠", "Admin": "🛡️", "Reporter": "📰"}
-        for role in APPLICATION_ROLES:
-            btn = ui.Button(
-                label=f"Apply for {role}",
-                style=styles.get(role, discord.ButtonStyle.primary),
-                emoji=emojis.get(role, "📝"),
-                custom_id=f"app_btn_{role.lower()}_v1"
-            )
-            btn.callback = self._make_callback(role)
-            self.add_item(btn)
-
-    def _make_callback(self, role: str):
-        async def callback(interaction: discord.Interaction):
-            req = APPLICATION_REQUIREMENTS.get(role, "")
-            e = base_embed(f"📝 {role} Application", color=PRIMARY, description=req)
-            await interaction.response.send_message(embed=e, view=_AppConfirmView(role), ephemeral=True)
-        return callback
-
-
-class _AppConfirmView(ui.View):
-    def __init__(self, role: str):
-        super().__init__(timeout=120)
-        self.role = role
-
-    @ui.button(label="I meet the requirements — Apply", style=discord.ButtonStyle.success, emoji="✅")
-    async def confirm(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(ApplicationModal(self.role))
+        self.add_item(ApplicationCenterSelect())
 
 # ---------------------------------------------------------------------------
 # COMBINED TICKET + APPLICATION PANEL VIEW
@@ -2185,12 +2222,12 @@ class SupportCenterSelect(ui.Select):
                 topic_embed=e, view=TicketCloseView(), cfg=cfg,
                 override_channel_id=1491397629546860614,
             )
-            role_e = base_embed("📝 Select a Role to Apply For", color=PRIMARY)
+            role_e = base_embed("<:Info:1501221322183934002> Application Center", color=PRIMARY)
             role_e.description = (
-                "🟠 **Booster** — Masters III rank minimum\n"
-                "🛡️ **Admin** — Trustworthy & fluent in English\n"
-                "📰 **Reporter** — Active moderator & issue reporter\n\n"
-                "Click a button below to begin your application."
+                ">>> Select the role you want to apply for below.\n\n"
+                "<:rocket:1491490870979985438> **Booster** — Masters III minimum\n"
+                "<:shield:1491489447445794866> **Staff** — Fluent English & trusted member\n"
+                "<:Carry:1501221214251651082> **Advertiser** — Previous advertising experience preferred"
             )
             await ticket.send(embed=role_e, view=ApplicationPanelView())
             await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
@@ -3949,7 +3986,7 @@ async def on_ready():
     bot.add_view(ReviewActionsView(order_kind="prestige"))
     bot.add_view(RankedPanelButton())
     bot.add_view(PrestigePanelButton())
-    bot.add_view(ApplicationPanelView())
+    bot.add_view(ApplicationPanelView())  # registers ApplicationCenterSelect via custom_id
     bot.add_view(CombinedPanelView())
     bot.add_view(BackupPanelView())
     bot.add_view(ApplicationReviewViewStub())

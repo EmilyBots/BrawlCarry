@@ -745,9 +745,17 @@ class BoosterClaimView(ui.View):
         super().__init__(timeout=None)
         self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
+        btn = ui.Button(
+            label="Claim This Boost",
+            style=discord.ButtonStyle.primary,
+            emoji="\U0001f7e0",
+            custom_id=f"booster_claim_{order_id}"
+        )
+        btn.callback = self._claim
+        self.add_item(btn)
 
-    @ui.button(label="Claim This Boost", style=discord.ButtonStyle.primary, emoji="\U0001f7e0", custom_id="booster_claim_direct_v1")
-    async def claim(self, interaction: discord.Interaction, button: ui.Button):
+    async def _claim(self, interaction: discord.Interaction):
+        button = None  # not needed below
         guild   = interaction.guild
         booster = interaction.user
 
@@ -4151,9 +4159,12 @@ async def on_ready():
 
     c.execute("SELECT id, ticket_channel_id, order_type FROM orders WHERE status IN ('pending', 'claimed')")
     for row in c.fetchall():
-        order_type = row["order_type"] or ("prestige" if str(row["id"]).startswith("PREST") else "ranked")
-        bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"], order_type))
-        bot.add_view(BoosterClaimView(row["id"], row["ticket_channel_id"]))
+        try:
+            order_type = row["order_type"] or ("prestige" if str(row["id"]).startswith("PREST") else "ranked")
+            bot.add_view(OrderActionsView(row["id"], row["ticket_channel_id"], order_type))
+            bot.add_view(BoosterClaimView(row["id"], row["ticket_channel_id"]))
+        except Exception as _e:
+            print(f"[WARN] Could not register views for order {row['id']}: {_e}")
 
     # Restore booster rating views for recently completed orders (last 7 days)
     c.execute(

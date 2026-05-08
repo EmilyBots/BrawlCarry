@@ -2639,36 +2639,53 @@ header p{{font-size:13px;color:#949ba4}}
         cfg       = get_config(guild.id) if guild else None
         log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
         log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
+# ── Simple text transcript ────────────────────────────────────────────
+        transcript_lines = []
+        try:
+            async for msg in channel.history(limit=500, oldest_first=True):
+                ts          = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                attachments = " | ".join(a.url for a in msg.attachments) if msg.attachments else ""
+                line = f"[{ts}] {msg.author.display_name} ({msg.author.id}): {msg.content}"
+                if attachments:
+                    line += f"  [Attachments: {attachments}]"
+                transcript_lines.append(line)
+        except Exception as ex:
+            transcript_lines.append(f"[ERROR fetching transcript: {ex}]")
 
-        # Detect ticket type from channel name
+        transcript_file = discord.File(
+            io.BytesIO("\n".join(transcript_lines).encode("utf-8")),
+            filename=f"transcript-{channel.name}.txt"
+        )
+
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT * FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1", (channel.id,))
+        order = c.fetchone()
+        conn.close()
+
+        cfg       = get_config(guild.id) if guild else None
+        log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
+        log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
+
         ch_name = channel.name.lower()
-        if "ranked" in ch_name:
-            ticket_type = "Ranked"
-        elif "prestige" in ch_name:
-            ticket_type = "Prestige"
-        elif "apply" in ch_name or "booster" in ch_name or "staff" in ch_name or "advertiser" in ch_name:
-            ticket_type = "Application"
-        elif "support" in ch_name:
-            ticket_type = "Support"
-        else:
-            ticket_type = channel.name.split("-")[0].capitalize()
+        if "ranked" in ch_name:       ticket_type = "Ranked"
+        elif "prestige" in ch_name:   ticket_type = "Prestige"
+        elif any(x in ch_name for x in ("apply","booster","staff","advertiser")): ticket_type = "Application"
+        elif "support" in ch_name:    ticket_type = "Support"
+        else:                         ticket_type = ch_name.split("-")[0].capitalize()
 
-        # Detect ticket author from DB or channel members
-        if order and order.get("user_id"):
-            author_mention = f"<@{order['user_id']}>"
-        else:
-            author_mention = "—"
+        author_mention = f"<@{order['user_id']}>" if (order and order.get("user_id")) else "—"
 
         if log_ch:
             try:
                 log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
-                log_e.add_field(name="📂 Channel Type", value=f"↳ {ticket_type}", inline=False)
-                log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}", inline=True)
+                log_e.add_field(name="📂 Channel Type",  value=f"↳ {ticket_type}",              inline=False)
+                log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}",            inline=True)
                 log_e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}", inline=True)
-                log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.", inline=False)
+                log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.",         inline=False)
                 await log_ch.send(embed=log_e, file=transcript_file)
             except Exception as ex:
-                print(f"[WARN] Failed to send transcript to log channel: {ex}")
+                print(f"[WARN] Failed to send transcript: {ex}")
 
         # Remove from activity tracking, disable button, then delete after 5s
         remove_ticket_activity(channel.id)

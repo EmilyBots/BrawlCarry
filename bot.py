@@ -4104,12 +4104,12 @@ async def on_error(event: str, *args, **kwargs):
     print(f"\n[BOT EVENT ERROR] event={event}")
     traceback.print_exc()
 
-# Patches ALL View callbacks to log exceptions instead of silently swallowing them
-original_dispatch = discord.ui.View._dispatch_item
-async def _patched_dispatch(self, item, interaction: discord.Interaction):
+original_scheduled_task = discord.ui.View._scheduled_task
+
+async def _patched_scheduled_task(self, item, interaction: discord.Interaction):
     import traceback as tb_mod
     try:
-        await original_dispatch(self, item, interaction)
+        await original_scheduled_task(self, item, interaction)
     except Exception as ex:
         tb_str = "".join(tb_mod.format_exception(type(ex), ex, ex.__traceback__))
         print(f"\n[VIEW CALLBACK ERROR] view={type(self).__name__} item={getattr(item, 'custom_id', item)}\n{tb_str}")
@@ -4121,7 +4121,8 @@ async def _patched_dispatch(self, item, interaction: discord.Interaction):
                 await interaction.followup.send(msg, ephemeral=True)
         except Exception:
             pass
-discord.ui.View._dispatch_item = _patched_dispatch
+
+discord.ui.View._scheduled_task = _patched_scheduled_task
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------

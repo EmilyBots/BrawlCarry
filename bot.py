@@ -2545,23 +2545,29 @@ class TicketCloseView(ui.View):
             return str(user.display_avatar.url) if user.display_avatar else "https://cdn.discordapp.com/embed/avatars/0.png"
 
         def _render_message(msg):
-            ts      = msg.created_at.strftime("%d/%m/%Y %H:%M")
-            avatar  = _avatar_url(msg.author)
-            name    = msg.author.display_name
-            content = msg.content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-            parts   = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content or "<em class=\'empty\'>—</em>"}</div>']
+            try:
+                ts      = msg.created_at.strftime("%d/%m/%Y %H:%M")
+                avatar  = _avatar_url(msg.author)
+                name    = msg.author.display_name.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                content = msg.content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                parts   = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content or "<em class=\'empty\'>—</em>"}</div>']
             for a in msg.attachments:
                 if a.content_type and a.content_type.startswith("image"):
                     parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}"></a>')
                 else:
                     parts.append(f'<a class="file-link" href="{a.url}" target="_blank">📎 {a.filename}</a>')
             for emb in msg.embeds:
-                etitle = (emb.title or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                edesc  = (emb.description or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                color  = f"#{emb.color.value:06x}" if emb.color else "#5865f2"
-                parts.append(f'<div class="emb" style="border-left:4px solid {color}"><div class="emb-title">{etitle}</div><div class="emb-desc">{edesc}</div></div>')
+                try:
+                    etitle = (emb.title or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                    edesc  = (emb.description or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                    color  = f"#{emb.color.value:06x}" if (emb.color and emb.color.value) else "#5865f2"
+                    parts.append(f'<div class="emb" style="border-left:4px solid {color}"><div class="emb-title">{etitle}</div><div class="emb-desc">{edesc}</div></div>')
+                except Exception:
+                    pass
             parts.append("</div></div>")
-            return "".join(parts)
+                return "".join(parts)
+            except Exception:
+                return ""
 
         msgs_html = "\n".join(_render_message(m) for m in messages)
         opened_ts = messages[0].created_at.strftime("%d/%m/%Y %H:%M") if messages else "—"
@@ -2654,12 +2660,15 @@ header p{{font-size:13px;color:#949ba4}}
             author_mention = "—"
 
         if log_ch:
-            log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
-            log_e.add_field(name="📂 Channel Type", value=f"↳ {ticket_type}", inline=False)
-            log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}", inline=True)
-            log_e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}", inline=True)
-            log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.", inline=False)
-            await log_ch.send(embed=log_e, file=transcript_file)
+            try:
+                log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
+                log_e.add_field(name="📂 Channel Type", value=f"↳ {ticket_type}", inline=False)
+                log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}", inline=True)
+                log_e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}", inline=True)
+                log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.", inline=False)
+                await log_ch.send(embed=log_e, file=transcript_file)
+            except Exception as ex:
+                print(f"[WARN] Failed to send transcript to log channel: {ex}")
 
         # Remove from activity tracking, disable button, then delete after 5s
         remove_ticket_activity(channel.id)

@@ -4056,6 +4056,49 @@ async def inactive_ticket_loop():
 
 
 # ---------------------------------------------------------------------------
+# GLOBAL INTERACTION ERROR HANDLER — surfaces ALL silent callback crashes
+# ---------------------------------------------------------------------------
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: Exception):
+    import traceback
+    tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+    print(f"\n[INTERACTION ERROR] /{interaction.command.name if interaction.command else '?'}\n{tb}")
+    try:
+        msg = "❌ An internal error occurred. Please try again."
+        if not interaction.response.is_done():
+            await interaction.response.send_message(msg, ephemeral=True)
+        else:
+            await interaction.followup.send(msg, ephemeral=True)
+    except Exception:
+        pass
+
+@bot.event
+async def on_error(event: str, *args, **kwargs):
+    import traceback
+    print(f"\n[BOT EVENT ERROR] event={event}")
+    traceback.print_exc()
+
+# Patches ALL View callbacks to log exceptions instead of silently swallowing them
+original_dispatch = discord.ui.View._dispatch_item
+async def _patched_dispatch(self, interaction: discord.Interaction, item):
+    import traceback as tb_mod
+    try:
+        await original_dispatch(self, interaction, item)
+    except Exception as ex:
+        tb_str = "".join(tb_mod.format_exception(type(ex), ex, ex.__traceback__))
+        print(f"\n[VIEW CALLBACK ERROR] view={type(self).__name__} item={getattr(item, 'custom_id', item)}\n{tb_str}")
+        try:
+            msg = "❌ An internal error occurred. Please try again."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+            else:
+                await interaction.followup.send(msg, ephemeral=True)
+        except Exception:
+            pass
+discord.ui.View._dispatch_item = _patched_dispatch
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # STARTUP
 # ---------------------------------------------------------------------------
 @bot.event

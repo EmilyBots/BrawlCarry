@@ -2152,27 +2152,31 @@ class SupportCenterSelect(ui.Select):
         cfg    = get_config(guild.id)
 
         if choice == "support":
-            e = base_embed("<:microphone:1491490055636647966> General Support", color=SUCCESS)
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+            e = base_embed("<:microphone:1491490055636647966> Support Ticket", color=SUCCESS)
             e.description = (
-                f"Welcome, {member.mention}!\n\n"
-                "Our staff will be with you shortly. Please describe your issue in detail."
+                f"{staff_pings}\n\n"
+                "## Your support request has been successfully created.\n\n"
+                "Our team will assist you shortly.\n\n"
+                "You can manage your ticket using the options below."
             )
-            e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
             ticket = await create_ticket_thread(
                 guild=guild, member=member,
                 name=f"support-{member.name[:12].lower()}",
                 topic_embed=e, view=TicketCloseView(), cfg=cfg,
             )
-            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
             await interaction.response.send_message(
                 f"✅ Support ticket created: {ticket.mention}", ephemeral=True
             )
         elif choice == "apply":
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             e = base_embed("<:shield:1491489447445794866> Staff Application", color=PRIMARY)
             e.description = (
-                f"Welcome, {member.mention}!\n\n"
-                "Please select the role you'd like to apply for below."
+                f"{staff_pings}\n\n"
+                "## Your application has been successfully created.\n\n"
+                "Our management team will review it shortly.\n\n"
+                "You can manage your ticket using the options below."
             )
             e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
             ticket = await create_ticket_thread(
@@ -2189,7 +2193,6 @@ class SupportCenterSelect(ui.Select):
                 "Click a button below to begin your application."
             )
             await ticket.send(embed=role_e, view=ApplicationPanelView())
-            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
             await interaction.response.send_message(
                 f"✅ Application ticket created: {ticket.mention}", ephemeral=True

@@ -2551,20 +2551,20 @@ class TicketCloseView(ui.View):
                 name    = msg.author.display_name.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
                 content = msg.content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
                 parts   = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content or "<em class=\'empty\'>—</em>"}</div>']
-            for a in msg.attachments:
-                if a.content_type and a.content_type.startswith("image"):
-                    parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}"></a>')
-                else:
-                    parts.append(f'<a class="file-link" href="{a.url}" target="_blank">📎 {a.filename}</a>')
-            for emb in msg.embeds:
-                try:
-                    etitle = (emb.title or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                    edesc  = (emb.description or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                    color  = f"#{emb.color.value:06x}" if (emb.color and emb.color.value) else "#5865f2"
-                    parts.append(f'<div class="emb" style="border-left:4px solid {color}"><div class="emb-title">{etitle}</div><div class="emb-desc">{edesc}</div></div>')
-                except Exception:
-                    pass
-            parts.append("</div></div>")
+                for a in msg.attachments:
+                    if a.content_type and a.content_type.startswith("image"):
+                        parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}"></a>')
+                    else:
+                        parts.append(f'<a class="file-link" href="{a.url}" target="_blank">📎 {a.filename}</a>')
+                for emb in msg.embeds:
+                    try:
+                        etitle = (emb.title or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                        edesc  = (emb.description or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                        color  = f"#{emb.color.value:06x}" if (emb.color and emb.color.value) else "#5865f2"
+                        parts.append(f'<div class="emb" style="border-left:4px solid {color}"><div class="emb-title">{etitle}</div><div class="emb-desc">{edesc}</div></div>')
+                    except Exception:
+                        pass
+                parts.append("</div></div>")
                 return "".join(parts)
             except Exception:
                 return ""

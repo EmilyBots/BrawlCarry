@@ -2473,10 +2473,30 @@ class CloseWithReasonModal(ui.Modal, title="Close Ticket with Reason"):
         channel = interaction.channel
         guild   = interaction.guild
 
-        e = base_embed("🔒 Ticket Closed", color=DANGER)
-        e.add_field(name="📝 Reason",     value=self.reason.value,         inline=False)
-        e.add_field(name="🔒 Closed By",  value=interaction.user.mention,  inline=True)
-        e.add_field(name="⏰ Closed At",  value=f"<t:{int(datetime.utcnow().timestamp())}:F>", inline=True)
+        ch_name = channel.name.lower()
+        if "ranked" in ch_name:
+            ticket_type = "Ranked"
+        elif "prestige" in ch_name:
+            ticket_type = "Prestige"
+        elif "apply" in ch_name or "booster" in ch_name or "staff" in ch_name or "advertiser" in ch_name:
+            ticket_type = "Application"
+        elif "support" in ch_name:
+            ticket_type = "Support"
+        else:
+            ticket_type = ch_name.split("-")[0].capitalize()
+
+        conn2 = get_db()
+        c2    = conn2.cursor()
+        c2.execute("SELECT user_id FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1", (channel.id,))
+        row2   = c2.fetchone()
+        conn2.close()
+        author_mention = f"<@{row2['user_id']}>" if row2 and row2.get("user_id") else "—"
+
+        e = base_embed("📋 Ticket Closed", color=PRIMARY)
+        e.add_field(name="📂 Channel Type",  value=f"↳ {ticket_type}",                inline=False)
+        e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}",             inline=True)
+        e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}",   inline=True)
+        e.add_field(name="📝 Close Reason",  value=f"↳ {self.reason.value}",          inline=False)
 
         cfg       = get_config(guild.id) if guild else None
         log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
@@ -2513,22 +2533,95 @@ class TicketCloseView(ui.View):
         channel = interaction.channel
         guild   = interaction.guild
 
-        transcript_lines = []
+        # ── Build HTML transcript ─────────────────────────────────────────────
+        messages = []
         try:
             async for msg in channel.history(limit=500, oldest_first=True):
-                ts          = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                attachments = " | ".join(a.url for a in msg.attachments) if msg.attachments else ""
-                line = f"[{ts}] {msg.author.display_name} ({msg.author.id}): {msg.content}"
-                if attachments:
-                    line += f"  [Attachments: {attachments}]"
-                transcript_lines.append(line)
+                messages.append(msg)
         except Exception as ex:
-            transcript_lines.append(f"[ERROR fetching transcript: {ex}]")
+            messages = []
 
-        transcript_text = "\n".join(transcript_lines)
+        def _avatar_url(user):
+            return str(user.display_avatar.url) if user.display_avatar else "https://cdn.discordapp.com/embed/avatars/0.png"
+
+        def _render_message(msg):
+            ts      = msg.created_at.strftime("%d/%m/%Y %H:%M")
+            avatar  = _avatar_url(msg.author)
+            name    = msg.author.display_name
+            content = msg.content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+            parts   = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content or "<em class=\'empty\'>—</em>"}</div>']
+            for a in msg.attachments:
+                if a.content_type and a.content_type.startswith("image"):
+                    parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}"></a>')
+                else:
+                    parts.append(f'<a class="file-link" href="{a.url}" target="_blank">📎 {a.filename}</a>')
+            for emb in msg.embeds:
+                etitle = (emb.title or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                edesc  = (emb.description or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+                color  = f"#{emb.color.value:06x}" if emb.color else "#5865f2"
+                parts.append(f'<div class="emb" style="border-left:4px solid {color}"><div class="emb-title">{etitle}</div><div class="emb-desc">{edesc}</div></div>')
+            parts.append("</div></div>")
+            return "".join(parts)
+
+        msgs_html = "\n".join(_render_message(m) for m in messages)
+        opened_ts = messages[0].created_at.strftime("%d/%m/%Y %H:%M") if messages else "—"
+        closed_ts = datetime.utcnow().strftime("%d/%m/%Y %H:%M")
+
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transcript — {channel.name}</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:#1e1f22;color:#dcddde;font-family:"gg sans","Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5}}
+header{{background:#2b2d31;padding:20px 32px;border-bottom:1px solid #1a1b1e;display:flex;align-items:center;gap:16px}}
+header img{{width:48px;height:48px;border-radius:50%}}
+header h1{{font-size:18px;font-weight:700;color:#fff}}
+header p{{font-size:13px;color:#949ba4}}
+.meta{{background:#2b2d31;margin:24px 32px;border-radius:8px;padding:16px 20px;display:flex;gap:32px;flex-wrap:wrap}}
+.meta-item{{display:flex;flex-direction:column}}
+.meta-item .label{{font-size:11px;font-weight:600;text-transform:uppercase;color:#949ba4;margin-bottom:2px}}
+.meta-item .value{{color:#fff;font-size:14px}}
+.messages{{padding:0 32px 40px}}
+.msg{{display:flex;gap:12px;padding:6px 0}}
+.msg:hover{{background:#2e3035;border-radius:4px;padding:6px 6px}}
+.av{{width:40px;height:40px;border-radius:50%;flex-shrink:0;margin-top:2px}}
+.body{{flex:1;min-width:0}}
+.name{{font-weight:600;color:#fff;margin-right:8px;font-size:15px}}
+.ts{{font-size:11px;color:#949ba4}}
+.content{{margin-top:2px;word-break:break-word;white-space:pre-wrap}}
+.empty{{color:#72767d;font-style:italic}}
+.att{{max-width:360px;max-height:240px;border-radius:4px;margin-top:6px;display:block}}
+.file-link{{display:inline-flex;align-items:center;gap:6px;margin-top:6px;color:#00aff4;text-decoration:none;background:#2b2d31;padding:4px 10px;border-radius:4px;font-size:13px}}
+.emb{{background:#2b2d31;border-radius:4px;padding:10px 12px;margin-top:6px;max-width:520px}}
+.emb-title{{font-weight:700;color:#fff;margin-bottom:4px}}
+.emb-desc{{font-size:13px;color:#dcddde}}
+</style>
+</head>
+<body>
+<header>
+<img src="{guild.icon.url if guild.icon else 'https://cdn.discordapp.com/embed/avatars/0.png'}">
+<div>
+<h1>{guild.name} — #{channel.name}</h1>
+<p>Ticket transcript &nbsp;·&nbsp; {len(messages)} messages</p>
+</div>
+</header>
+<div class="meta">
+<div class="meta-item"><span class="label">Opened</span><span class="value">{opened_ts}</span></div>
+<div class="meta-item"><span class="label">Closed</span><span class="value">{closed_ts}</span></div>
+<div class="meta-item"><span class="label">Closed by</span><span class="value">{interaction.user.display_name}</span></div>
+<div class="meta-item"><span class="label">Channel</span><span class="value">#{channel.name}</span></div>
+</div>
+<div class="messages">{msgs_html}</div>
+</body>
+</html>"""
+
+        safe_name      = channel.name.replace(" ", "-").lower()
         transcript_file = discord.File(
-            io.BytesIO(transcript_text.encode("utf-8")),
-            filename=f"transcript-{channel.name}.txt"
+            io.BytesIO(html.encode("utf-8")),
+            filename=f"transcript-{safe_name}.html"
         )
 
         conn = get_db()
@@ -2541,27 +2634,31 @@ class TicketCloseView(ui.View):
         log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
         log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
 
+        # Detect ticket type from channel name
+        ch_name = channel.name.lower()
+        if "ranked" in ch_name:
+            ticket_type = "Ranked"
+        elif "prestige" in ch_name:
+            ticket_type = "Prestige"
+        elif "apply" in ch_name or "booster" in ch_name or "staff" in ch_name or "advertiser" in ch_name:
+            ticket_type = "Application"
+        elif "support" in ch_name:
+            ticket_type = "Support"
+        else:
+            ticket_type = channel.name.split("-")[0].capitalize()
+
+        # Detect ticket author from DB or channel members
+        if order and order.get("user_id"):
+            author_mention = f"<@{order['user_id']}>"
+        else:
+            author_mention = "—"
+
         if log_ch:
             log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
-            log_e.add_field(name="📁 Channel",   value=channel.name,             inline=True)
-            log_e.add_field(name="🔒 Closed By", value=interaction.user.mention, inline=True)
-            log_e.add_field(name="⏰ Closed At", value=f"<t:{int(datetime.utcnow().timestamp())}:F>", inline=False)
-
-            if order:
-                booster_mention  = f"<@{order['booster_id']}>" if order["booster_id"] else "Unassigned"
-                customer_mention = f"<@{order['user_id']}>"    if order["user_id"]    else "Unknown"
-                details          = _build_order_details_str(
-                    order["order_type"] or "ranked",
-                    order["from_tier"] or "",
-                    order["to_tier"] or "",
-                    order["service_type"] or "boost"
-                )
-                log_e.add_field(name="🧾 Order ID",     value=f"`{order['id']}`", inline=True)
-                log_e.add_field(name="👤 Customer",      value=customer_mention,  inline=True)
-                log_e.add_field(name="🟠 Booster",       value=booster_mention,   inline=True)
-                log_e.add_field(name="📦 Order Details", value=details,           inline=True)
-                log_e.add_field(name="🔖 Status",        value=order["status"],   inline=True)
-
+            log_e.add_field(name="📂 Channel Type", value=f"↳ {ticket_type}", inline=False)
+            log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}", inline=True)
+            log_e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}", inline=True)
+            log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.", inline=False)
             await log_ch.send(embed=log_e, file=transcript_file)
 
         # Remove from activity tracking, disable button, then delete after 5s

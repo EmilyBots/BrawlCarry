@@ -2558,7 +2558,8 @@ class TicketCloseView(ui.View):
                 avatar  = _avatar_url(msg.author)
                 name    = msg.author.display_name.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
                 content = msg.content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                parts   = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content or "<em class=\'empty\'>—</em>"}</div>']
+                content_html = content or "<em class='empty'>—</em>"
+                parts = [f'<div class="msg"><img class="av" src="{avatar}"><div class="body"><span class="name">{name}</span><span class="ts">{ts}</span><div class="content">{content_html}</div>']
                 for a in msg.attachments:
                     if a.content_type and a.content_type.startswith("image"):
                         parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}"></a>')
@@ -3272,9 +3273,9 @@ async def giveaway(
     ends_at = datetime.utcnow() + timedelta(hours=hours)
     # FIXED — closing ) added after the tuple
     c.execute(
-        "INSERT INTO giveaways (...) VALUES (...)",
-        (ga_id, ..., interaction.channel.id)
-    )               # ← closes c.execute(
+        "INSERT INTO giveaways (id, prize, description, winners, hosted_by, participants, winner_ids, image_url, extra_entries, ping, ended_at, channel_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (ga_id, prize, description, winners, interaction.user.id, "[]", None, image_url, extra_entries_json, ping, ends_at, interaction.channel.id)
+    )
     conn.commit()
     conn.close()
 

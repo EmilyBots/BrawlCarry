@@ -2189,10 +2189,8 @@ class SupportCenterSelect(ui.Select):
         cfg    = get_config(guild.id)
 
         if choice == "support":
-            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             e = base_embed("<:microphone:1491490055636647966> Support Ticket", color=SUCCESS)
             e.description = (
-                f"{staff_pings}\n\n"
                 "## Your support request has been successfully created.\n\n"
                 "Our team will assist you shortly.\n\n"
                 "You can manage your ticket using the options below."
@@ -2202,38 +2200,20 @@ class SupportCenterSelect(ui.Select):
                 name=f"support-{member.name[:12].lower()}",
                 topic_embed=e, view=TicketCloseView(), cfg=cfg,
             )
+            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
             await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
             await interaction.response.send_message(
                 f"✅ Support ticket created: {ticket.mention}", ephemeral=True
             )
         elif choice == "apply":
-            staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
-            e = base_embed("<:shield:1491489447445794866> Staff Application", color=PRIMARY)
+            e = base_embed("<:Info:1501221322183934002> Application Center", color=PRIMARY)
             e.description = (
-                f"{staff_pings}\n\n"
-                "## Your application has been successfully created.\n\n"
-                "Our management team will review it shortly.\n\n"
-                "You can manage your ticket using the options below."
-            )
-            e.set_author(name=member.display_name, icon_url=member.display_avatar.url)
-            ticket = await create_ticket_thread(
-                guild=guild, member=member,
-                name=f"apply-{member.name[:12].lower()}",
-                topic_embed=e, view=TicketCloseView(), cfg=cfg,
-                override_channel_id=1491397629546860614,
-            )
-            role_e = base_embed("<:Info:1501221322183934002> Application Center", color=PRIMARY)
-            role_e.description = (
                 ">>> Select the role you want to apply for below.\n\n"
                 "<:rocket:1491490870979985438> **Booster** — Masters III minimum\n"
                 "<:shield:1491489447445794866> **Staff** — Fluent English & trusted member\n"
                 "<:Carry:1501221214251651082> **Advertiser** — Previous advertising experience preferred"
             )
-            await ticket.send(embed=role_e, view=ApplicationPanelView())
-            await ticket.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
-            await interaction.response.send_message(
-                f"✅ Application ticket created: {ticket.mention}", ephemeral=True
-            )
+            await interaction.response.send_message(embed=e, view=ApplicationPanelView(), ephemeral=True)
 
         elif choice == "services":
             e = base_embed("<:rocket:1491490870979985438> Our Services", color=PRIMARY)

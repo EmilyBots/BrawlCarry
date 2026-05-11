@@ -2669,32 +2669,143 @@ header p{{font-size:13px;color:#949ba4}}
         conn = get_db()
         c    = conn.cursor()
         c.execute("SELECT * FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1", (channel.id,))
+       await interaction.response.defer()
+
+        channel = interaction.channel
+        guild   = interaction.guild
+
+        # ── 1. Fetch messages (single pass) ──────────────────────────────────
+        messages = []
+        try:
+            async for msg in channel.history(limit=500, oldest_first=True):
+                messages.append(msg)
+        except Exception as ex:
+            print(f"[WARN] transcript fetch: {ex}")
+
+        # ── 2. Resolve ticket author (DB first, then first human message) ─────
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute(
+            "SELECT * FROM orders WHERE ticket_channel_id = %s ORDER BY created_at DESC LIMIT 1",
+            (channel.id,)
+        )
         order = c.fetchone()
         conn.close()
 
+        if order and order.get("user_id"):
+            author_mention = f"<@{order['user_id']}>"
+        else:
+            # fallback: first non-bot message author
+            first_human = next((m for m in messages if not m.author.bot), None)
+            author_mention = first_human.author.mention if first_human else "—"
+
+        # ── 3. Detect ticket type ─────────────────────────────────────────────
+        ch_name = channel.name.lower()
+        if "ranked"   in ch_name: ticket_type = "Ranked"
+        elif "prestige" in ch_name: ticket_type = "Prestige"
+        elif any(x in ch_name for x in ("apply","booster","staff","advertiser")): ticket_type = "Application"
+        elif "support" in ch_name: ticket_type = "Support"
+        else: ticket_type = ch_name.split("-")[0].capitalize()
+
+        # ── 4. Build HTML transcript ──────────────────────────────────────────
+        def _esc(s: str) -> str:
+            return (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+
+        def _avatar(user) -> str:
+            try:
+                return str(user.display_avatar.url)
+            except Exception:
+                return "https://cdn.discordapp.com/embed/avatars/0.png"
+
+        def _render_msg(msg) -> str:
+            try:
+                ts      = msg.created_at.strftime("%d %b %Y %H:%M")
+                avatar  = _avatar(msg.author)
+                name    = _esc(msg.author.display_name)
+                content = _esc(msg.content) or "<em class='muted'>—</em>"
+                parts   = [f'<div class="msg"><img class="av" src="{avatar}" loading="lazy"><div class="body"><div class="meta"><span class="name">{name}</span><span class="ts">{ts}</span></div><div class="content">{content}</div>']
+                for a in msg.attachments:
+                    if a.content_type and a.content_type.startswith("image"):
+                        parts.append(f'<a href="{a.url}" target="_blank"><img class="att" src="{a.url}" loading="lazy"></a>')
+                    else:
+                        parts.append(f'<a class="file" href="{a.url}" target="_blank">📎 {_esc(a.filename)}</a>')
+                for emb in msg.embeds:
+                    try:
+                        color = f"#{emb.color.value:06x}" if (emb.color and emb.color.value) else "#5865f2"
+                        parts.append(f'<div class="emb" style="border-color:{color}"><div class="et">{_esc(emb.title)}</div><div class="ed">{_esc(emb.description)}</div></div>')
+                    except Exception:
+                        pass
+                parts.append("</div></div>")
+                return "".join(parts)
+            except Exception:
+                return ""
+
+        opened_ts = messages[0].created_at.strftime("%d %b %Y %H:%M") if messages else "—"
+        closed_ts = datetime.utcnow().strftime("%d %b %Y %H:%M")
+        msgs_html = "\n".join(_render_msg(m) for m in messages)
+        guild_icon = str(guild.icon.url) if guild and guild.icon else "https://cdn.discordapp.com/embed/avatars/0.png"
+
+        html = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Transcript — {_esc(channel.name)}</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:#1e1f22;color:#dcddde;font-family:"gg sans","Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.6}}
+header{{background:#2b2d31;padding:18px 28px;border-bottom:2px solid #111;display:flex;align-items:center;gap:14px}}
+header img{{width:44px;height:44px;border-radius:50%}}
+header h1{{font-size:17px;font-weight:700;color:#fff}}header p{{font-size:12px;color:#949ba4;margin-top:2px}}
+.meta{{display:flex;flex-wrap:wrap;gap:20px 40px;background:#2b2d31;margin:20px 28px;padding:14px 20px;border-radius:8px;border:1px solid #1a1b1e}}
+.mi label{{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#949ba4;margin-bottom:3px}}
+.mi span{{font-size:13px;color:#fff}}
+.msgs{{padding:10px 28px 48px}}
+.msg{{display:flex;gap:12px;padding:5px 8px;border-radius:4px}}
+.msg:hover{{background:#2e3035}}
+.av{{width:38px;height:38px;border-radius:50%;flex-shrink:0;margin-top:4px;object-fit:cover}}
+.body{{flex:1;min-width:0}}
+.meta2{{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}}
+.name{{font-weight:700;color:#fff;font-size:14px}}
+.ts{{font-size:11px;color:#72767d}}
+.content{{margin-top:3px;word-break:break-word;white-space:pre-wrap;color:#dcddde}}
+.muted{{color:#72767d;font-style:italic}}
+.att{{max-width:320px;max-height:200px;border-radius:4px;margin-top:6px;display:block;object-fit:cover}}
+.file{{display:inline-flex;align-items:center;gap:6px;margin-top:6px;color:#00aff4;background:#2b2d31;padding:4px 10px;border-radius:4px;font-size:12px;text-decoration:none}}
+.emb{{border-left:4px solid #5865f2;background:#2b2d31;border-radius:0 4px 4px 0;padding:9px 12px;margin-top:6px;max-width:480px}}
+.et{{font-weight:700;color:#fff;font-size:13px;margin-bottom:3px}}
+.ed{{font-size:12px;color:#b5bac1}}
+</style></head><body>
+<header><img src="{guild_icon}"><div><h1>{_esc(guild.name)} · #{_esc(channel.name)}</h1><p>{ticket_type} ticket &nbsp;·&nbsp; {len(messages)} messages</p></div></header>
+<div class="meta">
+<div class="mi"><label>Opened</label><span>{opened_ts}</span></div>
+<div class="mi"><label>Closed</label><span>{closed_ts}</span></div>
+<div class="mi"><label>Closed by</label><span>{_esc(interaction.user.display_name)}</span></div>
+<div class="mi"><label>Type</label><span>{ticket_type}</span></div>
+</div>
+<div class="msgs">{msgs_html}</div></body></html>"""
+
+        safe_name = channel.name.replace(" ", "-").lower()
+        transcript_file = discord.File(
+            io.BytesIO(html.encode("utf-8")),
+            filename=f"transcript-{safe_name}.html"
+        )
+
+        # ── 5. Send to log channel ────────────────────────────────────────────
         cfg       = get_config(guild.id) if guild else None
         log_ch_id = cfg.get("ticket_log_channel_id") if cfg else None
         log_ch    = guild.get_channel(log_ch_id) if (guild and log_ch_id) else None
 
-        ch_name = channel.name.lower()
-        if "ranked" in ch_name:       ticket_type = "Ranked"
-        elif "prestige" in ch_name:   ticket_type = "Prestige"
-        elif any(x in ch_name for x in ("apply","booster","staff","advertiser")): ticket_type = "Application"
-        elif "support" in ch_name:    ticket_type = "Support"
-        else:                         ticket_type = ch_name.split("-")[0].capitalize()
-
-        author_mention = f"<@{order['user_id']}>" if (order and order.get("user_id")) else "—"
-
         if log_ch:
             try:
                 log_e = base_embed("📋 Ticket Closed", color=PRIMARY)
-                log_e.add_field(name="📂 Channel Type",  value=f"↳ {ticket_type}",              inline=False)
+                log_e.add_field(name="📂 Ticket Type",   value=f"↳ {ticket_type}",              inline=False)
                 log_e.add_field(name="👤 Ticket Author", value=f"↳ {author_mention}",            inline=True)
                 log_e.add_field(name="🔒 Closed By",     value=f"↳ {interaction.user.mention}", inline=True)
                 log_e.add_field(name="📝 Close Reason",  value="↳ No reason provided.",         inline=False)
-                await log_ch.send(embed=log_e, file=transcript_file)
+                transcript_msg = await log_ch.send(embed=log_e, file=transcript_file)
             except Exception as ex:
-                print(f"[WARN] Failed to send transcript: {ex}")
+                print(f"[WARN] transcript send failed: {ex}")
+                transcript_msg = None
+        else:
+            transcript_msg = None
 
         # Remove from activity tracking, disable button, then delete after 5s
         remove_ticket_activity(channel.id)

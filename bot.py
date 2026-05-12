@@ -3396,7 +3396,22 @@ async def backup_link(interaction: discord.Interaction, link: str):
     e.add_field(name="❌ Failed",    value=f"**{results['failed']}**", inline=True)
     await interaction.followup.send(embed=e, ephemeral=True)
 
-
+# ---------------------------------------------------------------------------
+# /review — Slash command workaround for broken Submit Review buttons
+# ---------------------------------------------------------------------------
+@bot.tree.command(name="review", description="Submit a review for your completed order")
+async def review(interaction: discord.Interaction):
+    guild_id = interaction.guild.id if interaction.guild else 0
+    e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+    e.description = (
+        "Select your **rating**, **payment method** and **service type**, then click **Continue** "
+        "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
+    )
+    await interaction.response.send_message(
+        embed=e,
+        view=VouchSelectorView(guild_id, order_kind="ranked"),
+        ephemeral=True
+)
 @bot.tree.command(name="stats", description="View carry statistics for a user")
 @app_commands.describe(user="User to look up (defaults to you)")
 async def stats(interaction: discord.Interaction, user: discord.User = None):

@@ -1227,7 +1227,7 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
             if _ch is None:
                 _ch = await bot.fetch_channel(_VOUCH_CHANNEL_ID)
             print(f"[VOUCH] Channel resolved: {_ch} ({type(_ch).__name__})")
-            _review_view = SimpleReviewActionsView(guild_id=guild_id or 0)
+            _review_view = SimpleReviewActionsView(guild_id=guild_id or 0, order_kind=self.order_kind)
             if wm_file:
                 await _ch.send(embed=e, file=wm_file, view=_review_view)
             else:
@@ -1246,15 +1246,27 @@ class SimpleReviewActionsView(ui.View):
     Submit Review simply opens the /review (VouchSelectorView) flow."""
 
     ORDER_URL = "https://discord.com/channels/1355262060831608892/1355262060831608895"
+    ORDER_FALLBACK_CHANNEL_ID = 1355262063089291463
 
-    def __init__(self, guild_id: int = 0):
+    def __init__(self, guild_id: int = 0, order_kind: str = "ranked"):
         super().__init__(timeout=None)   # keep buttons alive for the session
         self.guild_id = guild_id
+        # Resolve Order Now URL; fallback if no panel channel is configured
+        order_url = self.ORDER_URL
+        if guild_id:
+            cfg = get_config(guild_id)
+            if cfg:
+                panel_ch_id = (
+                    cfg.get("ranked_panel_channel_id") if order_kind == "ranked"
+                    else cfg.get("prestige_panel_channel_id")
+                )
+                ch_id = panel_ch_id or self.ORDER_FALLBACK_CHANNEL_ID
+                order_url = f"https://discord.com/channels/{guild_id}/{ch_id}"
         self.add_item(ui.Button(
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",
             style=discord.ButtonStyle.link,
-            url=self.ORDER_URL,
+            url=order_url,
             row=0,
         ))
 
@@ -1263,9 +1275,15 @@ class SimpleReviewActionsView(ui.View):
         emoji="⭐",
         style=discord.ButtonStyle.success,
         custom_id="simple_review_submit_v1",   # unique — never collides with old IDs
-        row=0,
+        row=1,
     )
     async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
+        member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+        if member is None or not any(r.id == 1484297795094581373 for r in member.roles):
+            await interaction.response.send_message(
+                "❌ Only customers can submit a review.", ephemeral=True
+            )
+            return
         try:
             guild_id = interaction.guild.id if interaction.guild else self.guild_id
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)
@@ -2399,6 +2417,12 @@ class ReviewActionsView(ui.View):
         row=1
     )
     async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
+        member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+        if member is None or not any(r.id == CUSTOMER_ROLE_ID for r in member.roles):
+            await interaction.response.send_message(
+                "❌ Only customers can submit a review.", ephemeral=True
+            )
+            return
         try:
             guild_id = interaction.guild.id if interaction.guild else 0
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)

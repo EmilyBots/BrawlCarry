@@ -821,7 +821,7 @@ class BoosterClaimView(ui.View):
                 )
             return
 
-# Check active orders cap
+        # Check active orders cap
         c.execute(
             "SELECT COUNT(*) as cnt FROM orders WHERE booster_id = %s AND status = 'claimed'",
             (booster.id,)

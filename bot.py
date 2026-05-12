@@ -2324,17 +2324,7 @@ class ReviewActionsView(ui.View):
 
     async def _submit_review_callback(self, interaction: discord.Interaction):
         try:
-            member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
-            if member is None:
-                try:
-                    member = await interaction.guild.fetch_member(interaction.user.id)
-                except Exception:
-                    member = None
-            role_ids = {r.id for r in member.roles} if member else set()
-            if CUSTOMER_ROLE_ID not in role_ids:
-                await interaction.response.send_message(
-                    "You must be a customer to send a review.", ephemeral=True
-                )
+            guild_id = interaction.guild.id if interaction.guild else 0
                 return
             guild_id = interaction.guild.id if interaction.guild else 0
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)

@@ -1254,14 +1254,7 @@ class SimpleReviewActionsView(ui.View):
         # Resolve Order Now URL; fallback if no panel channel is configured
         order_url = self.ORDER_URL
         if guild_id:
-            cfg = get_config(guild_id)
-            if cfg:
-                panel_ch_id = (
-                    cfg.get("ranked_panel_channel_id") if order_kind == "ranked"
-                    else cfg.get("prestige_panel_channel_id")
-                )
-                ch_id = panel_ch_id or self.ORDER_FALLBACK_CHANNEL_ID
-                order_url = f"https://discord.com/channels/{guild_id}/{ch_id}"
+            order_url = f"https://discord.com/channels/{guild_id}/{self.ORDER_FALLBACK_CHANNEL_ID}"
         self.add_item(ui.Button(
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",

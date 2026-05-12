@@ -2331,26 +2331,22 @@ class ReviewActionsView(ui.View):
 
     async def _do_submit_review(self, interaction: discord.Interaction):
         try:
-            await interaction.response.defer(ephemeral=True)
             guild_id = interaction.guild.id if interaction.guild else 0
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)
             e.description = (
                 "Select your **rating**, **payment method** and **service type**, then click **Continue** "
                 "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
             )
-            try:
-                vouch_view = VouchSelectorView(guild_id, order_kind=self.order_kind)
-            except Exception as ve:
-                import traceback
-                print(f"[ERROR] VouchSelectorView construction failed: {ve}\n{traceback.format_exc()}")
-                await interaction.followup.send("❌ Could not load vouch options. Please try again.", ephemeral=True)
-                return
-            await interaction.followup.send(embed=e, view=vouch_view, ephemeral=True)
+            vouch_view = VouchSelectorView(guild_id, order_kind=self.order_kind)
+            await interaction.response.send_message(embed=e, view=vouch_view, ephemeral=True)
         except Exception as ex:
             import traceback
             print(f"[ERROR] ReviewActionsView._do_submit_review: {ex}\n{traceback.format_exc()}")
             try:
-                await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
             except Exception:
                 pass
 # ---------------------------------------------------------------------------

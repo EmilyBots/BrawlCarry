@@ -2324,24 +2324,21 @@ class ReviewActionsView(ui.View):
 
     async def _submit_review_callback(self, interaction: discord.Interaction):
         try:
-            guild_id = interaction.guild.id if interaction.guild else 0
-
+            await interaction.response.defer(ephemeral=True)
             guild_id = interaction.guild.id if interaction.guild else 0
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)
             e.description = (
                 "Select your **rating**, **payment method** and **service type**, then click **Continue** "
                 "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
             )
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True
             )
         except Exception as ex:
-            print(f"[ERROR] ReviewActionsView._submit_review_callback: {ex}")
+            import traceback
+            print(f"[ERROR] ReviewActionsView._submit_review_callback: {ex}\n{traceback.format_exc()}")
             try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
-                else:
-                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
+                await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
             except Exception:
                 pass
 # ---------------------------------------------------------------------------

@@ -2301,20 +2301,7 @@ class ReviewActionsView(ui.View):
         )
         self.add_item(order_btn)
 
-        cid = f"review_submit_{order_kind}_v1"
-        review_btn = ui.Button(
-            label="Submit Review",
-            emoji="⭐",
-            style=discord.ButtonStyle.success,
-            custom_id=cid,
-            row=1
-        )
-        review_btn.callback = self._submit_review_callback
-        self.add_item(review_btn)
-
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Recover order_kind from custom_id on every interaction,
-        # so restarts don't break state.
         cid = interaction.data.get("custom_id", "")
         if "prestige" in cid:
             self.order_kind = "prestige"
@@ -2322,7 +2309,27 @@ class ReviewActionsView(ui.View):
             self.order_kind = "ranked"
         return True
 
-    async def _submit_review_callback(self, interaction: discord.Interaction):
+    @ui.button(
+        label="Submit Review",
+        emoji="⭐",
+        style=discord.ButtonStyle.success,
+        custom_id="review_submit_ranked_v1",
+        row=1
+    )
+    async def submit_review_ranked(self, interaction: discord.Interaction, button: ui.Button):
+        await self._do_submit_review(interaction)
+
+    @ui.button(
+        label="Submit Review",
+        emoji="⭐",
+        style=discord.ButtonStyle.success,
+        custom_id="review_submit_prestige_v1",
+        row=1
+    )
+    async def submit_review_prestige(self, interaction: discord.Interaction, button: ui.Button):
+        await self._do_submit_review(interaction)
+
+    async def _do_submit_review(self, interaction: discord.Interaction):
         try:
             await interaction.response.defer(ephemeral=True)
             guild_id = interaction.guild.id if interaction.guild else 0
@@ -2336,7 +2343,7 @@ class ReviewActionsView(ui.View):
             )
         except Exception as ex:
             import traceback
-            print(f"[ERROR] ReviewActionsView._submit_review_callback: {ex}\n{traceback.format_exc()}")
+            print(f"[ERROR] ReviewActionsView._do_submit_review: {ex}\n{traceback.format_exc()}")
             try:
                 await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
             except Exception:

@@ -1188,14 +1188,36 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
 
         await interaction.response.send_message("✅ Your vouch has been submitted. Thank you!", ephemeral=True)
 
-        if vouch_ch_id and interaction.guild:
-            ch = interaction.guild.get_channel(vouch_ch_id)
-            if ch:
-                review_view = ReviewActionsView(order_kind=self.order_kind)
-                if wm_file:
-                    await ch.send(embed=e, file=wm_file, view=review_view)
-                else:
-                    await ch.send(embed=e, view=review_view)
+        VOUCH_CHANNEL_ID = 1477344147508822258
+        target_ch_id = vouch_ch_id or VOUCH_CHANNEL_ID
+        print(f"[VOUCH] vouch_ch_id from DB={vouch_ch_id!r}, using target_ch_id={target_ch_id}")
+
+        if target_ch_id and interaction.guild:
+            ch = interaction.guild.get_channel(target_ch_id)
+            if ch is None:
+                try:
+                    ch = await interaction.guild.fetch_channel(target_ch_id)
+                    print(f"[VOUCH] fetch_channel succeeded: {ch}")
+                except Exception as fetch_err:
+                    import traceback
+                    print(f"[VOUCH ERROR] fetch_channel({target_ch_id}) failed: {fetch_err}\n{traceback.format_exc()}")
+                    ch = None
+
+            if ch is None:
+                print(f"[VOUCH ERROR] Could not resolve vouch channel {target_ch_id} — review NOT posted.")
+            else:
+                try:
+                    review_view = ReviewActionsView(order_kind=self.order_kind)
+                    if wm_file:
+                        await ch.send(embed=e, file=wm_file, view=review_view)
+                    else:
+                        await ch.send(embed=e, view=review_view)
+                    print(f"[VOUCH] Review posted to channel {ch.id} by {interaction.user}")
+                except Exception as send_err:
+                    import traceback
+                    print(f"[VOUCH ERROR] ch.send() to {target_ch_id} failed: {send_err}\n{traceback.format_exc()}")
+        else:
+            print(f"[VOUCH WARN] No vouch channel configured and no guild — review NOT posted. guild={interaction.guild}")
 
 
 # ---------------------------------------------------------------------------

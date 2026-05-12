@@ -2291,7 +2291,6 @@ class ReviewActionsView(ui.View):
         super().__init__(timeout=None)
         self.order_kind = order_kind
 
-        # Row 0 — Order Now (link button, no callback needed)
         url = CompletedCTAView.RANKED_URL if order_kind != "prestige" else CompletedCTAView.PRESTIGE_URL
         order_btn = ui.Button(
             label="Order Now",
@@ -2302,18 +2301,26 @@ class ReviewActionsView(ui.View):
         )
         self.add_item(order_btn)
 
-        # Row 1 — Submit Review (callback button)
-        # custom_id is unique per order_kind so ranked and prestige instances
-        # do not overwrite each other in the persistent view registry
+        cid = f"review_submit_{order_kind}_v1"
         review_btn = ui.Button(
             label="Submit Review",
             emoji="⭐",
             style=discord.ButtonStyle.success,
-            custom_id=f"review_submit_{order_kind}_v1",
+            custom_id=cid,
             row=1
         )
         review_btn.callback = self._submit_review_callback
         self.add_item(review_btn)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Recover order_kind from custom_id on every interaction,
+        # so restarts don't break state.
+        cid = interaction.data.get("custom_id", "")
+        if "prestige" in cid:
+            self.order_kind = "prestige"
+        else:
+            self.order_kind = "ranked"
+        return True
 
     async def _submit_review_callback(self, interaction: discord.Interaction):
         try:
@@ -2335,7 +2342,10 @@ class ReviewActionsView(ui.View):
         except Exception as ex:
             print(f"[ERROR] ReviewActionsView._submit_review_callback: {ex}")
             try:
-                await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
             except Exception:
                 pass
 # ---------------------------------------------------------------------------
@@ -2711,21 +2721,16 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1
                 log_e.add_field(name="📝  Reason",     value="No reason provided.",    inline=True)
                 log_e.set_footer(text=FOOTER_BRAND)
                 # Upload file to a throwaway message to obtain a CDN URL,
-                # then delete it so no raw attachment appears in the log.
-                upload_msg = await log_ch.send(file=transcript_file)
-                if upload_msg and upload_msg.attachments:
-                    transcript_url = upload_msg.attachments[0].url
-                    await upload_msg.delete()
-                    link_view = ui.View(timeout=None)
-                    link_view.add_item(ui.Button(
-                        label="View Transcript",
-                        emoji="📄",
-                        style=discord.ButtonStyle.link,
-                        url=transcript_url
-                    ))
-                    await log_ch.send(embed=log_e, view=link_view)
-                else:
-                    await log_ch.send(embed=log_e)
+                sent_msg = await log_ch.send(embed=log_e, file=transcript_file)
+if sent_msg.attachments:
+    link_view = ui.View(timeout=None)
+    link_view.add_item(ui.Button(
+        label="View Transcript",
+        emoji="📄",
+        style=discord.ButtonStyle.link,
+        url=sent_msg.attachments[0].url
+    ))
+    await sent_msg.edit(view=link_view)
             except Exception as ex:
                 print(f"[WARN] transcript send failed: {ex}")
 

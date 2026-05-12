@@ -1245,7 +1245,7 @@ class SimpleReviewActionsView(ui.View):
     No persistent registration. No custom_id conflicts with the old system.
     Submit Review simply opens the /review (VouchSelectorView) flow."""
 
-    ORDER_URL = "https://discord.com/channels/1355262060831608892/1355262060831608895"
+    ORDER_URL = "https://discord.com/channels/1355262060831608892/1355262063089291463"
     ORDER_FALLBACK_CHANNEL_ID = 1355262063089291463
 
     def __init__(self, guild_id: int = 0, order_kind: str = "ranked"):

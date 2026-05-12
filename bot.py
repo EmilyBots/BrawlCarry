@@ -2722,15 +2722,15 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1
                 log_e.set_footer(text=FOOTER_BRAND)
                 # Upload file to a throwaway message to obtain a CDN URL,
                 sent_msg = await log_ch.send(embed=log_e, file=transcript_file)
-if sent_msg.attachments:
-    link_view = ui.View(timeout=None)
-    link_view.add_item(ui.Button(
-        label="View Transcript",
-        emoji="📄",
-        style=discord.ButtonStyle.link,
-        url=sent_msg.attachments[0].url
-    ))
-    await sent_msg.edit(view=link_view)
+                if sent_msg.attachments:
+                    link_view = ui.View(timeout=None)
+                    link_view.add_item(ui.Button(
+                        label="View Transcript",
+                        emoji="📄",
+                        style=discord.ButtonStyle.link,
+                        url=sent_msg.attachments[0].url
+                    ))
+                    await sent_msg.edit(view=link_view)
             except Exception as ex:
                 print(f"[WARN] transcript send failed: {ex}")
 

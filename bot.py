@@ -2710,16 +2710,22 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1
                 log_e.add_field(name="💬  Messages",   value=str(len(messages)),       inline=True)
                 log_e.add_field(name="📝  Reason",     value="No reason provided.",    inline=True)
                 log_e.set_footer(text=FOOTER_BRAND)
-                transcript_msg = await log_ch.send(embed=log_e, file=transcript_file)
-                if transcript_msg and transcript_msg.attachments:
+                # Upload file to a throwaway message to obtain a CDN URL,
+                # then delete it so no raw attachment appears in the log.
+                upload_msg = await log_ch.send(file=transcript_file)
+                if upload_msg and upload_msg.attachments:
+                    transcript_url = upload_msg.attachments[0].url
+                    await upload_msg.delete()
                     link_view = ui.View(timeout=None)
                     link_view.add_item(ui.Button(
                         label="View Transcript",
                         emoji="📄",
                         style=discord.ButtonStyle.link,
-                        url=transcript_msg.attachments[0].url
+                        url=transcript_url
                     ))
-                    await transcript_msg.edit(view=link_view)
+                    await log_ch.send(embed=log_e, view=link_view)
+                else:
+                    await log_ch.send(embed=log_e)
             except Exception as ex:
                 print(f"[WARN] transcript send failed: {ex}")
 
@@ -2752,11 +2758,6 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1
                 await interaction.followup.send(f"❌ Failed to delete channel: `{ex}`", ephemeral=True)
             except Exception:
                 pass
-
-    @ui.button(label="Close with Reason", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="ticket_close_reason_v1")
-    async def close_with_reason(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_modal(CloseWithReasonModal())
-        
 
     @ui.button(label="Close with Reason", style=discord.ButtonStyle.secondary, emoji="📝", custom_id="ticket_close_reason_v1")
     async def close_with_reason(self, interaction: discord.Interaction, button: ui.Button):

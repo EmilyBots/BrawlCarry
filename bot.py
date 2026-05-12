@@ -2403,7 +2403,7 @@ class ReviewActionsView(ui.View):
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",
             style=discord.ButtonStyle.link,
-            url=CompletedCTAView.RANKED_URL,
+            url="https://discord.com/channels/1355262062095372429/1355262063089291463",
             row=0
         )
         self.add_item(order_btn)

@@ -1227,14 +1227,68 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
             if _ch is None:
                 _ch = await bot.fetch_channel(_VOUCH_CHANNEL_ID)
             print(f"[VOUCH] Channel resolved: {_ch} ({type(_ch).__name__})")
+            _review_view = SimpleReviewActionsView(guild_id=guild_id or 0)
             if wm_file:
-                await _ch.send(embed=e, file=wm_file)
+                await _ch.send(embed=e, file=wm_file, view=_review_view)
             else:
-                await _ch.send(embed=e)
+                await _ch.send(embed=e, view=_review_view)
             print(f"[VOUCH] Review posted successfully by {interaction.user} ({interaction.user.id})")
         except Exception as _send_err:
             print(f"[VOUCH ERROR] Direct channel.send() failed:\n{_tb.format_exc()}")
         # ── END FALLBACK ──────────────────────────────────────────────────────
+
+# ---------------------------------------------------------------------------
+# REVIEW ACTIONS VIEW (lightweight, non-persistent, no custom_id conflicts)
+# ---------------------------------------------------------------------------
+class SimpleReviewActionsView(ui.View):
+    """Lightweight, non-persistent button row attached to vouch channel posts.
+    No persistent registration. No custom_id conflicts with the old system.
+    Submit Review simply opens the /review (VouchSelectorView) flow."""
+
+    ORDER_URL = "https://discord.com/channels/1355262060831608892/1355262060831608895"
+
+    def __init__(self, guild_id: int = 0):
+        super().__init__(timeout=None)   # keep buttons alive for the session
+        self.guild_id = guild_id
+        self.add_item(ui.Button(
+            label="Order Now",
+            emoji="<:rocket:1491490870979985438>",
+            style=discord.ButtonStyle.link,
+            url=self.ORDER_URL,
+            row=0,
+        ))
+
+    @ui.button(
+        label="Submit Review",
+        emoji="⭐",
+        style=discord.ButtonStyle.success,
+        custom_id="simple_review_submit_v1",   # unique — never collides with old IDs
+        row=0,
+    )
+    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
+        try:
+            guild_id = interaction.guild.id if interaction.guild else self.guild_id
+            e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+            e.description = (
+                "Select your **rating**, **payment method** and **service type**, "
+                "then click **Continue** to fill in your feedback and proof.\n\n"
+                "Thank you for taking the time to vouch!"
+            )
+            await interaction.response.send_message(
+                embed=e,
+                view=VouchSelectorView(guild_id, order_kind="ranked"),
+                ephemeral=True,
+            )
+        except Exception as ex:
+            import traceback
+            print(f"[ERROR] SimpleReviewActionsView.submit_review: {ex}\n{traceback.format_exc()}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
+            except Exception:
+                pass
 
 # ---------------------------------------------------------------------------
 # VOUCH SELECTOR VIEW

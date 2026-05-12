@@ -2287,28 +2287,18 @@ class PrestigePanelButton(ui.View):
 CUSTOMER_ROLE_ID = 1484297795094581373
 
 class ReviewActionsView(ui.View):
-    def __init__(self, order_kind: str = "ranked"):
+    def __init__(self):
         super().__init__(timeout=None)
-        self.order_kind = order_kind
-
-        url = CompletedCTAView.RANKED_URL if order_kind != "prestige" else CompletedCTAView.PRESTIGE_URL
         order_btn = ui.Button(
             label="Order Now",
             emoji="<:rocket:1491490870979985438>",
             style=discord.ButtonStyle.link,
-            url=url,
+            url=CompletedCTAView.RANKED_URL,
             row=0
         )
         self.add_item(order_btn)
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        cid = interaction.data.get("custom_id", "")
-        if "prestige" in cid:
-            self.order_kind = "prestige"
-        else:
-            self.order_kind = "ranked"
-        return True
-
+    # Handles BOTH old custom_ids: review_submit_ranked_v1 and review_submit_prestige_v1
     @ui.button(
         label="Submit Review",
         emoji="⭐",
@@ -2316,8 +2306,25 @@ class ReviewActionsView(ui.View):
         custom_id="review_submit_ranked_v1",
         row=1
     )
-    async def submit_review_ranked(self, interaction: discord.Interaction, button: ui.Button):
-        await self._do_submit_review(interaction)
+    async def submit_review(self, interaction: discord.Interaction, button: ui.Button):
+        try:
+            guild_id = interaction.guild.id if interaction.guild else 0
+            e = base_embed("⭐ Submit Your Vouch", color=GOLD)
+            e.description = (
+                "Select your **rating**, **payment method** and **service type**, then click **Continue** "
+                "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
+            )
+            await interaction.response.send_message(embed=e, view=VouchSelectorView(guild_id, order_kind="ranked"), ephemeral=True)
+        except Exception as ex:
+            import traceback
+            print(f"[ERROR] ReviewActionsView.submit_review: {ex}\n{traceback.format_exc()}")
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
+            except Exception:
+                pass
 
     @ui.button(
         label="Submit Review",
@@ -2326,29 +2333,9 @@ class ReviewActionsView(ui.View):
         custom_id="review_submit_prestige_v1",
         row=1
     )
-    async def submit_review_prestige(self, interaction: discord.Interaction, button: ui.Button):
-        await self._do_submit_review(interaction)
-
-    async def _do_submit_review(self, interaction: discord.Interaction):
-        try:
-            guild_id = interaction.guild.id if interaction.guild else 0
-            e = base_embed("⭐ Submit Your Vouch", color=GOLD)
-            e.description = (
-                "Select your **rating**, **payment method** and **service type**, then click **Continue** "
-                "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
-            )
-            vouch_view = VouchSelectorView(guild_id, order_kind=self.order_kind)
-            await interaction.response.send_message(embed=e, view=vouch_view, ephemeral=True)
-        except Exception as ex:
-            import traceback
-            print(f"[ERROR] ReviewActionsView._do_submit_review: {ex}\n{traceback.format_exc()}")
-            try:
-                if not interaction.response.is_done():
-                    await interaction.response.send_message("❌ Something went wrong. Please try again.", ephemeral=True)
-                else:
-                    await interaction.followup.send("❌ Something went wrong. Please try again.", ephemeral=True)
-            except Exception:
-                pass
+    async def submit_review_prestige_legacy(self, interaction: discord.Interaction, button: ui.Button):
+        # Legacy alias — routes old prestige buttons into the same universal flow
+        await self.submit_review(interaction, button)
 # ---------------------------------------------------------------------------
 # VOUCH BUTTON VIEW
 # ---------------------------------------------------------------------------
@@ -4184,7 +4171,6 @@ async def on_ready():
         VouchButtonView(),
         VouchButtonView(order_kind="prestige"),
         ReviewActionsView(),
-        ReviewActionsView(order_kind="prestige"),
         RankedPanelButton(),
         PrestigePanelButton(),
         ApplicationPanelView(),

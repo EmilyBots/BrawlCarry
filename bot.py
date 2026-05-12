@@ -2325,7 +2325,7 @@ class ReviewActionsView(ui.View):
     async def _submit_review_callback(self, interaction: discord.Interaction):
         try:
             guild_id = interaction.guild.id if interaction.guild else 0
-                return
+
             guild_id = interaction.guild.id if interaction.guild else 0
             e = base_embed("⭐ Submit Your Vouch", color=GOLD)
             e.description = (

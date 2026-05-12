@@ -1100,8 +1100,8 @@ class OrderActionsView(ui.View):
         if cfg:
             panel_ch_id = (
                 cfg.get("ranked_panel_channel_id") if self.order_type == "ranked"
-            else cfg.get("prestige_panel_channel_id")
-        )
+                else cfg.get("prestige_panel_channel_id")
+            )
 
         await interaction.response.send_modal(
             PublishToBoostersModal(

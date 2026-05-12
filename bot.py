@@ -2338,9 +2338,14 @@ class ReviewActionsView(ui.View):
                 "Select your **rating**, **payment method** and **service type**, then click **Continue** "
                 "to fill in your feedback and proof.\n\nThank you for taking the time to vouch!"
             )
-            await interaction.followup.send(
-                embed=e, view=VouchSelectorView(guild_id, order_kind=self.order_kind), ephemeral=True
-            )
+            try:
+                vouch_view = VouchSelectorView(guild_id, order_kind=self.order_kind)
+            except Exception as ve:
+                import traceback
+                print(f"[ERROR] VouchSelectorView construction failed: {ve}\n{traceback.format_exc()}")
+                await interaction.followup.send("❌ Could not load vouch options. Please try again.", ephemeral=True)
+                return
+            await interaction.followup.send(embed=e, view=vouch_view, ephemeral=True)
         except Exception as ex:
             import traceback
             print(f"[ERROR] ReviewActionsView._do_submit_review: {ex}\n{traceback.format_exc()}")

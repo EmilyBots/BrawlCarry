@@ -1218,7 +1218,23 @@ class VouchDetailModal(ui.Modal, title="Submit Your Vouch"):
                     print(f"[VOUCH ERROR] ch.send() to {target_ch_id} failed: {send_err}\n{traceback.format_exc()}")
         else:
             print(f"[VOUCH WARN] No vouch channel configured and no guild — review NOT posted. guild={interaction.guild}")
-
+# ── FALLBACK: direct post to hardcoded vouch channel ──────────────────
+        import traceback as _tb
+        _VOUCH_CHANNEL_ID = 1477344147508822258
+        print(f"[VOUCH] Attempting direct post to channel {_VOUCH_CHANNEL_ID}")
+        try:
+            _ch = bot.get_channel(_VOUCH_CHANNEL_ID)
+            if _ch is None:
+                _ch = await bot.fetch_channel(_VOUCH_CHANNEL_ID)
+            print(f"[VOUCH] Channel resolved: {_ch} ({type(_ch).__name__})")
+            if wm_file:
+                await _ch.send(embed=e, file=wm_file)
+            else:
+                await _ch.send(embed=e)
+            print(f"[VOUCH] Review posted successfully by {interaction.user} ({interaction.user.id})")
+        except Exception as _send_err:
+            print(f"[VOUCH ERROR] Direct channel.send() failed:\n{_tb.format_exc()}")
+        # ── END FALLBACK ──────────────────────────────────────────────────────
 
 # ---------------------------------------------------------------------------
 # VOUCH SELECTOR VIEW

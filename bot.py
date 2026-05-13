@@ -693,15 +693,14 @@ def _payment_emoji(method_label: str, guild_id: int) -> str:
     return "\U0001f4b3"
 
 def _build_order_details_str(order_type: str, from_tier: str, to_tier: str, service_type: str) -> str:
-    svc = "Carry" if service_type == "carry" else "Boost"
     if order_type == "prestige":
         spec = f"{from_tier} -> {to_tier}"
         pe   = prestige_emoji(spec)
-        return f"{svc} {pe} `{from_tier}` → `{to_tier}`"
+        return f"{pe} `{from_tier}` → `{to_tier}`"
     else:
         fe = rank_emoji(from_tier or "")
         te = rank_emoji(to_tier or "")
-        return f"{svc} {fe} `{from_tier}` → {te} `{to_tier}`"
+        return f"{fe} `{from_tier}` → {te} `{to_tier}`"
 
 # ---------------------------------------------------------------------------
 # BOOSTER RATING VIEW (sent after order completion)
@@ -749,7 +748,7 @@ class BoosterClaimView(ui.View):
         claim_btn = ui.Button(
             label="Claim Order",
             style=discord.ButtonStyle.success,
-            emoji="\U0001f7e0",
+            emoji="<:user:1491499694734708815>",
             custom_id=f"booster_claim_{order_id}"
         )
         claim_btn.callback = self._claim
@@ -758,7 +757,7 @@ class BoosterClaimView(ui.View):
         unclaim_btn = ui.Button(
             label="Unclaim Order",
             style=discord.ButtonStyle.danger,
-            emoji="↩️",
+            emoji="❌",
             custom_id=f"booster_unclaim_{order_id}"
         )
         unclaim_btn.callback = self._unclaim
@@ -1058,10 +1057,10 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         # Order type row: emoji + label differ for boost vs carry
         if svc_type == "carry":
             order_type_emoji = "<:Carry:1501221214251651082>"
-            order_type_val   = f"↳ {service_name} Carry"
+            order_type_val   = f"↳ {service_name} **Carry**"
         else:
             order_type_emoji = "<:rocket:1491490870979985438>"
-            order_type_val   = f"↳ {service_name} Boost"
+            order_type_val   = f"↳ {service_name} **Boost**"
 
         # Order details block — route first, optional extras appended
         details = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
@@ -1081,17 +1080,17 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             value=order_type_val,
             inline=False
         )
-        claim_e.add_field(
-            name="<:Info:1501221322183934002> Order Details",
-            value=f"↳ {details}",
-            inline=False
-        )
         if order.get("p11_count"):
             claim_e.add_field(
                 name=f"{P11_EMOJI} P11",
                 value=f"↳ {order['p11_count']}",
                 inline=False
             )
+        claim_e.add_field(
+            name="<:Info:1501221322183934002> Order Details",
+            value=f"↳ {details}",
+            inline=False
+        )
         claim_e.add_field(
             name="<:user:1491499694734708815> Claimed By",
             value="↳ Nobody",

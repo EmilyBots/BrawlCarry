@@ -995,13 +995,7 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
         placeholder="e.g. 12.00",
         style=discord.TextStyle.short
     )
-    extra_notes = ui.TextInput(
-        label="Extra Notes for Boosters (Optional)",
-        placeholder="Any special info boosters should know...",
-        required=False,
-        style=discord.TextStyle.long,
-        max_length=300
-    )
+    
 
     def __init__(self, order_id: str, ticket_channel_id: int = None, panel_channel_id: int = None, order_type: str = "ranked"):
         super().__init__()
@@ -1075,16 +1069,11 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             details += f"\n🎮 {order['brawler_name']}"
         if order.get("trophy_val"):
             details += f"\n🏆 {order['trophy_val']:,} trophies"
-        if order.get("p11_count"):
-            details += f"\n{P11_EMOJI} {order['p11_count']} P11"
-        if self.extra_notes.value:
-            details += f"\n📝 {self.extra_notes.value}"
-
         claim_e = discord.Embed(color=color)
         claim_e.title = f"<:diamound:1491491246546616340> New {service_name} Order!"
         claim_e.add_field(
             name="<:Amount:1501221154650853450> You Make",
-            value=f"↳ €{earnings:.2f}",
+            value=f"↳ **€{earnings:.2f}**",
             inline=False
         )
         claim_e.add_field(
@@ -1097,6 +1086,12 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             value=f"↳ {details}",
             inline=False
         )
+        if order.get("p11_count"):
+            claim_e.add_field(
+                name=f"{P11_EMOJI} P11",
+                value=f"↳ {order['p11_count']}",
+                inline=False
+            )
         claim_e.add_field(
             name="<:user:1491499694734708815> Claimed By",
             value="↳ Nobody",

@@ -745,14 +745,24 @@ class BoosterClaimView(ui.View):
         super().__init__(timeout=None)
         self.order_id          = order_id
         self.ticket_channel_id = ticket_channel_id
-        btn = ui.Button(
-            label="Claim This Boost",
-            style=discord.ButtonStyle.primary,
+
+        claim_btn = ui.Button(
+            label="Claim Order",
+            style=discord.ButtonStyle.success,
             emoji="\U0001f7e0",
             custom_id=f"booster_claim_{order_id}"
         )
-        btn.callback = self._claim
-        self.add_item(btn)
+        claim_btn.callback = self._claim
+        self.add_item(claim_btn)
+
+        unclaim_btn = ui.Button(
+            label="Unclaim Order",
+            style=discord.ButtonStyle.danger,
+            emoji="↩️",
+            custom_id=f"booster_unclaim_{order_id}"
+        )
+        unclaim_btn.callback = self._unclaim
+        self.add_item(unclaim_btn)
 
     async def _claim(self, interaction: discord.Interaction):
         button = None  # not needed below
@@ -846,16 +856,25 @@ class BoosterClaimView(ui.View):
         order = c.fetchone()
         conn.close()
 
+        # Disable claim button only; unclaim button stays active for the claimer
         for item in self.children:
-            item.disabled = True
+            if getattr(item, "custom_id", "").startswith("booster_claim_"):
+                item.disabled = True
 
         try:
             original_embed = interaction.message.embeds[0] if interaction.message.embeds else None
             if original_embed:
                 original_embed.color = SUCCESS
-                original_embed.title = "✅ Order Claimed — " + (original_embed.title or "")
-                original_embed.add_field(name="🟠 Claimed By", value=booster.mention, inline=True)
-                original_embed.add_field(name="⏰ Claimed At", value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
+                # Dynamically update the "Claimed By" field in-place
+                new_fields = []
+                for field in original_embed.fields:
+                    if "Claimed By" in field.name:
+                        new_fields.append({"name": field.name, "value": f"↳ {booster.mention}", "inline": field.inline})
+                    else:
+                        new_fields.append({"name": field.name, "value": field.value, "inline": field.inline})
+                original_embed.clear_fields()
+                for f in new_fields:
+                    original_embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
                 await interaction.message.edit(embed=original_embed, view=self)
         except Exception as ex:
             print(f"[WARN] Could not edit claim embed: {ex}")
@@ -907,6 +926,62 @@ class BoosterClaimView(ui.View):
 
         await interaction.response.send_message(
             f"✅ You've claimed order `{self.order_id}`! Check the customer's ticket.",
+            ephemeral=True
+        )
+
+    async def _unclaim(self, interaction: discord.Interaction):
+        booster = interaction.user
+
+        conn = get_db()
+        c    = conn.cursor()
+        c.execute("SELECT status, booster_id FROM orders WHERE id = %s", (self.order_id,))
+        order_row = c.fetchone()
+
+        if not order_row:
+            conn.close()
+            await interaction.response.send_message("❌ Order not found.", ephemeral=True)
+            return
+        if order_row["status"] != "claimed":
+            conn.close()
+            await interaction.response.send_message("❌ This order is not currently claimed.", ephemeral=True)
+            return
+        if order_row["booster_id"] != booster.id:
+            conn.close()
+            await interaction.response.send_message("❌ You can only unclaim your own orders.", ephemeral=True)
+            return
+
+        c.execute(
+            "UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = %s",
+            (self.order_id,)
+        )
+        conn.commit()
+        conn.close()
+
+        # Re-enable claim button
+        for item in self.children:
+            if getattr(item, "custom_id", "").startswith("booster_claim_"):
+                item.disabled = False
+
+        try:
+            original_embed = interaction.message.embeds[0] if interaction.message.embeds else None
+            if original_embed:
+                original_embed.color = PRIMARY
+                # Reset the "Claimed By" field back to Nobody
+                new_fields = []
+                for field in original_embed.fields:
+                    if "Claimed By" in field.name:
+                        new_fields.append({"name": field.name, "value": "↳ Nobody", "inline": field.inline})
+                    else:
+                        new_fields.append({"name": field.name, "value": field.value, "inline": field.inline})
+                original_embed.clear_fields()
+                for f in new_fields:
+                    original_embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
+                await interaction.message.edit(embed=original_embed, view=self)
+        except Exception as ex:
+            print(f"[WARN] Could not edit unclaim embed: {ex}")
+
+        await interaction.response.send_message(
+            f"↩️ You've unclaimed order `{self.order_id}`. It is now available for others.",
             ephemeral=True
         )
 
@@ -980,38 +1055,54 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             )
             return
 
-        color      = PRIMARY if self.order_type == "ranked" else ACCENT
-        title_str  = "🔥 Ranked Boost Available" if self.order_type == "ranked" else "✨ Prestige Boost Available"
-        svc_type   = order["service_type"] or "boost"
-        svc_label  = "Carry 🔴" if svc_type == "carry" else "Boost 🟢"
+        svc_type     = order["service_type"] or "boost"
+        from_tier    = order["from_tier"] or "?"
+        to_tier      = order["to_tier"] or "?"
+        service_name = "Ranked" if self.order_type == "ranked" else "Prestige"
+        color        = PRIMARY if self.order_type == "ranked" else ACCENT
 
-        from_tier  = order["from_tier"] or "?"
-        to_tier    = order["to_tier"] or "?"
-        details    = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
+        # Order type row: emoji + label differ for boost vs carry
+        if svc_type == "carry":
+            order_type_emoji = "<:Carry:1501221214251651082>"
+            order_type_val   = f"↳ {service_name} Carry"
+        else:
+            order_type_emoji = "<:rocket:1491490870979985438>"
+            order_type_val   = f"↳ {service_name} Boost"
 
-        pay_emoji  = _payment_emoji(order["method"], guild.id)
-        p11        = order["p11_count"] or "—"
-
-        claim_e = base_embed(title_str, color=color)
-        claim_e.set_author(
-            name="BrawlCarry | Boost Available",
-            icon_url=guild.icon.url if guild.icon else discord.Embed.Empty
-        )
-        claim_e.add_field(name="📦 Order Details",   value=details,                                        inline=False)
-        if order["brawler_name"]:
-            claim_e.add_field(name="🎮 Brawler",     value=order["brawler_name"],                         inline=True)
-        if order["trophy_val"]:
-            claim_e.add_field(name="🏆 Trophies",    value=f"{order['trophy_val']:,}",                    inline=True)
-        claim_e.add_field(name="💰 You Earn",         value=f"**€{earnings:.2f}**",                        inline=True)
-        claim_e.add_field(name="🛠 Service",           value=svc_label,                                    inline=True)
-        claim_e.add_field(name=f"{P11_EMOJI} P11",    value=p11,                                          inline=True)
-        claim_e.add_field(name="🆔 Order ID",          value=f"`{self.order_id}`",                         inline=True)
-        claim_e.add_field(name="🕐 Posted",            value=f"<t:{int(datetime.utcnow().timestamp())}:R>", inline=True)
-
+        # Order details block — route first, optional extras appended
+        details = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
+        if order.get("brawler_name"):
+            details += f"\n🎮 {order['brawler_name']}"
+        if order.get("trophy_val"):
+            details += f"\n🏆 {order['trophy_val']:,} trophies"
+        if order.get("p11_count"):
+            details += f"\n{P11_EMOJI} {order['p11_count']} P11"
         if self.extra_notes.value:
-            claim_e.add_field(name="📝 Notes", value=self.extra_notes.value, inline=False)
+            details += f"\n📝 {self.extra_notes.value}"
 
-        claim_e.set_footer(text=f"{FOOTER_BRAND} | Click the button below to claim this order")
+        claim_e = discord.Embed(color=color)
+        claim_e.title = f"<:diamound:1491491246546616340> New {service_name} Order!"
+        claim_e.add_field(
+            name="<:Amount:1501221154650853450> You Make",
+            value=f"↳ €{earnings:.2f}",
+            inline=False
+        )
+        claim_e.add_field(
+            name=f"{order_type_emoji} Order Type",
+            value=order_type_val,
+            inline=False
+        )
+        claim_e.add_field(
+            name="<:Info:1501221322183934002> Order Details",
+            value=f"↳ {details}",
+            inline=False
+        )
+        claim_e.add_field(
+            name="<:user:1491499694734708815> Claimed By",
+            value="↳ Nobody",
+            inline=False
+        )
+        claim_e.set_footer(text=f"{FOOTER_BRAND} | Click below to claim this order")
 
         await panel_ch.send(
             embed=claim_e,

@@ -788,23 +788,6 @@ class BoosterClaimView(ui.View):
             return
         self.order_id = order_id
 
-        # Check carrier role for carry orders
-        cfg = get_config(guild.id)
-        carrier_role_id = cfg["carrier_role_id"] if cfg else None
-        if carrier_role_id:
-            conn_pre = get_db()
-            c_pre    = conn_pre.cursor()
-            c_pre.execute("SELECT service_type FROM orders WHERE id = %s", (self.order_id,))
-            pre_row = c_pre.fetchone()
-            conn_pre.close()
-            if pre_row and pre_row["service_type"] == "carry":
-                member_role_ids = {r.id for r in booster.roles}
-                if carrier_role_id not in member_role_ids:
-                    await interaction.response.send_message(
-                        "❌ You need the **Carrier** role to claim carry orders.", ephemeral=True
-                    )
-                    return
-
         conn = get_db()
         c    = conn.cursor()
 
@@ -1064,10 +1047,8 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
 
         # Order details block — route first, optional extras appended
         details = _build_order_details_str(self.order_type, from_tier, to_tier, svc_type)
-        if order.get("brawler_name"):
+        if order.get("brawler_name") and self.order_type != "prestige":
             details += f"\n🎮 {order['brawler_name']}"
-        if order.get("trophy_val"):
-            details += f"\n🏆 {order['trophy_val']:,} trophies"
         claim_e = discord.Embed(color=color)
         claim_e.title = f"<:diamound:1491491246546616340> New {service_name} Order!"
         claim_e.add_field(
@@ -1091,6 +1072,12 @@ class PublishToBoostersModal(ui.Modal, title="Publish Order to Boosters"):
             value=f"↳ {details}",
             inline=False
         )
+        if order.get("trophy_val"):
+            claim_e.add_field(
+                name="<:copyright:1485658086156013598> Trophies",
+                value=f"↳ **{order['trophy_val']:,}**",
+                inline=False
+            )
         claim_e.add_field(
             name="<:user:1491499694734708815> Claimed By",
             value="↳ Nobody",

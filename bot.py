@@ -757,7 +757,7 @@ class BoosterClaimView(ui.View):
         unclaim_btn = ui.Button(
             label="Unclaim Order",
             style=discord.ButtonStyle.danger,
-            emoji="❌",
+            emoji="✖️",
             custom_id=f"booster_unclaim_{order_id}"
         )
         unclaim_btn.callback = self._unclaim

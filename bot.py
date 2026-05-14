@@ -91,7 +91,8 @@ def init_db():
         estimated_price FLOAT,
         p11_count TEXT,
         booster_rating INT,
-        completion_time_seconds INT
+        completion_time_seconds INT,
+        workspace_channel_id BIGINT
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS vouchers (
         id TEXT PRIMARY KEY,

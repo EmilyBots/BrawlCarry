@@ -4467,6 +4467,26 @@ async def _patched_scheduled_task(self, item, interaction: discord.Interaction):
 
 discord.ui.View._scheduled_task = _patched_scheduled_task
 
+@bot.tree.command(name="clear_claim_orders", description="[ADMIN] Reset all active/claimed orders back to pending")
+@app_commands.checks.has_permissions(administrator=True)
+async def clear_claim_orders(interaction: discord.Interaction):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        UPDATE orders
+        SET status = 'pending',
+            booster_id = NULL,
+            claimed_at = NULL,
+            workspace_channel_id = NULL
+        WHERE status IN ('active', 'claimed')
+    """)
+    affected = c.rowcount
+    conn.commit()
+    conn.close()
+    await interaction.response.send_message(
+        f"✅ Reset **{affected}** order(s) from active/claimed → pending.",
+        ephemeral=True
+    )
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # STARTUP

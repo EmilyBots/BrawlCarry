@@ -226,6 +226,7 @@ def init_db():
         ("guild_config", "carrier_role_id BIGINT"),
         ("guild_config", "ticket_support_roles TEXT"),
         ("guild_config", "reviewer_roles TEXT"),
+        ("orders",       "workspace_channel_id BIGINT"),
     ]
 
     for table, col_def in migrations:
@@ -898,6 +899,17 @@ class BoosterClaimView(ui.View):
 
                 # Add booster and customer to the workspace thread.
                 if workspace:
+                    try:
+                        conn_ws = get_db()
+                        c_ws = conn_ws.cursor()
+                        c_ws.execute(
+                            "UPDATE orders SET workspace_channel_id = %s WHERE id = %s",
+                            (workspace.id, self.order_id)
+                        )
+                        conn_ws.commit()
+                        conn_ws.close()
+                    except Exception as ex:
+                        print(f"[WARN] Could not save workspace_channel_id: {ex}")
                     try:
                         await workspace.add_user(booster)
                     except Exception:
@@ -2773,6 +2785,20 @@ class CloseWithReasonModal(ui.Modal, title="Close Ticket with Reason"):
         except Exception:
             pass
 
+        # Release the booster's claimed order when a workspace thread is closed
+        if channel.name.startswith("active-"):
+            try:
+                conn_ws = get_db()
+                c_ws = conn_ws.cursor()
+                c_ws.execute(
+                    "UPDATE orders SET status = 'pending', booster_id = NULL, claimed_at = NULL, workspace_channel_id = NULL "
+                    "WHERE workspace_channel_id = %s AND status = 'claimed'",
+                    (channel.id,)
+                )
+                conn_ws.commit()
+                conn_ws.close()
+            except Exception as ex:
+                print(f"[WARN] Could not release order on workspace close: {ex}")
         remove_ticket_activity(channel.id)
         await asyncio.sleep(3)
         try:
@@ -2979,6 +3005,20 @@ footer{{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1
                 print(f"[WARN] transcript send failed: {ex}")
 
         # ── 6. Disable close button, wait, then delete the channel ────────────
+        # Release the booster's claimed order when a workspace thread is closed
+        if channel.name.startswith("active-"):
+            try:
+                conn_ws = get_db()
+                c_ws = conn_ws.cursor()
+                c_ws.execute(
+                    "UPDATE orders SET status = 'pending', booster_id = NULL, claimed_at = NULL, workspace_channel_id = NULL "
+                    "WHERE workspace_channel_id = %s AND status = 'claimed'",
+                    (channel.id,)
+                )
+                conn_ws.commit()
+                conn_ws.close()
+            except Exception as ex:
+                print(f"[WARN] Could not release order on workspace close: {ex}")
         remove_ticket_activity(channel.id)
         button.disabled = True
         try:

@@ -974,10 +974,11 @@ class BoosterClaimView(ui.View):
 
                 # Notify original ticket. Booster is NOT added here.
                 try:
-                    notify_e = base_embed("🟠 Booster Assigned", color=SUCCESS)
+                    notify_e = base_embed("<:rocket:1491490870979985438> Booster Assigned", color=SUCCESS)
                     notify_e.description = (
-                        f"{booster.mention} has claimed order `{self.order_id}`.\n"
-                        "A private workspace thread has been created for the customer and booster."
+                        f"{booster.mention} has successfully claimed your order.\n\n"
+                        "A private thread has been created for both the customer and booster to safely manage communication and progress updates.\n\n"
+                        "Please continue all communication inside the private thread."
                     )
                     await ticket_ch.send(embed=notify_e)
                     update_ticket_activity(ticket_ch_id, guild.id)
@@ -985,10 +986,10 @@ class BoosterClaimView(ui.View):
                     print(f"[WARN] Could not notify original ticket: {ex}")
 
                 try:
-                    dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
+                    dm_e = base_embed("<:rocket:1491490870979985438> Boost Claimed!", color=SUCCESS)
                     dm_e.description = (
-                        f"You've successfully claimed order **`{self.order_id}`**!\n\n"
-                        "A workspace thread has been created for you and the customer. Good luck! 🏆"
+                        f"You've successfully claimed order {workspace.mention if workspace else f'`{self.order_id}`'}!\n\n"
+                        "A private thread has been created for you and the customer."
                     )
                     await booster.send(embed=dm_e)
                 except discord.Forbidden:
@@ -4467,26 +4468,6 @@ async def _patched_scheduled_task(self, item, interaction: discord.Interaction):
 
 discord.ui.View._scheduled_task = _patched_scheduled_task
 
-@bot.tree.command(name="clear_claim_orders", description="[ADMIN] Reset all active/claimed orders back to pending")
-@app_commands.checks.has_permissions(administrator=True)
-async def clear_claim_orders(interaction: discord.Interaction):
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("""
-        UPDATE orders
-        SET status = 'pending',
-            booster_id = NULL,
-            claimed_at = NULL,
-            workspace_channel_id = NULL
-        WHERE status IN ('active', 'claimed')
-    """)
-    affected = c.rowcount
-    conn.commit()
-    conn.close()
-    await interaction.response.send_message(
-        f"✅ Reset **{affected}** order(s) from active/claimed → pending.",
-        ephemeral=True
-    )
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # STARTUP

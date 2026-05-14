@@ -889,7 +889,7 @@ class BoosterClaimView(ui.View):
                 if isinstance(parent_ch, discord.TextChannel):
                     try:
                         workspace = await parent_ch.create_thread(
-                            name="active-boost-workspace",
+                            name="active-" + (order["order_type"] or "ranked").lower() + "-" + (order["service_type"] or "boost").lower(),
                             type=discord.ChannelType.private_thread,
                             reason=f"Booster workspace for order {self.order_id}",
                         )
@@ -952,7 +952,7 @@ class BoosterClaimView(ui.View):
                         "Any attempt to bypass this rule by either the customer or the booster "
                         "may result in consequences."
                     )
-                    await workspace.send(embed=safety_embed)
+                    await workspace.send(embed=safety_embed, view=TicketCloseView())
 
                 # Notify original ticket. Booster is NOT added here.
                 try:

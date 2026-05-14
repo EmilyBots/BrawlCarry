@@ -877,30 +877,59 @@ class BoosterClaimView(ui.View):
                 except Exception:
                     ticket_ch = None 
             if ticket_ch:
-                try:
-                    if isinstance(ticket_ch, discord.Thread):
-                        await ticket_ch.add_user(booster)
-                    elif isinstance(ticket_ch, discord.TextChannel):
-                        await ticket_ch.set_permissions(
-                            booster,
-                            view_channel=True,
-                            send_messages=True,
-                            read_message_history=True,
+                # Resolve the parent TextChannel for thread creation.
+                # If the ticket is already a thread, use its parent.
+                if isinstance(ticket_ch, discord.Thread):
+                    parent_ch = ticket_ch.parent
+                else:
+                    parent_ch = ticket_ch
+
+                # Create a simple private workspace thread. No fallback yet (Step 3).
+                workspace = None
+                if isinstance(parent_ch, discord.TextChannel):
+                    try:
+                        workspace = await parent_ch.create_thread(
+                            name="active-boost-workspace",
+                            type=discord.ChannelType.private_thread,
+                            reason=f"Booster workspace for order {self.order_id}",
                         )
+                    except Exception as ex:
+                        print(f"[WARN] Could not create workspace thread: {ex}")
+
+                # Add booster and customer to the workspace thread.
+                if workspace:
+                    try:
+                        await workspace.add_user(booster)
+                    except Exception:
+                        pass
+                    customer = guild.get_member(order["user_id"])
+                    if customer:
+                        try:
+                            await workspace.add_user(customer)
+                        except Exception:
+                            pass
+                    # Simple placeholder message. Embeds added in Step 2.
+                    await workspace.send(
+                        f"Workspace for order `{self.order_id}`. {booster.mention} and the customer have been added here."
+                    )
+
+                # Notify original ticket. Booster is NOT added here.
+                try:
                     notify_e = base_embed("🟠 Booster Assigned", color=SUCCESS)
                     notify_e.description = (
-                        f"{booster.mention} has claimed order `{self.order_id}` and has been added to this ticket.\n"
-                        "Please coordinate here to complete the boost! 🏆"
+                        f"{booster.mention} has claimed order `{self.order_id}`.\n"
+                        "A private workspace thread has been created for the customer and booster."
                     )
                     await ticket_ch.send(embed=notify_e)
                     update_ticket_activity(ticket_ch_id, guild.id)
                 except Exception as ex:
-                    print(f"[WARN] Could not add booster to ticket: {ex}")
+                    print(f"[WARN] Could not notify original ticket: {ex}")
+
                 try:
                     dm_e = base_embed("✅ Boost Claimed!", color=SUCCESS)
                     dm_e.description = (
                         f"You've successfully claimed order **`{self.order_id}`**!\n\n"
-                        "You have been added to the customer's ticket. Good luck! 🏆"
+                        "A workspace thread has been created for you and the customer. Good luck! 🏆"
                     )
                     await booster.send(embed=dm_e)
                 except discord.Forbidden:

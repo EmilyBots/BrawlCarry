@@ -908,10 +908,51 @@ class BoosterClaimView(ui.View):
                             await workspace.add_user(customer)
                         except Exception:
                             pass
-                    # Simple placeholder message. Embeds added in Step 2.
-                    await workspace.send(
-                        f"Workspace for order `{self.order_id}`. {booster.mention} and the customer have been added here."
+                    # Staff ping — reusing the same pattern as existing ticket creation
+                    staff_pings = " ".join(f"<@&{rid}>" for rid in HARDCODED_SUPPORT_ROLES)
+                    await workspace.send(content=staff_pings, allowed_mentions=discord.AllowedMentions(roles=True))
+
+                    # Embed 1: Order info — all data from the live order object
+                    order_type_label = (order["order_type"] or "ranked").capitalize()
+                    svc_type_label   = (order["service_type"] or "boost").capitalize()
+                    details_str = _build_order_details_str(
+                        order["order_type"] or "ranked",
+                        order["from_tier"] or "?",
+                        order["to_tier"] or "?",
+                        order["service_type"] or "boost",
                     )
+                    customer_mention = customer.mention if customer else f"<@{order['user_id']}>"
+                    order_embed = base_embed(
+                        f"<:diamound:1491491246546616340> Active {order_type_label} {svc_type_label} Order",
+                        color=SUCCESS,
+                    )
+                    order_embed.add_field(
+                        name="<:Customer:1501221119900778506> Customer",
+                        value=f"↳ {customer_mention}",
+                        inline=False,
+                    )
+                    order_embed.add_field(
+                        name="<:rocket:1491490870979985438> Booster",
+                        value=f"↳ {booster.mention}",
+                        inline=False,
+                    )
+                    order_embed.add_field(
+                        name="<:Info:1501221322183934002> Order Details",
+                        value=f"↳ {details_str}",
+                        inline=False,
+                    )
+                    await workspace.send(embed=order_embed)
+
+                    # Embed 2: Safety reminder
+                    safety_embed = base_embed("⚠️ Reminder", color=GOLD)
+                    safety_embed.description = (
+                        "Never DM the booster directly.\n\n"
+                        "Always use this thread for communication.\n\n"
+                        "This helps prevent scams and keeps everything tracked safely.\n\n"
+                        "Any attempt to bypass this rule by either the customer or the booster "
+                        "may result in consequences."
+                    )
+                    await workspace.send(embed=safety_embed)
 
                 # Notify original ticket. Booster is NOT added here.
                 try:

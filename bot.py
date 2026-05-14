@@ -932,8 +932,14 @@ class BoosterClaimView(ui.View):
                         inline=False,
                     )
                     order_embed.add_field(
-                        name="<:rocket:1491490870979985438> Booster",
+                        name="<:user:1491499694734708815> Booster",
                         value=f"↳ {booster.mention}",
+                        inline=False,
+                    )
+                    order_type_emoji = "<:Carry:1501221214251651082>" if (order["service_type"] or "boost") == "carry" else "<:rocket:1491490870979985438>"
+                    order_embed.add_field(
+                        name=f"{order_type_emoji} Order Type",
+                        value=f"↳ **{svc_type_label}**",
                         inline=False,
                     )
                     order_embed.add_field(
@@ -946,11 +952,10 @@ class BoosterClaimView(ui.View):
                     # Embed 2: Safety reminder
                     safety_embed = base_embed("⚠️ Reminder", color=GOLD)
                     safety_embed.description = (
-                        "Never DM the booster directly.\n\n"
+                        "**Never DM the booster directly.**\n\n"
                         "Always use this thread for communication.\n\n"
                         "This helps prevent scams and keeps everything tracked safely.\n\n"
-                        "Any attempt to bypass this rule by either the customer or the booster "
-                        "may result in consequences."
+                        "**Any attempt to bypass this rule by either the customer or the booster may result in consequences.**"
                     )
                     await workspace.send(embed=safety_embed, view=TicketCloseView())
 

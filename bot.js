@@ -1,0 +1,102 @@
+const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
+const { initDb } = require('./db/init');
+const { loadCommands, registerCommands } = require('./commands/loader');
+const { loadInteractions } = require('./interactions/loader');
+const { startGiveawayEndLoop, startGiveawayReminderLoop } = require('./tasks/giveaway_end');
+const { startInactiveTicketLoop } = require('./tasks/inactive_tickets');
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
+  ],
+  partials: [Partials.Channel],
+});
+
+const ALLOWED_GUILDS = process.env.ALLOWED_GUILDS
+  ? process.env.ALLOWED_GUILDS.split(',').map(g => g.trim()).filter(Boolean)
+  : [];
+
+// ── Commands & interactions ─────────────────────────────────────────────────
+client.commands = new Collection();
+loadCommands(client);
+
+// ── Guild guard ──────────────────────────────────────────────────────────────
+client.on('interactionCreate', async (interaction) => {
+  if (ALLOWED_GUILDS.length && !ALLOWED_GUILDS.includes(String(interaction.guildId))) {
+    if (interaction.isRepliable()) {
+      await interaction.reply({ content: '❌ This bot is not authorized to operate in this server.', ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
+  // Slash commands
+  if (interaction.isChatInputCommand()) {
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+    try {
+      await command.execute(interaction, client);
+    } catch (err) {
+      console.error(`[CMD ERROR] /${interaction.commandName}\n`, err);
+      const msg = '❌ An internal error occurred. Please try again.';
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followup.send({ content: msg, ephemeral: true }).catch(() => {});
+      } else {
+        await interaction.reply({ content: msg, ephemeral: true }).catch(() => {});
+      }
+    }
+    return;
+  }
+
+  // Buttons, selects, modals
+  loadInteractions(interaction, client);
+});
+
+// ── Message listener — update ticket activity ─────────────────────────────────
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  // Auto-delete non-"/invites" messages in the invites-only channel
+  if (message.channelId === '1495726939099500585' && message.content.trim() !== '/invites') {
+    await message.delete().catch(() => {});
+    return;
+  }
+
+  if (message.guild && message.channel.isThread()) {
+    const { queryOne } = require('./db/index');
+    const exists = await queryOne('SELECT 1 FROM ticket_activity WHERE channel_id = $1', [message.channelId]).catch(() => null);
+    if (exists) {
+      const { updateTicketActivity } = require('./utils/permissions');
+      await updateTicketActivity(message.channelId, message.guildId).catch(() => {});
+    }
+  }
+});
+
+// ── Ready ────────────────────────────────────────────────────────────────────
+client.once('ready', async () => {
+  console.log(`[OK] Logged in as ${client.user.tag}`);
+
+  await initDb();
+  console.log('[OK] Database initialised');
+
+  await registerCommands(client);
+  console.log('[OK] Slash commands registered');
+
+  startGiveawayEndLoop(client);
+  startGiveawayReminderLoop(client);
+  startInactiveTicketLoop(client);
+  console.log('[OK] Background tasks started');
+});
+
+// ── Global error handlers ────────────────────────────────────────────────────
+client.on('error', (err) => console.error('[BOT ERROR]', err));
+process.on('unhandledRejection', (err) => console.error('[UNHANDLED REJECTION]', err));
+
+function startBot(token) {
+  client.login(token);
+}
+
+module.exports = { startBot, client };

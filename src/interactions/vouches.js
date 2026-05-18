@@ -29,7 +29,6 @@ async function handleButton(interaction) {
   const id        = interaction.customId;
   const orderKind = id.includes(':') ? id.split(':')[1] : 'ranked';
   const guildId   = interaction.guildId ?? '0';
-  const methods   = await getPaymentMethods(guildId);
 
   vouchState.set(interaction.user.id, { orderKind, guildId });
 
@@ -39,18 +38,10 @@ async function handleButton(interaction) {
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))
   );
-  const payOptions = methods.map(m =>
-    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
-  );
-  const svcOptions = [
-    new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setEmoji('🟢'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setEmoji('🔴'),
-  ];
+
 
   const components = [
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Select your rating...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_pay_select').setPlaceholder('Select payment method used...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_svc_select').setPlaceholder('Was this a Boost or Carry?').addOptions(svcOptions)),
     new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji('✅')),
   ];
 
@@ -64,8 +55,7 @@ async function handleSelect(interaction) {
   const state = getVouchState(interaction.user.id);
 
   if (id === 'vouch_rating_select') { state.rating = parseInt(value);  return interaction.deferUpdate(); }
-  if (id === 'vouch_pay_select')    { state.payment = value;           return interaction.deferUpdate(); }
-  if (id === 'vouch_svc_select')    { state.serviceType = value;       return interaction.deferUpdate(); }
+
 
   // vouch_continue button is routed here too if the id check misses — handled in loader as button
 }
@@ -75,8 +65,6 @@ async function handleContinueBtn(interaction) {
   const state = getVouchState(interaction.user.id);
   const missing = [];
   if (!state.rating)      missing.push('Rating');
-  if (!state.payment)     missing.push('Payment Method');
-  if (!state.serviceType) missing.push('Boost or Carry');
   if (missing.length) return interaction.reply({ content: `❌ Please select: **${missing.join(', ')}**`, ephemeral: true });
 
   const modal = new ModalBuilder()
@@ -88,9 +76,6 @@ async function handleContinueBtn(interaction) {
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('feedback').setLabel('Your Feedback').setStyle(TextInputStyle.Paragraph).setMaxLength(500).setPlaceholder('Fast service, very professional...').setRequired(true)
-      ),
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('image_url').setLabel('Proof Image URL (optional)').setStyle(TextInputStyle.Short).setPlaceholder('https://i.imgur.com/...').setRequired(false)
       ),
     );
   await interaction.showModal(modal);
@@ -188,7 +173,6 @@ async function handleReviewSubmit(interaction) {
   }
 
   const guildId = interaction.guildId ?? '0';
-  const methods = await getPaymentMethods(guildId);
   vouchState.set(interaction.user.id, { orderKind: 'ranked', guildId });
 
   const e = baseEmbed('⭐ Submit Your Vouch', GOLD);
@@ -197,18 +181,9 @@ async function handleReviewSubmit(interaction) {
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))
   );
-  const payOptions = methods.map(m =>
-    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
-  );
-  const svcOptions = [
-    new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setEmoji('🟢'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setEmoji('🔴'),
-  ];
 
   const components = [
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Select your rating...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_pay_select').setPlaceholder('Select payment method used...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_svc_select').setPlaceholder('Was this a Boost or Carry?').addOptions(svcOptions)),
     new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji('✅')),
   ];
 

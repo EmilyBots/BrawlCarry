@@ -25,9 +25,9 @@ const rankedPanelCmd = {
     const view = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('ranked_order_btn')
-        .setLabel('Ranked Boost')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🔥')
+        .setLabel('Ranked Order')
+.setStyle(ButtonStyle.Primary)
+.setEmoji({ name: 'masters', id: '1506001723657945262' })
     );
 
     await interaction.channel.send({ embeds: [e, ...extraEmbeds], components: [view] });
@@ -58,9 +58,9 @@ const prestigePanelCmd = {
     const view = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('prestige_order_btn')
-        .setLabel('Prestige Boost')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('✨')
+        .setLabel('Prestige Order')
+.setStyle(ButtonStyle.Secondary)
+.setEmoji({ name: 'copyright', id: '1505997750620131408' })
     );
 
     await interaction.channel.send({ embeds: [e, ...extraEmbeds], components: [view] });

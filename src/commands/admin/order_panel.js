@@ -26,7 +26,7 @@ const rankedPanelCmd = {
       new ButtonBuilder()
         .setCustomId('ranked_order_btn')
         .setLabel('Ranked Order')
-.setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Primary)
         .setEmoji({ name: 'masters', id: '1506001723657945262' })
     );
 
@@ -59,7 +59,7 @@ const prestigePanelCmd = {
       new ButtonBuilder()
         .setCustomId('prestige_order_btn')
         .setLabel('Prestige Order')
-.setStyle(ButtonStyle.Secondary)
+        .setStyle(ButtonStyle.Secondary)
         .setEmoji({ name: 'copyright', id: '1505997750620131408' })
     );
 

@@ -33,7 +33,7 @@ async function handleButton(interaction) {
   vouchState.set(interaction.user.id, { orderKind, guildId });
 
   const e = baseEmbed('⭐ Submit Your Vouch', GOLD);
-  e.setDescription('Select your **rating**, **payment method** and **service type**, then click **Continue** to fill in your feedback and proof.\n\nThank you for taking the time to vouch!');
+  e.setDescription('Select your **rating**, then click **Continue** to fill in your feedback.\n\nThank you for taking the time to vouch!');
 
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))
@@ -86,13 +86,13 @@ async function handleModal(interaction) {
   const state      = getVouchState(interaction.user.id);
   const amountRaw  = interaction.fields.getTextInputValue('amount').replace('€', '').trim();
   const feedback   = interaction.fields.getTextInputValue('feedback');
-  const imgUrl     = interaction.fields.getTextInputValue('image_url')?.trim() || null;
+  const imgUrl     = null;
 
   const amountVal = parseFloat(amountRaw) || 0;
   const stars     = state.rating ?? 5;
   const orderKind = state.orderKind ?? 'ranked';
-  const payment   = state.payment ?? 'Unknown';
-  const svcType   = state.serviceType ?? 'boost';
+  const payment   = 'Unknown';
+const svcType   = 'boost';
   const guildId   = state.guildId ?? interaction.guildId ?? '0';
 
   const vouchId = `VOUCH-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
@@ -100,10 +100,10 @@ async function handleModal(interaction) {
   const countRow = await queryOne('SELECT COUNT(*) AS cnt FROM vouchers');
   const vouchNum = parseInt(countRow?.cnt ?? 0) + 1;
 
-  await queryOne(
-    'INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, image_url, method, order_kind, service_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-    [vouchId, vouchId, amountVal, interaction.user.id, stars, feedback, imgUrl, payment, orderKind, svcType]
-  );
+await queryOne(
+  'INSERT INTO vouchers (id, code, amount, used_by, rating, feedback, order_kind) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+  [vouchId, vouchId, amountVal, interaction.user.id, stars, feedback, orderKind]
+);
 
   const cfg       = interaction.guild ? await getConfig(interaction.guildId) : null;
   const vouchChId = cfg?.vouch_channel_id ? String(cfg.vouch_channel_id) : FALLBACK_VOUCH_CHANNEL_ID;
@@ -112,13 +112,13 @@ async function handleModal(interaction) {
   const starDisplay = customStar.repeat(stars);
 
   let kindLabel, svcIcon;
-  if (orderKind === 'prestige') {
-    svcIcon   = prestigeEmoji('Prestige 0 -> Prestige 1');
-    kindLabel = svcType === 'boost' ? 'Prestige Boost' : 'Prestige Carry';
-  } else {
-    svcIcon   = '🔥';
-    kindLabel = svcType === 'boost' ? 'Ranked Boost' : 'Ranked Carry';
-  }
+if (orderKind === 'prestige') {
+  svcIcon   = prestigeEmoji('Prestige 0 -> Prestige 1');
+  kindLabel = 'Prestige Boost';
+} else {
+  svcIcon   = '🔥';
+  kindLabel = 'Ranked Boost';
+}
 
   const e = new EmbedBuilder()
     .setColor(GOLD)
@@ -176,7 +176,7 @@ async function handleReviewSubmit(interaction) {
   vouchState.set(interaction.user.id, { orderKind: 'ranked', guildId });
 
   const e = baseEmbed('⭐ Submit Your Vouch', GOLD);
-  e.setDescription('Select your **rating**, **payment method** and **service type**, then click **Continue** to fill in your feedback and proof.\n\nThank you for taking the time to vouch!');
+  e.setDescription('Select your **rating**, then click **Continue** to fill in your feedback.\n\nThank you for taking the time to vouch!');
 
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))

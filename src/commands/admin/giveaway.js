@@ -55,35 +55,39 @@ const giveawayCmd = {
     );
 
     const endTs = Math.floor(endsAt.getTime() / 1000);
-    const e = new EmbedBuilder()
-      .setColor(PRIMARY)
-      .setTitle(`🎁 ${prize}`)
-      .addFields(
-        { name: 'ℹ️ Description', value: description,                                     inline: false },
-        { name: '⏰ Ends',        value: `<t:${endTs}:F>  (<t:${endTs}:R>)`,             inline: false },
-        { name: '🏆 Winners',     value: `**${winners}** winner${winners !== 1 ? 's' : ''}`, inline: true },
-        { name: '👥 Participants', value: '**0** entered',                                inline: true },
-        { name: '🎯 Hosted By',   value: interaction.user.toString(),                     inline: true },
-      )
-      .setFooter({ text: `${FOOTER_BRAND} | ID: ${gaId}` })
-      .setTimestamp();
+    const bonusRolesLine = extraEntriesData.length
+  ? `\n<:rocket:1491490870979985438> **Bonus Roles**\n${extraEntriesData.map(ed => `┕ <@&${ed.role_id}> **+${ed.count}** entries`).join('\n')}`
+  : '';
 
-    if (imageUrl) e.setImage(imageUrl);
-    if (extraEntriesData.length) {
-      e.addFields({
-        name: '🎁 Bonus Entries',
-        value: extraEntriesData.map(ed => `<@&${ed.role_id}> → **+${ed.count} extra entries**`).join('\n'),
-        inline: false,
-      });
-    }
+const descriptionBlock = `> ${description}`;
 
-    const view = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji('🎉'),
-      new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji('👥'),
-      new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Bonus Roles').setStyle(ButtonStyle.Secondary).setEmoji('🎁'),
-    );
+const statsBlock = [
+  `<:diamound:1491491246546616340> **${winners}** winner${winners !== 1 ? 's' : ''}`,
+  `<:user:1491499694734708815> **0** Entries`,
+  `⏰ Ends <t:${endTs}:R>`,
+].join('\n');
 
-    const pingContent = ping?.toLowerCase() !== 'none' ? `${ping} **🎉 NEW GIVEAWAY!**` : '**🎉 NEW GIVEAWAY!**';
+const hostedBlock = `<:rocket:1491490870979985438> Host • ${interaction.user}`;
+
+const e = new EmbedBuilder()
+  .setColor(PRIMARY)
+  .setTitle(`<:gift:1491499820379275366> ${prize}`)
+  .setDescription(
+    [descriptionBlock, '', statsBlock, '', hostedBlock, bonusRolesLine].join('\n').trim()
+  )
+  .setFooter({ text: `${FOOTER_BRAND} • ID: ${gaId}` });
+
+if (imageUrl) e.setImage(imageUrl);
+
+const view = new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter').setStyle(ButtonStyle.Success).setEmoji('🎉'),
+  new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1491499694734708815' }),
+  new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Bonus Roles').setStyle(ButtonStyle.Secondary).setEmoji({ name: 'gift', id: '1491499820379275366' }),
+);
+
+    const pingContent = ping?.toLowerCase() !== 'none'
+  ? `<a:giveaway:1506218898255773827> ${ping} **NEW GIVEAWAY** <a:giveaway:1506218898255773827>`
+  : `<a:giveaway:1506218898255773827> **NEW GIVEAWAY** <a:giveaway:1506218898255773827>`;
 
     await interaction.channel.send({
       content: pingContent,
@@ -119,21 +123,25 @@ const endGiveawayCmd = {
     await queryOne('UPDATE giveaways SET winner_ids = $1 WHERE id = $2', [JSON.stringify(winnerIds), gaId]);
 
     const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
-    const e = new EmbedBuilder()
-      .setColor(SUCCESS)
-      .setTitle(`🎁 ${ga.prize} — Giveaway Ended`)
-      .addFields(
-        { name: '🏆 Winners',            value: winnerMentions,                    inline: false },
-        { name: '👥 Total Participants', value: `**${unique.length.toLocaleString()}**`, inline: true },
-        { name: '🆔 Giveaway ID',        value: `\`${gaId}\``,                     inline: true },
-      )
-      .setFooter({ text: FOOTER_BRAND });
+const endedAt = Math.floor(Date.now() / 1000);
 
-    await interaction.channel.send({
-      content: `🎉 Congratulations ${winnerMentions}! You won **${ga.prize}**!`,
-      embeds: [e],
-      allowedMentions: { users: winnerIds },
-    });
+const e = new EmbedBuilder()
+  .setColor(SUCCESS)
+  .setTitle(`<:gift:1491499820379275366> ${ga.prize}`)
+  .setDescription(
+    [
+      `🎊 **Winner${winnerIds.length !== 1 ? 's' : ''}:** ${winnerMentions}`,
+      `<:user:1491499694734708815> **${unique.length.toLocaleString()}** Entries`,
+      `⏰ Ended <t:${endedAt}:R>`,
+    ].join('\n')
+  )
+  .setFooter({ text: `${FOOTER_BRAND} • ID: ${gaId}` });
+
+await interaction.channel.send({
+  content: `<a:giveaway:1506218898255773827> Congratulations ${winnerMentions}! You won **${ga.prize}**!`,
+  embeds: [e],
+  allowedMentions: { users: winnerIds },
+});
 
     await interaction.reply({ content: '✅ Giveaway ended.', ephemeral: true });
   },

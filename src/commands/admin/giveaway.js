@@ -67,13 +67,12 @@ if (extraEntriesData.length) {
   extraEntriesData.forEach(ed => statsLines.push(`<@&${ed.role_id}> — **+${ed.count}** entries`));
 }
 
-statsLines.push('');
-statsLines.push(`↳ <:rocket:1491490870979985438> Hosted by ${interaction.user}`);
+statsLines.push(`\n↳ <:rocket:1491490870979985438> Hosted by ${interaction.user}`);
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
   .setTitle(`<:gift:1491499820379275366>  ${prize}`)
-  .setDescription(`> <:Info:1501221322183934002> *${description}*\n\n` + statsLines.join('\n'))
+  .setDescription(`> **<:Info:1501221322183934002> ${description}**\n\n` + statsLines.join('\n'))
   .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);

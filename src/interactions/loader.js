@@ -21,7 +21,12 @@ async function loadInteractions(interaction, client) {
     if (id === 'ticket_close_v2' || id === 'ticket_general_btn') return tickets.handleButton(interaction, client);
     if (id.startsWith('vouch_btn:') || id === 'vouch_btn_v2') return vouches.handleButton(interaction, client);
     if (id === 'vouch_continue') return vouches.handleContinueBtn(interaction, client);
-    if (id.startsWith('ga_enter:') || id.startsWith('ga_view:') || id.startsWith('ga_roles:')) return giveaways.handleButton(interaction, client);
+    if (
+  id.startsWith('ga_enter:') ||
+  id.startsWith('ga_view:')  ||
+  id.startsWith('ga_roles:') ||
+  id.startsWith('ga_pg:')
+) return giveaways.handleButton(interaction, client);
     if (id === 'app_accept_v1' || id === 'app_reject_v1') return applications.handleButton(interaction, client);
     if (id.startsWith('account_buy:')) return accounts.handleButton(interaction, client);
     if (id === 'avail_available' || id === 'avail_busy' || id === 'avail_offline') return handleAvailability(interaction);

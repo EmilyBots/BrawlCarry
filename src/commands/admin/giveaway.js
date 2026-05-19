@@ -79,7 +79,7 @@ if (imageUrl) e.setImage(imageUrl);
 
 
 const view = new ActionRowBuilder().addComponents(
-  new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter').setStyle(ButtonStyle.Success).setEmoji('🎉'),
+  new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji({ name: 'giveaway', id: '1506218898255773827', animated: true }),
   new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1491499694734708815' }),
   new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Bonus Roles').setStyle(ButtonStyle.Secondary).setEmoji({ name: 'gift', id: '1491499820379275366' }),
 );

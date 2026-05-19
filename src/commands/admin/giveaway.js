@@ -55,29 +55,29 @@ const giveawayCmd = {
     );
 
     const endTs = Math.floor(endsAt.getTime() / 1000);
-    const e = new EmbedBuilder()
-  .setColor(PRIMARY)
-  .setTitle(`<:gift:1491499820379275366>  ${prize}`)
-  .setDescription(`<:Info:1501221322183934002>  ${description}`)
-  .addFields(
-    { name: '<:diamound:1491491246546616340>  Winners',  value: `**${winners}** winner${winners !== 1 ? 's' : ''}`, inline: true },
-    { name: '<:user:1491499694734708815>  Entries',      value: '**0**',                                            inline: true },
-    { name: '⏰  Ends',                                  value: `<t:${endTs}:R>`,                                   inline: true },
-  );
+    const statsLines = [
+  `<:diamound:1491491246546616340> **${winners}** winner${winners !== 1 ? 's' : ''}`,
+  `<:user:1491499694734708815> **0** entries`,
+  `⏰ Ends <t:${endTs}:R>`,
+];
 
 if (extraEntriesData.length) {
-  e.addFields({
-    name: '<:rocket:1491490870979985438>  Bonus Roles',
-    value: extraEntriesData.map(ed => `<@&${ed.role_id}> — **+${ed.count}** entries`).join('\n'),
-  });
+  statsLines.push('');
+  statsLines.push('<:rocket:1491490870979985438> **Bonus Roles**');
+  extraEntriesData.forEach(ed => statsLines.push(`<@&${ed.role_id}> — **+${ed.count}** entries`));
 }
 
-e.addFields({ name: '<:rocket:1491490870979985438>  Hosted by', value: `${interaction.user}` })
- .setFooter({ text: FOOTER_BRAND });
+statsLines.push('');
+statsLines.push(`↳ <:rocket:1491490870979985438> Hosted by ${interaction.user}`);
+
+const e = new EmbedBuilder()
+  .setColor(PRIMARY)
+  .setTitle(`<:gift:1491499820379275366>  ${prize}`)
+  .setDescription(`> <:Info:1501221322183934002> *${description}*\n\n` + statsLines.join('\n'))
+  .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);
 
-if (imageUrl) e.setImage(imageUrl);
 
 const view = new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter').setStyle(ButtonStyle.Success).setEmoji('🎉'),

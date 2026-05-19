@@ -56,10 +56,10 @@ const giveawayCmd = {
 
     const endTs = Math.floor(endsAt.getTime() / 1000);
     const bonusRolesLine = extraEntriesData.length
-  ? `\n<:rocket:1491490870979985438> **Bonus Roles**\n${extraEntriesData.map(ed => `┕ <@&${ed.role_id}> **+${ed.count}** entries`).join('\n')}`
+  ? `\n━━━━━━━━━━━━━━━\n<:rocket:1491490870979985438> **Bonus Roles**\n${extraEntriesData.map(ed => `┕ <@&${ed.role_id}> **+${ed.count}** entries`).join('\n')}`
   : '';
 
-const descriptionBlock = `> ${description}`;
+const descriptionBlock = `<:Info:1501221322183934002> ${description}`;
 
 const statsBlock = [
   `<:diamound:1491491246546616340> **${winners}** winner${winners !== 1 ? 's' : ''}`,
@@ -71,11 +71,22 @@ const hostedBlock = `<:rocket:1491490870979985438> Host • ${interaction.user}`
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
-  .setTitle(`<:gift:1491499820379275366> ${prize}`)
+  .setTitle(`<:gift:1491499820379275366>  ${prize}`)
   .setDescription(
-    [descriptionBlock, '', statsBlock, '', hostedBlock, bonusRolesLine].join('\n').trim()
+    [
+      descriptionBlock,
+      '',
+      '━━━━━━━━━━━━━━━',
+      '',
+      statsBlock,
+      '',
+      '━━━━━━━━━━━━━━━',
+      '',
+      hostedBlock,
+      bonusRolesLine,
+    ].join('\n').trim()
   )
-  .setFooter({ text: `${FOOTER_BRAND} • ID: ${gaId}` });
+  .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);
 
@@ -127,15 +138,18 @@ const endedAt = Math.floor(Date.now() / 1000);
 
 const e = new EmbedBuilder()
   .setColor(SUCCESS)
-  .setTitle(`<:gift:1491499820379275366> ${ga.prize}`)
+  .setTitle(`<:gift:1491499820379275366>  ${ga.prize}`)
   .setDescription(
     [
       `🎊 **Winner${winnerIds.length !== 1 ? 's' : ''}:** ${winnerMentions}`,
+      '',
+      '━━━━━━━━━━━━━━━',
+      '',
       `<:user:1491499694734708815> **${unique.length.toLocaleString()}** Entries`,
       `⏰ Ended <t:${endedAt}:R>`,
     ].join('\n')
   )
-  .setFooter({ text: `${FOOTER_BRAND} • ID: ${gaId}` });
+  .setFooter({ text: FOOTER_BRAND });
 
 await interaction.channel.send({
   content: `<a:giveaway:1506218898255773827> Congratulations ${winnerMentions}! You won **${ga.prize}**!`,

@@ -34,9 +34,35 @@ async function handleEnter(interaction, gaId) {
 
   await queryOne('UPDATE giveaways SET participants = $1 WHERE id = $2', [JSON.stringify(participants), gaId]);
 
+  // Rebuild the embed with the updated unique participant count
+  const uniqueCount = new Set(participants).size;
+  const endTs       = Math.floor(new Date(ga.ended_at).getTime() / 1000);
+
+  const statsLines = [
+    `<:diamound:1491491246546616340> **${ga.winners}** winner${ga.winners !== 1 ? 's' : ''}`,
+    `<:user:1491499694734708815> **${uniqueCount}** participant${uniqueCount !== 1 ? 's' : ''}`,
+    `⏰ Ends <t:${endTs}:R>`,
+  ];
+  const extraEntriesData2 = JSON.parse(ga.extra_entries || '[]');
+  if (extraEntriesData2.length) {
+    statsLines.push('');
+    statsLines.push('<:rocket:1491490870979985438> **Bonus Roles**');
+    extraEntriesData2.forEach(ed => statsLines.push(`<@&${ed.role_id}> — **+${ed.count}** entries`));
+  }
+  statsLines.push(`\n↳ <:rocket:1491490870979985438> Hosted by <@${ga.hosted_by}>`);
+
+  const updatedEmbed = new EmbedBuilder()
+    .setColor(PRIMARY)
+    .setTitle(`<:gift:1491499820379275366>  ${ga.prize}`)
+    .setDescription(`> **<:Info:1501221322183934002> ${ga.description}**\n\n` + statsLines.join('\n'))
+    .setFooter({ text: FOOTER_BRAND });
+  if (ga.image_url) updatedEmbed.setImage(ga.image_url);
+
+  await interaction.message.edit({ embeds: [updatedEmbed] }).catch(() => {});
+
   const bonusMsg = totalEntries > 1 ? ` You qualified for bonus roles and got **${totalEntries} entries** total! 🎉` : '';
   await interaction.reply({ content: `✅ You've entered! Good luck 🍀${bonusMsg}`, ephemeral: true });
-
+}
 async function handleViewParticipants(interaction, gaId) {
   const ga = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
   if (!ga) return interaction.reply({ content: '❌ Giveaway not found.', ephemeral: true });

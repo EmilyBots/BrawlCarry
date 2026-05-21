@@ -331,7 +331,7 @@ async function handlePrestigeModal(interaction) {
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
     await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
   } catch (err) {
-    return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\``, ephemeral: true });
+    return interaction.editReply({ content: `❌ Failed to create ticket: \`${err.message}\`` });
   }
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);

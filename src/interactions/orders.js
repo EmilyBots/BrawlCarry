@@ -292,9 +292,18 @@ async function handleRankedModal(interaction) {
 
 // ── Prestige order modal submit ───────────────────────────────────────────────
 async function handlePrestigeModal(interaction) {
+  // ✅ Acknowledge immediately — MUST be first, before any await
+  await interaction.deferReply({ ephemeral: true });
+
   const state  = getState(interaction.user.id);
   const guild  = interaction.guild;
   const member = interaction.member;
+
+  // ✅ Guard against expired/missing state
+  if (!state.prestigeSpec || !state.payment || !state.serviceType) {
+    return interaction.editReply({ content: '❌ Session expired. Please start your order again.' });
+  }
+
   const cfg    = await getConfig(interaction.guildId);
 
   const orderId = `PREST-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
@@ -341,8 +350,8 @@ async function handlePrestigeModal(interaction) {
     new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:rocket:1491490870979985438>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
-  await interaction.reply({ content: `✅ Your Prestige Boost order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
-
+    // ✅ editReply instead of reply (interaction is already deferred)
+  await interaction.editReply({ content: `✅ Your Prestige order has been placed!\n📩 Ticket opened: ${ticket.toString()}` });
   orderState.delete(interaction.user.id);
 }
 

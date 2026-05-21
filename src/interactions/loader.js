@@ -34,6 +34,7 @@ async function loadInteractions(interaction, client) {
     if (id === 'ranked_confirm') return orders.handleConfirm(interaction, client);
     if (id === 'prestige_confirm') return orders.handleConfirmPrestige(interaction, client);
     return;
+  }
 
   // ── Select menus ──────────────────────────────────────────────────────────
   if (interaction.isStringSelectMenu()) {

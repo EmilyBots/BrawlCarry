@@ -339,11 +339,12 @@ async function handlePrestigeModal(interaction) {
   const orderE = baseEmbed('<:Info:1501221322183934002> Order Details', ACCENT);
   orderE.setDescription(`## Your Prestige ${modeClean} Order`);
   orderE.addFields(
-    { name: `Prestige ${pe}`,         value: `→ ${state.prestigeSpec}`,      inline: false },
-    { name: '🎮 Brawler',             value: `→ ${state.brawlerName}`,         inline: false },
-    { name: '🏆 Current Trophies',    value: `→ ${state.trophyVal?.toLocaleString() ?? '—'}`, inline: false },
-    { name: '🛠 Service',              value: `→ ${modeClean}`,                 inline: false },
-    { name: `💰 Payment ${payEmoji}`, value: `→ ${state.payment}`,             inline: false },
+    { name: `Prestige ${pe}`,                          value: `→ ${state.prestigeSpec}`,                                                           inline: false },
+    { name: '<:user:1491499694734708815> Brawler',      value: `→ **${state.brawlerName}**`,                                                        inline: false },
+    { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
+    { name: `${state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>'} Order Type`, value: `→ **${modeClean}**`, inline: false },
+    { name: `${payEmoji} Payment Method`,               value: `→ **${state.payment}**`,                                                            inline: false },
+    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ 💰 €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`,                    inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(

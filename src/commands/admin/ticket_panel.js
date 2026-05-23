@@ -30,18 +30,18 @@ const row1 = new ActionRowBuilder().addComponents(
       new StringSelectMenuOptionBuilder()
         .setLabel('General Support')
         .setValue('support')
-        .setEmoji('🎫')
-        .setDescription('Billing, order questions, or general help'),
+        .setEmoji('<:microphone:1491490055636647966>')
+        .setDescription('Open a ticket with our support team'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Staff Applications')
         .setValue('apply')
-        .setEmoji('📝')
-        .setDescription('Apply to join the Brawl Carry™ team'),
+        .setEmoji('<:shield:1491489447445794866>')
+        .setDescription('Apply for a staff or booster role'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Buy Our Services')
         .setValue('services')
         .setEmoji('<:rocket:1491490870979985438>')
-        .setDescription('View our boosting and carry services'),
+        .setDescription('View our available services'),
     )
 );
 

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { baseEmbed } = require('../../utils/embeds');
 const { PRIMARY, GOLD, DARK, ACCENT } = require('../../config/constants');
 
@@ -15,63 +15,37 @@ module.exports = {
     const imageUrl = interaction.options.getString('image_url');
 
     // ── Main embed ────────────────────────────────────────────────────────────
-    const embed = baseEmbed('', ACCENT);
+    const embed = baseEmbed('<:Info:1501221322183934002> Support Center', ACCENT);
 
-    embed
-      .setAuthor({
-        name: 'Brawl Carry™  •  Support Center',
-        iconURL: interaction.guild.iconURL({ dynamic: true }),
-      })
-      .setDescription(
-        [
-          '## <:Info:1501221322183934002> Welcome to Support',
-          '',
-          'Our team is here to help you with anything you need.',
-          'Choose the appropriate category below to open a ticket.',
-          '',
-          '──────────────────────────────',
-          '',
-          '**<:Support:1> 🎫  General Support**',
-          '> Billing issues, order questions, account help,',
-          '> or anything else — we\'ve got you covered.',
-          '',
-          '**📋  Boost Order**',
-          '> Ready to rank up? Open a ticket to place',
-          '> a new boosting order with our team.',
-          '',
-          '**📝  Staff Application**',
-          '> Interested in joining the Brawl Carry™ team?',
-          '> Apply here and a manager will review your request.',
-          '',
-          '──────────────────────────────',
-          '*Average response time: **< 5 minutes***',
-        ].join('\n')
-      )
-      .setFooter({ text: 'Brawl Carry™  •  Tickets are logged and monitored' })
-      .setTimestamp();
+embed.setDescription('>>> Contact our team for support, applications, or server-related issues.');
 
-    if (imageUrl) embed.setImage(imageUrl);
+if (imageUrl) embed.setImage(imageUrl);
 
-    // ── Row 1 — Primary actions ───────────────────────────────────────────────
-    const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('ticket_general_btn')
+    // ── Row 1 — Support center dropdown ──────────────────────────────────────
+const row1 = new ActionRowBuilder().addComponents(
+  new StringSelectMenuBuilder()
+    .setCustomId('support_center_select_v1')
+    .setPlaceholder('Select an option...')
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
         .setLabel('General Support')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('🎫'),
-      new ButtonBuilder()
-        .setCustomId('ticket_order_btn')
-        .setLabel('Boost Order')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('⚡'),
-      new ButtonBuilder()
-        .setCustomId('application_btn')
-        .setLabel('Apply for Staff')
-        .setStyle(ButtonStyle.Secondary)
-        .setEmoji('📝'),
-    );
+        .setValue('support')
+        .setEmoji('🎫')
+        .setDescription('Billing, order questions, or general help'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Staff Applications')
+        .setValue('apply')
+        .setEmoji('📝')
+        .setDescription('Apply to join the Brawl Carry™ team'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Buy Our Services')
+        .setValue('services')
+        .setEmoji('<:rocket:1491490870979985438>')
+        .setDescription('View our boosting and carry services'),
+    )
+);
 
-    await interaction.channel.send({ embeds: [embed], components: [row1] });
-    await interaction.reply({ content: '✅ Support Center panel posted.', ephemeral: true });
+await interaction.channel.send({ embeds: [embed], components: [row1] });
+await interaction.reply({ content: '✅ Support Center panel posted.', ephemeral: true });
   },
 };

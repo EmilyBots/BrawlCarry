@@ -133,17 +133,18 @@ const postAccountCmd = {
       .setTitle('Post Account for Sale');
 
     modal.addComponents(
+      modal.addComponents(
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('game').setLabel('Game').setStyle(TextInputStyle.Short).setRequired(true)
-      ),
-      new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('description').setLabel('Description').setStyle(TextInputStyle.Paragraph).setRequired(true)
+        new TextInputBuilder().setCustomId('description').setLabel('Features (one per line)').setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('380+ skins\nMasters 2\nHalf price shop')
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('price').setLabel('Price (EUR)').setStyle(TextInputStyle.Short).setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('contact').setLabel('Contact Info').setStyle(TextInputStyle.Short).setRequired(true)
+        new TextInputBuilder().setCustomId('contact').setLabel('Trophies | P11 | Hyper  (separated by |)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('67714 | 85 | 76')
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('game').setLabel('Ranked History').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('1x Masters 2025, Masters 2 Peak')
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('image_url').setLabel('Image URL (optional)').setStyle(TextInputStyle.Short).setRequired(false)

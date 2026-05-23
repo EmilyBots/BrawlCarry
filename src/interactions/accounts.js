@@ -100,8 +100,8 @@ async function handleButton(interaction) {
 
   const orderEmbed = new EmbedBuilder()
     .setColor(GOLD)
+    .setTitle(`<:Info:1501221322183934002> Order Details`)
     .setDescription(
-      `<:Info:1501221322183934002> **Order Details**\n\n` +
       `<:rocket:1491490870979985438> **4ccount**\n${featureLinesTicket}\n\n` +
       `<:Amount:1501221154650853450> **Price**\n→ **€${parseFloat(listing.price).toFixed(2)}**`
     );

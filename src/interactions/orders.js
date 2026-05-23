@@ -651,13 +651,13 @@ async function handleOrderCompleteModal(interaction, client) {
   const baseType   = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
   const modeEmoji  = svcType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>';
 
-  const e = baseEmbed(`${baseType.toUpperCase()} ORDER ✦`, SUCCESS);
+  const e = baseEmbed(ordType === 'account' ? '4CCOUNT ORDER ✦' : `${baseType.toUpperCase()} ORDER ✦`, SUCCESS);
   if (guild.icon) e.setAuthor({ name: 'BrawlCarry', iconURL: guild.iconURL() });
   e.addFields(
     { name: 'Customer <:Customer:1501221119900778506>', value: `${custMention}  ·  ${payEmoji} **${order.method ?? '—'}**`, inline: false },
     { name: 'Order Amount <:Amount:1501221154650853450>', value: `➜ **€${priceVal.toFixed(2)}**`, inline: false },
-    { name: `Order Type ${modeEmoji}`, value: `➜ ${baseType} **${mode}**`, inline: false },
-    { name: 'Order Details <:Info:1501221322183934002>', value: `➜ ${details.split('\n')[0]}`, inline: false },
+    { name: `Order Type ${modeEmoji}`, value: `➜ ${ordType === 'account' ? '4ccount' : `${baseType} **${mode}**`}`, inline: false },
+    ...(ordType !== 'account' ? [{ name: 'Order Details <:Info:1501221322183934002>', value: `➜ ${details.split('\n')[0]}`, inline: false }] : []),
   );
 
   let wm = null;

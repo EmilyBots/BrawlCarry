@@ -39,7 +39,6 @@ async function handleModal(interaction) {
   const [trophies = '—', p11 = '—', hyper = '—'] = statsRaw.split('|').map(s => s.trim());
 
   const e = new EmbedBuilder()
-  const e = new EmbedBuilder()
     .setColor(GOLD)
     .setDescription(
       `## <:rocket:1491490870979985438> | New 4ccount For $4le !\n` +

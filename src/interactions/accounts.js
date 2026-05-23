@@ -54,7 +54,7 @@ async function handleModal(interaction) {
     .setFooter({ text: `${FOOTER_BRAND}` });
   if (imageUrl) e.setImage(imageUrl);
   const buyView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒'),
+    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy 4ccount').setStyle(ButtonStyle.Success).setEmoji('🛒'),
     new ButtonBuilder().setCustomId(`account_sold:${listingId}`).setLabel('Mark as Sold').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>')
   );
 
@@ -156,7 +156,7 @@ async function handleSoldButton(interaction) {
     .setDescription(soldDesc);
 
   const disabledRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒').setDisabled(true),
+    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy 4ccount').setStyle(ButtonStyle.Success).setEmoji('🛒').setDisabled(true),
     new ButtonBuilder().setCustomId(`account_sold:${listingId}`).setLabel('Mark as Sold').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>').setDisabled(true)
   );
 

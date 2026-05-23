@@ -79,20 +79,32 @@ async function handleButton(interaction) {
     return interaction.followUp({ content: '❌ This 4ccount has already been sold.', ephemeral: true });
   }
 
-  const e = baseEmbed(`🛒 Account Purchase — ${listing.game}`, GOLD);
+  const e = baseEmbed(null, GOLD);
   e.setDescription(
-    `Welcome, ${member}!\n\nYou're interested in purchasing this account:\n\n` +
-    `🎮 **Game:** ${listing.game}\n` +
-    `💰 **Price:** **€${parseFloat(listing.price).toFixed(2)}**\n` +
-    `📋 **Description:** ${listing.description}\n` +
-    `🆔 **Listing #:** ${listing.id}\n\n` +
-    'Staff will be with you shortly to finalize the purchase.\nPlease have your payment ready!'
+    `Your 4ccount request has been successfully created.\n\n` +
+    `Our team will review and begin processing it shortly.\n\n` +
+    `You can manage your ticket using the options below.`
   );
-  e.setAuthor({ name: member.displayName, iconURL: member.displayAvatarURL() });
 
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
   );
+
+  const featureLinesTicket = listing.description
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(l => `<:reply:1507680110843658260> ${l}`)
+    .join('\n');
+
+  const orderEmbed = new EmbedBuilder()
+    .setColor(GOLD)
+    .setDescription(
+      `<:Info:1501221322183934002> **Order Details**\n\n` +
+      `<:rocket:1491490870979985438> **4ccount**\n${featureLinesTicket}\n\n` +
+      `<:Amount:1501221154650853450> **Price**\n→ **€${parseFloat(listing.price).toFixed(2)}**`
+    );
+  if (listing.image_url) orderEmbed.setImage(listing.image_url);
 
   try {
     const overrideCh = cfg?.account_sale_ticket_channel_id
@@ -104,6 +116,10 @@ async function handleButton(interaction) {
       `purchase-${listing.game.slice(0, 20).toLowerCase().replace(/\s+/g, '-')}-${member.user.username.slice(0, 10).toLowerCase()}`,
       e, closeView, cfg, overrideCh
     );
+
+    await thread.send({ embeds: [orderEmbed] });
+    await thread.send({ content: `<@&1491447093078921267> <@&1355262062124859600> <@&1479079737052762205>` });
+
     await interaction.followUp({ content: `✅ Purchase thread created: ${thread.toString()}`, ephemeral: true });
   } catch (err) {
     await interaction.followUp({ content: `❌ Could not create purchase thread: \`${err.message}\``, ephemeral: true });

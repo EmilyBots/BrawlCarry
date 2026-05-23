@@ -53,7 +53,8 @@ async function handleModal(interaction) {
     .setFooter({ text: `${FOOTER_BRAND}` });
   if (imageUrl) e.setImage(imageUrl);
   const buyView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒')
+    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒'),
+    new ButtonBuilder().setCustomId(`account_sold:${listingId}`).setLabel('Mark as Sold').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>')
   );
 
   if (saleCh) await saleCh.send({ embeds: [e], components: [buyView] });
@@ -62,7 +63,8 @@ async function handleModal(interaction) {
 
 // ── Buy button ────────────────────────────────────────────────────────────────
 async function handleButton(interaction) {
-  const id        = interaction.customId;
+  const id = interaction.customId;
+  if (id.startsWith('account_sold:')) return handleSoldButton(interaction);
   const listingId = id.split(':')[1];
   if (!listingId) return;
 
@@ -74,7 +76,7 @@ async function handleButton(interaction) {
 
   const listing = await queryOne('SELECT * FROM account_listings WHERE id = $1', [listingId]);
   if (!listing || listing.status !== 'available') {
-    return interaction.followUp({ content: '❌ This account is no longer available.', ephemeral: true });
+    return interaction.followUp({ content: '❌ This 4ccount has already been sold.', ephemeral: true });
   }
 
   const e = baseEmbed(`🛒 Account Purchase — ${listing.game}`, GOLD);
@@ -106,6 +108,33 @@ async function handleButton(interaction) {
   } catch (err) {
     await interaction.followUp({ content: `❌ Could not create purchase thread: \`${err.message}\``, ephemeral: true });
   }
+}
+
+// ── Mark as Sold ──────────────────────────────────────────────────────────────
+const SOLD_ROLE_ID = '1479079737052762205';
+
+async function handleSoldButton(interaction) {
+  if (!interaction.member.roles.cache.has(SOLD_ROLE_ID)) {
+    return interaction.reply({ content: '❌ You are not allowed to use this button.', ephemeral: true });
+  }
+
+  const listingId = interaction.customId.split(':')[1];
+  await queryOne("UPDATE account_listings SET status = 'sold' WHERE id = $1", [listingId]);
+
+  const original = interaction.message.embeds[0];
+  const soldDesc = `## <:rocket:1491490870979985438> | ~~Sold!~~\n` +
+    original.description.split('\n').slice(1).join('\n');
+
+  const updated = EmbedBuilder.from(original)
+    .setColor(0xFF0000)
+    .setDescription(soldDesc);
+
+  const disabledRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒').setDisabled(true),
+    new ButtonBuilder().setCustomId(`account_sold:${listingId}`).setLabel('Mark as Sold').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>').setDisabled(true)
+  );
+
+  await interaction.update({ embeds: [updated], components: [disabledRow] });
 }
 
 module.exports = { handleModal, handleButton };

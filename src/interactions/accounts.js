@@ -111,7 +111,7 @@ async function handleButton(interaction) {
   const orderId = `ACCT-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
   await queryOne(
     'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-    [orderId, interaction.user.id, listing.description.slice(0, 100), String(listing.id), parseFloat(listing.price), null, 'account', 'account']
+    [orderId, interaction.user.id, listing.description.slice(0, 100), String(listing.id), parseFloat(listing.price), 'PayPal', 'account', 'account']
   );
 
   try {

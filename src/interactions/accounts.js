@@ -9,10 +9,10 @@ const ACCOUNT_SALE_TICKET_CHANNEL_ID = '1491765596403273869'; // hardcoded fallb
 
 // ── Account sale modal (staff posts a listing) ────────────────────────────────
 async function handleModal(interaction) {
-  const game        = interaction.fields.getTextInputValue('game').trim();
+  const rankedInfo  = interaction.fields.getTextInputValue('game').trim();
   const description = interaction.fields.getTextInputValue('description').trim();
   const priceRaw    = interaction.fields.getTextInputValue('price').replace('€', '').trim();
-  const contact     = interaction.fields.getTextInputValue('contact').trim();
+  const statsRaw    = interaction.fields.getTextInputValue('contact').trim();
   const imageUrl    = interaction.fields.getTextInputValue('image_url')?.trim() || null;
 
   const price = parseFloat(priceRaw);
@@ -25,22 +25,35 @@ async function handleModal(interaction) {
 
   const result = await queryOne(
     'INSERT INTO account_listings (guild_id, seller_id, game, description, price, contact, image_url, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-    [interaction.guildId, interaction.user.id, game, description, price, contact, imageUrl, 'available']
+    [interaction.guildId, interaction.user.id, rankedInfo, description, price, statsRaw, imageUrl, 'available']
   );
   const listingId = result?.id;
 
+  const featureLines = description
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(l => `<:reply:1507680110843658260> ${l}`)
+    .join('\n');
+
+  const [trophies = '—', p11 = '—', hyper = '—'] = statsRaw.split('|').map(s => s.trim());
+
   const e = new EmbedBuilder()
     .setColor(GOLD)
-    .setTitle(`🎮 ${game} Account for Sale`)
-    .addFields(
-      { name: '📋 Description', value: description,            inline: false },
-      { name: '💰 Price',       value: `**€${price.toFixed(2)}**`, inline: true  },
-      { name: '📞 Contact',     value: contact,                inline: true  },
+    .setDescription(
+      `## <:rocket:1491490870979985438> | New 4ccount For $4le !\n` +
+      `\u200b\n` +
+      featureLines + `\n` +
+      `\u200b\n` +
+      `<:Amount:1501221154650853450> **Price :** €${price.toFixed(2)}\n` +
+      `<:copyright:1485658086156013598> **Trophies :** ${trophies}\n` +
+      `<:p11:1507678268650688593> **P11 :** ${p11}\n` +
+      `<:copyright:1489942466995163237> **Hypercharge :** ${hyper}\n` +
+      `<:ranked:1507679109495652402> **Ranked :** ${rankedInfo}`
     )
     .setFooter({ text: `${FOOTER_BRAND} | Listing #${listingId}` })
     .setTimestamp();
   if (imageUrl) e.setImage(imageUrl);
-
   const buyView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒')
   );

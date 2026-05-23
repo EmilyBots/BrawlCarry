@@ -39,20 +39,20 @@ async function handleModal(interaction) {
   const [trophies = '—', p11 = '—', hyper = '—'] = statsRaw.split('|').map(s => s.trim());
 
   const e = new EmbedBuilder()
+  const e = new EmbedBuilder()
     .setColor(GOLD)
     .setDescription(
       `## <:rocket:1491490870979985438> | New 4ccount For $4le !\n` +
       `\u200b\n` +
       featureLines + `\n` +
-      `\u200b\n` +
-      `<:Amount:1501221154650853450> **Price :** €${price.toFixed(2)}\n` +
-      `<:copyright:1485658086156013598> **Trophies :** ${trophies}\n` +
-      `<:p11:1507678268650688593> **P11 :** ${p11}\n` +
-      `<:copyright:1489942466995163237> **Hypercharge :** ${hyper}\n` +
-      `<:ranked:1507679109495652402> **Ranked :** ${rankedInfo}`
+      `\n> ─────────────────\n` +
+      `<:Amount:1501221154650853450> **Price :** **€${price.toFixed(2)}**\n` +
+      `<:copyright:1485658086156013598> **Trophies :** **${trophies}**\n` +
+      `<:p11:1507678268650688593> **P11 :** **${p11}**\n` +
+      `<:copyright:1489942466995163237> **Hypercharge :** **${hyper}**\n` +
+      `<:ranked:1507679109495652402> **Ranked :** **${rankedInfo}**`
     )
-    .setFooter({ text: `${FOOTER_BRAND} | Listing #${listingId}` })
-    .setTimestamp();
+    .setFooter({ text: `${FOOTER_BRAND}` });
   if (imageUrl) e.setImage(imageUrl);
   const buyView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`account_buy:${listingId}`).setLabel('Buy Account').setStyle(ButtonStyle.Success).setEmoji('🛒')

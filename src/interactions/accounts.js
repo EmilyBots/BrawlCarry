@@ -43,8 +43,7 @@ async function handleModal(interaction) {
     .setDescription(
       `## <:rocket:1491490870979985438> | New 4ccount For $4le !\n` +
       `\u200b\n` +
-      featureLines + `\n` +
-      `\n> ─────────────────\n` +
+      featureLines + `\n\n` +
       `<:Amount:1501221154650853450> **Price :** **€${price.toFixed(2)}**\n` +
       `<:copyright:1485658086156013598> **Trophies :** **${trophies}**\n` +
       `<:p11:1507678268650688593> **P11 :** **${p11}**\n` +

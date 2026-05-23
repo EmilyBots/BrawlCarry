@@ -648,7 +648,7 @@ async function handleOrderCompleteModal(interaction, client) {
   const custMention = customer?.toString() ?? `<@${order.user_id}>`;
   const boosterMention = order.booster_id ? `<@${order.booster_id}>` : 'Unassigned';
   const mode       = svcType === 'carry' ? 'Carry' : 'Boost';
-  const baseType   = ordType === 'prestige' ? 'Prestige' : 'Ranked';
+  const baseType   = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
   const modeEmoji  = svcType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>';
 
   const e = baseEmbed(`${baseType.toUpperCase()} ORDER ✦`, SUCCESS);
@@ -680,7 +680,7 @@ async function handleOrderCompleteModal(interaction, client) {
 
   // DM customer
   if (customer) {
-    const orderKind = ordType === 'prestige' ? 'prestige' : 'ranked';
+    const orderKind = ordType === 'prestige' ? 'prestige' : ordType === 'account' ? 'account' : 'ranked';
     try {
       if (order.booster_id) {
         const dmE = baseEmbed('✅ Your Order is Complete!', SUCCESS);

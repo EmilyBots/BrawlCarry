@@ -79,12 +79,13 @@ async function handleButton(interaction) {
     return interaction.followUp({ content: '❌ This 4ccount has already been sold.', ephemeral: true });
   }
 
-  const e = baseEmbed(null, GOLD);
+  const e = baseEmbed(`<:rocket:1491490870979985438> 4ccount Ticket`, GOLD);
   e.setDescription(
-    `Your 4ccount request has been successfully created.\n\n` +
+    `## Your 4ccount request has been successfully created.\n\n` +
     `Our team will review and begin processing it shortly.\n\n` +
     `You can manage your ticket using the options below.`
   );
+  e.setFooter({ text: FOOTER_BRAND });
 
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')

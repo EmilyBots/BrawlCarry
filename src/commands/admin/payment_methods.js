@@ -133,7 +133,6 @@ const postAccountCmd = {
       .setTitle('Post Account for Sale');
 
     modal.addComponents(
-      modal.addComponents(
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('description').setLabel('Features (one per line)').setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('380+ skins\nMasters 2\nHalf price shop')
       ),

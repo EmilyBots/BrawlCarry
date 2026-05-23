@@ -4,6 +4,7 @@ const { getConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
 const { createTicketThread } = require('../utils/tickets');
 const { GOLD, SUCCESS, FOOTER_BRAND, HARDCODED_SUPPORT_ROLES } = require('../config/constants');
+const { v4: uuidv4 } = require('uuid');
 
 const ACCOUNT_SALE_TICKET_CHANNEL_ID = '1491765596403273869'; // hardcoded fallback
 
@@ -107,6 +108,12 @@ async function handleButton(interaction) {
     );
   if (listing.image_url) orderEmbed.setImage(listing.image_url);
 
+  const orderId = `ACCT-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  await queryOne(
+    'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [orderId, interaction.user.id, listing.description.slice(0, 100), String(listing.id), parseFloat(listing.price), null, 'account', 'account']
+  );
+
   try {
     const overrideCh = cfg?.account_sale_ticket_channel_id
       ? String(cfg.account_sale_ticket_channel_id)
@@ -114,9 +121,11 @@ async function handleButton(interaction) {
 
     const thread = await createTicketThread(
       guild, member,
-      `purchase-${listing.game.slice(0, 20).toLowerCase().replace(/\s+/g, '-')}-${member.user.username.slice(0, 10).toLowerCase()}`,
+      `4ccount-${member.user.id}`,
       e, closeView, cfg, overrideCh
     );
+
+    await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [thread.id, orderId]);
 
     await thread.send({ embeds: [orderEmbed] });
     await thread.send({ content: `<@&1491447093078921267> <@&1355262062124859600> <@&1479079737052762205>` });

@@ -28,7 +28,7 @@ async function loadInteractions(interaction, client) {
   id.startsWith('ga_pg:')
 ) return giveaways.handleButton(interaction, client);
     if (id === 'app_accept_v1' || id === 'app_reject_v1') return applications.handleButton(interaction, client);
-    if (id.startsWith('account_buy:')) return accounts.handleButton(interaction, client);
+    if (id.startsWith('account_buy:') || id.startsWith('account_sold:')) return accounts.handleButton(interaction, client);
     if (id === 'avail_available' || id === 'avail_busy' || id === 'avail_offline') return handleAvailability(interaction);
     if (id.startsWith('review_submit_ranked_v1') || id.startsWith('review_submit_prestige_v1') || id === 'simple_review_submit_v1') return vouches.handleReviewSubmit(interaction, client);
     if (id === 'ranked_confirm') return orders.handleConfirm(interaction, client);

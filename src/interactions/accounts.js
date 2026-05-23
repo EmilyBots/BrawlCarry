@@ -121,7 +121,7 @@ async function handleButton(interaction) {
 
     const thread = await createTicketThread(
       guild, member,
-      `4ccount-${member.user.id}`,
+      `4ccount-${member.user.username}`,
       e, closeView, cfg, overrideCh
     );
 

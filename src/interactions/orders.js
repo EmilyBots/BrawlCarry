@@ -441,7 +441,7 @@ async function handlePrestigeModal(interaction) {
   const orderE = baseEmbed('<:Info:1501221322183934002> Order Details', ACCENT);
   orderE.setDescription(`## Your Prestige ${modeClean} Order`);
   orderE.addFields(
-    { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           inline: false },
+    { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           
     { name: '<:user:1491499694734708815> Brawler',      value: `→ **${state.brawlerName}**`,                                                        inline: false },
     { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
     { name: `${state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>'} Order Type`, value: `→ **${modeClean}**`, inline: false },

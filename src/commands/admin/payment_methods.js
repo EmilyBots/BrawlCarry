@@ -4,16 +4,24 @@ const { baseEmbed } = require('../../utils/embeds');
 const { addPaymentMethod, removePaymentMethod, getPaymentMethods } = require('../../utils/permissions');
 const { PRIMARY, SUCCESS, DANGER, GOLD, ACCENT, PRESTIGE_PRICES } = require('../../config/constants');
 
+const ADMIN_ROLE_ID = '1479079737052762205';
+const guardAdmin = async (i) => {
+  if (i.member.roles.cache.has(ADMIN_ROLE_ID)) return false;
+  await i.reply({ content: '❌ You are not allowed to use this command.', ephemeral: true });
+  return true;
+};
+
 // ── /add_payment_method ───────────────────────────────────────────────────────
 const addPaymentMethodCmd = {
   data: new SlashCommandBuilder()
     .setName('add_payment_method')
     .setDescription('Add a payment method to the order forms')
-    .setDefaultMemberPermissions(0x10)
+    .setDefaultMemberPermissions(null)
     .addStringOption(o => o.setName('label').setDescription('Payment method name (e.g. LTC, Revolut)').setRequired(true))
     .addStringOption(o => o.setName('emoji').setDescription('Emoji to display next to it')),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const label   = interaction.options.getString('label').trim();
     const emoji   = interaction.options.getString('emoji')?.trim() ?? '💳';
     const success = await addPaymentMethod(interaction.guildId, label, emoji);
@@ -31,10 +39,11 @@ const removePaymentMethodCmd = {
   data: new SlashCommandBuilder()
     .setName('remove_payment_method')
     .setDescription('Remove a payment method from the order forms')
-    .setDefaultMemberPermissions(0x10)
+    .setDefaultMemberPermissions(null),
     .addStringOption(o => o.setName('label').setDescription('Exact name of the payment method to remove').setRequired(true)),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const label   = interaction.options.getString('label').trim();
     const success = await removePaymentMethod(interaction.guildId, label);
 
@@ -54,6 +63,7 @@ const listPaymentMethodsCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const methods = await getPaymentMethods(interaction.guildId);
     const e = baseEmbed('💳 Payment Methods', PRIMARY);
     e.setDescription(methods.length
@@ -69,12 +79,13 @@ const setRankPriceCmd = {
   data: new SlashCommandBuilder()
     .setName('set_rank_price')
     .setDescription('Set a custom price for a specific rank boost route')
-    .setDefaultMemberPermissions(0x10)
+    .setDefaultMemberPermissions(null)
     .addStringOption(o => o.setName('from_rank').setDescription('Starting rank').setRequired(true))
     .addStringOption(o => o.setName('to_rank').setDescription('Desired rank').setRequired(true))
     .addNumberOption(o => o.setName('price').setDescription('Base price in EUR').setRequired(true).setMinValue(0)),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const fromRank = interaction.options.getString('from_rank');
     const toRank   = interaction.options.getString('to_rank');
     const price    = interaction.options.getNumber('price');
@@ -96,11 +107,12 @@ const setPrestigePriceCmd = {
   data: new SlashCommandBuilder()
     .setName('set_prestige_price')
     .setDescription('Update a prestige boost price')
-    .setDefaultMemberPermissions(0x10)
+    .setDefaultMemberPermissions(null)
     .addStringOption(o => o.setName('spec').setDescription('e.g. Prestige 0 -> Prestige 1').setRequired(true))
     .addStringOption(o => o.setName('price').setDescription('New price in EUR (e.g. 15)').setRequired(true)),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const spec  = interaction.options.getString('spec');
     const price = interaction.options.getString('price');
 
@@ -125,9 +137,10 @@ const postAccountCmd = {
   data: new SlashCommandBuilder()
     .setName('post_account')
     .setDescription('Post an account for sale in the account-selling channel')
-    .setDefaultMemberPermissions(0x10),
+    .setDefaultMemberPermissions(null),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const modal = new ModalBuilder()
       .setCustomId('account_sale_modal')
       .setTitle('Post Account for Sale');
@@ -159,7 +172,7 @@ const assignRoleCmd = {
   data: new SlashCommandBuilder()
     .setName('assign_role')
     .setDescription('Assign or remove a role from a member')
-    .setDefaultMemberPermissions(0x10000000) // ManageRoles
+    .setDefaultMemberPermissions(null)
     .addUserOption(o => o.setName('member').setDescription('The member').setRequired(true))
     .addRoleOption(o => o.setName('role').setDescription('The role').setRequired(true))
     .addStringOption(o => o.setName('action').setDescription('assign or remove').addChoices(
@@ -168,6 +181,7 @@ const assignRoleCmd = {
     )),
 
   async execute(interaction) {
+    if (await guardAdmin(interaction)) return;
     const member = interaction.options.getMember('member');
     const role   = interaction.options.getRole('role');
     const action = interaction.options.getString('action') ?? 'assign';

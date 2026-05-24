@@ -27,6 +27,46 @@ function getState(userId) {
   return orderState.get(userId);
 }
 
+// ── Prestige level helpers ────────────────────────────────────────────────────
+const PRESTIGE_LEVELS = ['Prestige 0', 'Prestige 1', 'Prestige 2', 'Prestige 3'];
+
+const PREST_CURRENT_EMOJI = {
+  'Prestige 0': '<:Prestige0:1508145555052957737>',
+  'Prestige 1': '<:P1:1508147277577846856>',
+  'Prestige 2': '<:P2:1508147330983923833>',
+};
+const PREST_DESIRED_EMOJI = {
+  'Prestige 1': '<:P1:1508147277577846856>',
+  'Prestige 2': '<:P2:1508147330983923833>',
+  'Prestige 3': '<:P3:1508147370947252345>',
+};
+
+/** Opzioni desired filtrate: solo prestiges superiori a currentPrestige. */
+function buildDesiredPrestigeOptions(currentPrestige) {
+  const ci = PRESTIGE_LEVELS.indexOf(currentPrestige);
+  return PRESTIGE_LEVELS.slice(ci + 1).map(p =>
+    new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_DESIRED_EMOJI[p] || undefined)
+  );
+}
+
+/**
+ * Somma i prezzi di ogni step tra currentPrestige e desiredPrestige.
+ * Per il primo step usa trophyVal reale; per i successivi usa rangeStart (= prezzo pieno).
+ * Il moltiplicatore carry viene applicato UNA VOLTA sul totale finale.
+ */
+function calculateMultiPrestigePrice(currentPrestige, desiredPrestige, trophyVal, serviceType) {
+  const ci = PRESTIGE_LEVELS.indexOf(currentPrestige);
+  const di = PRESTIGE_LEVELS.indexOf(desiredPrestige);
+  let base = 0;
+  for (let i = ci; i < di; i++) {
+    const spec = `${PRESTIGE_LEVELS[i]} -> ${PRESTIGE_LEVELS[i + 1]}`;
+    const tv   = (i === ci) ? trophyVal : PRESTIGE_BASE_TROPHIES[spec];
+    base += calculatePrestigePrice(spec, tv, 'boost'); // 'boost' → nessun ×2 interno
+  }
+  const price = serviceType === 'carry' ? base * 2 : base;
+  return Math.round(price * 100) / 100;
+}
+
 // ── Panel buttons ─────────────────────────────────────────────────────────────
 async function handleRankedPanelBtn(interaction) {
   const guildId  = interaction.guildId;
@@ -59,9 +99,13 @@ async function handlePrestigePanelBtn(interaction) {
   const guildId = interaction.guildId;
   const methods = await getPaymentMethods(guildId);
 
-  const presOptions = PRESTIGE_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PRESTIGE_EMOJI[p] || undefined));
-  const payOptions  = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-  const svcOptions  = [
+  const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
+    new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined)
+  );
+  const payOptions = methods.map(m =>
+    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+  );
+  const svcOptions = [
     new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setDescription('Play on your account — standard price').setEmoji('🟢'),
     new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('Play alongside you — 2x price').setEmoji('🔴'),
   ];
@@ -70,9 +114,19 @@ async function handlePrestigePanelBtn(interaction) {
   e.setDescription('>>> **Reach your desired Prestige quickly and safely with our experienced boosters.**\n\n⚡ Fast • 🔒 Secure • ⭐ Trusted');
 
   const components = [
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_spec').setPlaceholder('Select prestige spec...').addOptions(presOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)),
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
+    ),
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('prest_desired').setPlaceholder('Desired Prestige (select Current first)...').setDisabled(true)
+        .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
+    ),
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+    ),
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)
+    ),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });
@@ -89,8 +143,38 @@ async function handleSelect(interaction) {
   if (id === 'ranked_p11')     { state.p11 = value;         return interaction.deferUpdate(); }
   if (id === 'ranked_pay')     { state.payment = value;     return interaction.deferUpdate(); }
 
-  if (id === 'prest_spec') { state.prestigeSpec = value; return interaction.deferUpdate(); }
-  if (id === 'prest_pay')  { state.payment = value;      return interaction.deferUpdate(); }
+  if (id === 'prest_current') {
+    state.currentPrestige = value;
+    state.desiredPrestige = null; // reset se l'utente cambia current
+    const methods = await getPaymentMethods(interaction.guildId);
+    const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined)
+    );
+    const desiredOptions = buildDesiredPrestigeOptions(value);
+    const payOptions = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+    );
+    const svcOptions = [
+      new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setDescription('Play on your account — standard price').setEmoji('🟢'),
+      new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('Play alongside you — 2x price').setEmoji('🔴'),
+    ];
+    return interaction.update({ components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_desired').setPlaceholder('Desired Prestige...').setDisabled(false).addOptions(desiredOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)
+      ),
+    ]});
+  }
+  if (id === 'prest_desired') { state.desiredPrestige = value; return interaction.deferUpdate(); }
+  if (id === 'prest_pay')     { state.payment = value;         return interaction.deferUpdate(); }
 
   // Final selects trigger confirmation
   if (id === 'ranked_svc') {
@@ -141,9 +225,14 @@ async function handleRankedSvcSubmit(interaction, state) {
 
 async function handlePrestigeSvcSubmit(interaction, state) {
   const missing = [];
-  if (!state.prestigeSpec) missing.push('Prestige Spec');
-  if (!state.payment)      missing.push('Payment Method');
+  if (!state.currentPrestige) missing.push('Current Prestige');
+  if (!state.desiredPrestige) missing.push('Desired Prestige');
+  if (!state.payment)         missing.push('Payment Method');
   if (missing.length) return interaction.reply({ content: `❌ Please fill in: **${missing.join(', ')}**`, ephemeral: true });
+
+  const ci = PRESTIGE_LEVELS.indexOf(state.currentPrestige);
+  const di = PRESTIGE_LEVELS.indexOf(state.desiredPrestige);
+  if (di <= ci) return interaction.reply({ content: '❌ Desired Prestige must be higher than Current Prestige.', ephemeral: true });
 
   // Open trophy + brawler name modal
   const modal = new ModalBuilder()
@@ -188,8 +277,10 @@ async function handlePrestigeTrophyModal(interaction) {
   try { trophyVal = parseInt(trophyRaw.replace(/[,. ]/g, '')); }
   catch (_) { return interaction.reply({ content: '❌ Please enter a valid number like `750`.', ephemeral: true }); }
 
-  // Validate: trophies must be inside the correct range for this prestige spec
-  const trophyError = validatePrestigeTrophies(state.prestigeSpec, trophyVal);
+  // Valida solo il primo step (current -> current+1), che è l'unico con trofei reali
+  const ci = PRESTIGE_LEVELS.indexOf(state.currentPrestige);
+  const firstStepSpec = `${state.currentPrestige} -> ${PRESTIGE_LEVELS[ci + 1]}`;
+  const trophyError = validatePrestigeTrophies(firstStepSpec, trophyVal);
   if (trophyError) return interaction.reply({ content: trophyError, ephemeral: true });
 
   let trophyRange;
@@ -205,14 +296,15 @@ async function handlePrestigeTrophyModal(interaction) {
   state.trophyRange = trophyRange;
   state.brawlerName = brawler;
 
-  const est = calculatePrestigePrice(state.prestigeSpec, trophyVal, state.serviceType);
+  const est = calculateMultiPrestigePrice(state.currentPrestige, state.desiredPrestige, trophyVal, state.serviceType);
   state.estimatedPrice = est;
 
-  const pe = prestigeEmoji(state.prestigeSpec);
+  const specLabel = `${state.currentPrestige} → ${state.desiredPrestige}`;
+  const pe = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
   const e  = baseEmbed('📋 Order Summary', ACCENT);
   e.setDescription(
     `**Please confirm your order:**\n\n` +
-    `${pe} **Prestige:** ${state.prestigeSpec}\n` +
+    `${pe} **Prestige:** ${specLabel}\n` +
     `🎮 **Brawler:** ${brawler}\n` +
     `🏆 **Current Trophies:** ${trophyVal.toLocaleString()}\n` +
     `🛠 **Service:** ${state.serviceType === 'carry' ? 'Carry 🔴 (2x price)' : 'Boost 🟢'}\n` +
@@ -308,21 +400,23 @@ async function handlePrestigeModal(interaction) {
   const member = interaction.member;
 
   // ✅ Guard against expired/missing state
-  if (!state.prestigeSpec || !state.payment || !state.serviceType) {
+  if (!state.currentPrestige || !state.desiredPrestige || !state.payment || !state.serviceType) {
     return interaction.editReply({ content: '❌ Session expired. Please start your order again.' });
   }
 
   const cfg    = await getConfig(interaction.guildId);
 
   const orderId = `PREST-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
-  const [fromP, toP] = state.prestigeSpec.split('->').map(s => s.trim());
+  const fromP = state.currentPrestige;
+  const toP   = state.desiredPrestige;
 
   await queryOne(
     'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, brawler_name, trophy_val) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
     [orderId, interaction.user.id, fromP, toP, 0.0, state.payment, 'prestige', state.serviceType, state.brawlerName, state.trophyVal]
   );
 
-  const pe       = prestigeEmoji(state.prestigeSpec);
+  const specLabel = `${state.currentPrestige} → ${state.desiredPrestige}`;
+  const pe        = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
 
@@ -347,7 +441,7 @@ async function handlePrestigeModal(interaction) {
   const orderE = baseEmbed('<:Info:1501221322183934002> Order Details', ACCENT);
   orderE.setDescription(`## Your Prestige ${modeClean} Order`);
   orderE.addFields(
-    { name: `Prestige ${pe}`,                          value: `→ ${state.prestigeSpec}`,                                                           inline: false },
+    { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           inline: false },
     { name: '<:user:1491499694734708815> Brawler',      value: `→ **${state.brawlerName}**`,                                                        inline: false },
     { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
     { name: `${state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>'} Order Type`, value: `→ **${modeClean}**`, inline: false },

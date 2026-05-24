@@ -39,7 +39,7 @@ const removePaymentMethodCmd = {
   data: new SlashCommandBuilder()
     .setName('remove_payment_method')
     .setDescription('Remove a payment method from the order forms')
-    .setDefaultMemberPermissions(null),
+    .setDefaultMemberPermissions(null)
     .addStringOption(o => o.setName('label').setDescription('Exact name of the payment method to remove').setRequired(true)),
 
   async execute(interaction) {
@@ -60,7 +60,7 @@ const listPaymentMethodsCmd = {
   data: new SlashCommandBuilder()
     .setName('list_payment_methods')
     .setDescription('View all configured payment methods')
-    .setDefaultMemberPermissions(0x10),
+    .setDefaultMemberPermissions(null),
 
   async execute(interaction) {
     if (await guardAdmin(interaction)) return;

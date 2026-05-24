@@ -6,7 +6,7 @@ const {
 } = require('discord.js');
 const { queryOne, queryAll, getConfig } = require('../db/index');
 const { baseEmbed, formatDuration } = require('../utils/embeds');
-const { calculateRankPrice, applyTrophyDiscount, calculatePrestigePriceFlat, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
+const { calculateRankPrice, calculatePrestigePrice, validatePrestigeTrophies, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
 const { getPaymentMethods, getPaymentEmoji, getBoosterStatus, updateTicketActivity } = require('../utils/permissions');
 const { createTicketThread } = require('../utils/tickets');
 const { fetchAndWatermark } = require('../utils/watermark');
@@ -188,6 +188,10 @@ async function handlePrestigeTrophyModal(interaction) {
   try { trophyVal = parseInt(trophyRaw.replace(/[,. ]/g, '')); }
   catch (_) { return interaction.reply({ content: '❌ Please enter a valid number like `750`.', ephemeral: true }); }
 
+  // Validate: trophies must be inside the correct range for this prestige spec
+  const trophyError = validatePrestigeTrophies(state.prestigeSpec, trophyVal);
+  if (trophyError) return interaction.reply({ content: trophyError, ephemeral: true });
+
   let trophyRange;
   if      (trophyVal <= 500)  trophyRange = '0 - 500';
   else if (trophyVal <= 1000) trophyRange = '501 - 1000';
@@ -201,7 +205,7 @@ async function handlePrestigeTrophyModal(interaction) {
   state.trophyRange = trophyRange;
   state.brawlerName = brawler;
 
-  const est = calculatePrestigePriceFlat(state.prestigeSpec, state.serviceType);
+  const est = calculatePrestigePrice(state.prestigeSpec, trophyVal, state.serviceType);
   state.estimatedPrice = est;
 
   const pe = prestigeEmoji(state.prestigeSpec);

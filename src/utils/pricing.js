@@ -129,14 +129,29 @@ function validatePrestigeTrophies(prestigeSpec, trophyVal) {
  * @param {string} serviceType   'boost' | 'carry'
  * @returns {number}             estimated price in €
  */
+const PRESTIGE_2_3_PRICES = {
+  2000: 85,    2050: 81.7,  2100: 78,    2150: 74.5,
+  2200: 71,    2250: 67,    2300: 63.75, 2350: 59.5,
+  2400: 55.25, 2450: 51,    2500: 47.25, 2550: 42.5,
+  2600: 38.25, 2650: 35,    2700: 32,    2750: 26.5,
+  2800: 23.5,  2850: 19,    2900: 14,    2950: 9,
+};
+
 function calculatePrestigePrice(prestigeSpec, trophyVal, serviceType) {
   const cfg = PRESTIGE_CONFIG[prestigeSpec];
   if (!cfg) return 0;
 
-  const totalBlocks      = (cfg.rangeEnd - cfg.rangeStart) / 50;
-  const blocksCompleted  = Math.floor((trophyVal - cfg.rangeStart) / 50);
-  const discountPerBlock = cfg.fullPrice / totalBlocks;
-  const base = Math.max(0, cfg.fullPrice - blocksCompleted * discountPerBlock);
+  let base;
+
+  if (prestigeSpec === 'Prestige 2 -> Prestige 3') {
+    const blockStart = Math.floor((trophyVal - 2000) / 50) * 50 + 2000;
+    base = PRESTIGE_2_3_PRICES[blockStart] ?? 0;
+  } else {
+    const totalBlocks      = (cfg.rangeEnd - cfg.rangeStart) / 50;
+    const blocksCompleted  = Math.floor((trophyVal - cfg.rangeStart) / 50);
+    const discountPerBlock = cfg.fullPrice / totalBlocks;
+    base = Math.max(0, cfg.fullPrice - blocksCompleted * discountPerBlock);
+  }
 
   const price = serviceType === 'carry' ? base * 2 : base;
   return Math.round(price * 100) / 100;

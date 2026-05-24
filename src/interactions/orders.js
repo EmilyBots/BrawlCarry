@@ -6,7 +6,7 @@ const {
 } = require('discord.js');
 const { queryOne, queryAll, getConfig } = require('../db/index');
 const { baseEmbed, formatDuration } = require('../utils/embeds');
-const { calculateRankPrice, applyTrophyDiscount, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
+const { calculateRankPrice, applyTrophyDiscount, calculatePrestigePriceFlat, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
 const { getPaymentMethods, getPaymentEmoji, getBoosterStatus, updateTicketActivity } = require('../utils/permissions');
 const { createTicketThread } = require('../utils/tickets');
 const { fetchAndWatermark } = require('../utils/watermark');
@@ -201,6 +201,9 @@ async function handlePrestigeTrophyModal(interaction) {
   state.trophyRange = trophyRange;
   state.brawlerName = brawler;
 
+  const est = calculatePrestigePriceFlat(state.prestigeSpec, state.serviceType);
+  state.estimatedPrice = est;
+
   const pe = prestigeEmoji(state.prestigeSpec);
   const e  = baseEmbed('📋 Order Summary', ACCENT);
   e.setDescription(
@@ -210,6 +213,7 @@ async function handlePrestigeTrophyModal(interaction) {
     `🏆 **Current Trophies:** ${trophyVal.toLocaleString()}\n` +
     `🛠 **Service:** ${state.serviceType === 'carry' ? 'Carry 🔴 (2x price)' : 'Boost 🟢'}\n` +
     `💰 **Payment:** ${state.payment}\n\n` +
+    `💶 **Estimated Price:** ~${est.toFixed(2)}€\n\n` +
     'Click **Confirm & Continue** to open your ticket.'
   );
 

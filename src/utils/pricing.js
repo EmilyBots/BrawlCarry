@@ -95,28 +95,51 @@ if (masterOneIdx !== -1 && fromIdx >= masterOneIdx) base *= multiplier;
   return Math.round(base * 100) / 100;
 }
 
+// ── Prestige pricing ──────────────────────────────────────────────────────────
+// Source of truth: rangeStart/rangeEnd (trophies) and fullPrice (€) per spec.
+// To update prices: change fullPrice here only.
+// To upgrade to weighted logic (v2): replace calculatePrestigePrice body only —
+// signature (prestigeSpec, trophyVal, serviceType) => number stays the same.
+const PRESTIGE_CONFIG = {
+  'Prestige 0 -> Prestige 1': { rangeStart:    0, rangeEnd: 1000, fullPrice:  8 },
+  'Prestige 1 -> Prestige 2': { rangeStart: 1000, rangeEnd: 2000, fullPrice: 20 },
+  'Prestige 2 -> Prestige 3': { rangeStart: 2000, rangeEnd: 3000, fullPrice: 85 },
+};
+
 /**
- * Apply trophy-based discount to a prestige price.
+ * Returns an error string if trophyVal is outside the valid range for the spec,
+ * or null if valid.
  */
-function applyTrophyDiscount(price, trophyVal = 0, prestigeSpec = null) {
-  const base = PRESTIGE_BASE_TROPHIES[prestigeSpec] ?? 0;
-  const relativeTrophies = Math.max(0, trophyVal - base);
-  if (relativeTrophies <= 500) price *= 0.5;
-  const bands = Math.floor(relativeTrophies / 50);
-  const discount = Math.min(bands * 0.02, 0.20);
-  price *= (1.0 - discount);
+function validatePrestigeTrophies(prestigeSpec, trophyVal) {
+  const cfg = PRESTIGE_CONFIG[prestigeSpec];
+  if (!cfg) return `❌ Unknown prestige spec: \`${prestigeSpec}\`.`;
+  if (isNaN(trophyVal)) return '❌ Please enter a valid number like `750`.';
+  if (trophyVal < cfg.rangeStart || trophyVal > cfg.rangeEnd) {
+    return `❌ For **${prestigeSpec}**, trophies must be between **${cfg.rangeStart.toLocaleString()}** and **${cfg.rangeEnd.toLocaleString()}**.\nYou entered \`${trophyVal.toLocaleString()}\`.`;
+  }
+  return null;
+}
+
+/**
+ * Calculate prestige price — v1: linear system.
+ * Range divided into 50-trophy blocks, each worth an equal share of fullPrice.
+ *
+ * @param {string} prestigeSpec  e.g. 'Prestige 1 -> Prestige 2'
+ * @param {number} trophyVal     current trophies on the brawler
+ * @param {string} serviceType   'boost' | 'carry'
+ * @returns {number}             estimated price in €
+ */
+function calculatePrestigePrice(prestigeSpec, trophyVal, serviceType) {
+  const cfg = PRESTIGE_CONFIG[prestigeSpec];
+  if (!cfg) return 0;
+
+  const totalBlocks      = (cfg.rangeEnd - cfg.rangeStart) / 50;
+  const blocksCompleted  = Math.floor((trophyVal - cfg.rangeStart) / 50);
+  const discountPerBlock = cfg.fullPrice / totalBlocks;
+  const base = Math.max(0, cfg.fullPrice - blocksCompleted * discountPerBlock);
+
+  const price = serviceType === 'carry' ? base * 2 : base;
   return Math.round(price * 100) / 100;
 }
 
-const PRESTIGE_FLAT_PRICES = {
-  'Prestige 0 -> Prestige 1': 8,
-  'Prestige 1 -> Prestige 2': 20,
-  'Prestige 2 -> Prestige 3': 85,
-};
-
-function calculatePrestigePriceFlat(prestigeSpec, serviceType) {
-  const base = PRESTIGE_FLAT_PRICES[prestigeSpec] ?? 0;
-  return serviceType === 'carry' ? base * 2 : base;
-}
-
-module.exports = { calculateRankPrice, applyTrophyDiscount, calculatePrestigePriceFlat, rankEmoji, prestigeEmoji, buildOrderDetailsStr };
+module.exports = { calculateRankPrice, calculatePrestigePrice, validatePrestigeTrophies, rankEmoji, prestigeEmoji, buildOrderDetailsStr };

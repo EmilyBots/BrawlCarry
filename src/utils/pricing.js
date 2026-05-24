@@ -109,9 +109,9 @@ function applyTrophyDiscount(price, trophyVal = 0, prestigeSpec = null) {
 }
 
 const PRESTIGE_FLAT_PRICES = {
-  'P0 -> P1': 8,
-  'P1 -> P2': 20,
-  'P2 -> P3': 85,
+  'Prestige 0 -> Prestige 1': 8,
+  'Prestige 1 -> Prestige 2': 20,
+  'Prestige 2 -> Prestige 3': 85,
 };
 
 function calculatePrestigePriceFlat(prestigeSpec, serviceType) {

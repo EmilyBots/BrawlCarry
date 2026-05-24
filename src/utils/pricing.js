@@ -108,4 +108,15 @@ function applyTrophyDiscount(price, trophyVal = 0, prestigeSpec = null) {
   return Math.round(price * 100) / 100;
 }
 
-module.exports = { calculateRankPrice, applyTrophyDiscount, rankEmoji, prestigeEmoji, buildOrderDetailsStr };
+const PRESTIGE_FLAT_PRICES = {
+  'P0 -> P1': 8,
+  'P1 -> P2': 20,
+  'P2 -> P3': 85,
+};
+
+function calculatePrestigePriceFlat(prestigeSpec, serviceType) {
+  const base = PRESTIGE_FLAT_PRICES[prestigeSpec] ?? 0;
+  return serviceType === 'carry' ? base * 2 : base;
+}
+
+module.exports = { calculateRankPrice, applyTrophyDiscount, calculatePrestigePriceFlat, rankEmoji, prestigeEmoji, buildOrderDetailsStr };

@@ -45,7 +45,7 @@ const PREST_DESIRED_EMOJI = {
 function buildDesiredRankOptions(currentRank) {
   const ci = ALL_RANKS.indexOf(currentRank);
   return DESIRED_RANKS
-    .filter(r => ALL_RANKS.indexOf(r) > ci)
+    .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ci)
     .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
 }
 
@@ -153,7 +153,7 @@ async function handleSelect(interaction) {
     state.currentRank = value;
     state.desiredRank = null; // reset desired se current cambia
     const methods = await getPaymentMethods(interaction.guildId);
-    const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
+    const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
     const desiredOptions = buildDesiredRankOptions(value);
     const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
     const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
@@ -182,7 +182,7 @@ async function handleSelect(interaction) {
     state.desiredPrestige = null; // reset se l'utente cambia current
     const methods = await getPaymentMethods(interaction.guildId);
     const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
-      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined)
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined).setDefault(p === value)
     );
     const desiredOptions = buildDesiredPrestigeOptions(value);
     const payOptions = methods.map(m =>

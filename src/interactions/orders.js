@@ -76,9 +76,9 @@ async function handleRankedPanelBtn(interaction) {
   const desiredOptions = DESIRED_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
   const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
   const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-  const svcOptions     = [
-    new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setDescription('Play on your account — standard price').setEmoji('🟢'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('Play alongside you — 2x price').setEmoji('🔴'),
+  const svcOptions = [
+    new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
+    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
   ];
 
   const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
@@ -106,8 +106,8 @@ async function handlePrestigePanelBtn(interaction) {
     new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
   );
   const svcOptions = [
-    new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setDescription('Play on your account — standard price').setEmoji('🟢'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('Play alongside you — 2x price').setEmoji('🔴'),
+    new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
+    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
   ];
 
   const e = baseEmbed('<:copyright:1485657838897467534> Prestige Order', ACCENT);
@@ -125,7 +125,7 @@ async function handlePrestigePanelBtn(interaction) {
       new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
     ),
     new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)
+      new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Service Type...').addOptions(svcOptions)
     ),
   ];
 
@@ -155,9 +155,9 @@ async function handleSelect(interaction) {
       new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
     );
     const svcOptions = [
-      new StringSelectMenuOptionBuilder().setLabel('Boost').setValue('boost').setDescription('Play on your account — standard price').setEmoji('🟢'),
-      new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('Play alongside you — 2x price').setEmoji('🔴'),
-    ];
+    new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
+    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
+  ];
     return interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
@@ -169,7 +169,7 @@ async function handleSelect(interaction) {
         new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
       ),
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)
+        new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Service Type...').addOptions(svcOptions)
       ),
     ]});
   }

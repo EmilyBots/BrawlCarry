@@ -33,6 +33,8 @@ async function loadInteractions(interaction, client) {
     if (id.startsWith('review_submit_ranked_v1') || id.startsWith('review_submit_prestige_v1') || id === 'simple_review_submit_v1') return vouches.handleReviewSubmit(interaction, client);
     if (id === 'ranked_confirm') return orders.handleConfirm(interaction, client);
     if (id === 'prestige_confirm') return orders.handleConfirmPrestige(interaction, client);
+    if (id === 'ranked_edit' || id === 'prestige_edit') return orders.handleEditOrder(interaction, client);
+    if (id === 'ranked_close' || id === 'prestige_close') return orders.handleCloseOrder(interaction, client);
     return;
   }
 

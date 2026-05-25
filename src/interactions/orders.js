@@ -302,18 +302,21 @@ async function handlePrestigeTrophyModal(interaction) {
   const est = calculateMultiPrestigePrice(state.currentPrestige, state.desiredPrestige, trophyVal, state.serviceType);
   state.estimatedPrice = est;
 
-  const specLabel = `${state.currentPrestige} → ${state.desiredPrestige}`;
-  const pe = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
-  const e  = baseEmbed('📋 Order Summary', ACCENT);
+  const svcEmoji  = state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:Boost:1508378809676861573>';
+  const svcLabel  = state.serviceType === 'carry' ? 'Prestige Carry' : 'Prestige B00st';
+  const pe        = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
+  const de        = PREST_DESIRED_EMOJI[state.desiredPrestige]  ?? '✨';
+  const payEmoji  = await getPaymentEmoji(state.payment, interaction.guildId);
+  const e  = baseEmbed(`<:Info:1501221322183934002> Review Your ${svcLabel} Order`, ACCENT);
   e.setDescription(
-    `**Please confirm your order:**\n\n` +
-    `${pe} **Prestige:** ${specLabel}\n` +
-    `🎮 **Brawler:** ${brawler}\n` +
-    `🏆 **Current Trophies:** ${trophyVal.toLocaleString()}\n` +
-    `🛠 **Service:** ${state.serviceType === 'carry' ? 'Carry 🔴 (2x price)' : 'Boost 🟢'}\n` +
-    `💰 **Payment:** ${state.payment}\n\n` +
-    `💶 **Estimated Price:** ~${est.toFixed(2)}€\n\n` +
-    'Click **Confirm & Continue** to open your ticket.'
+    `## Please double-check your prestige order details before creating your ticket.\n\n` +
+    `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
+    `**Current Prestige** ${pe}\n<:reply:1507680110843658260> **${state.currentPrestige}**\n\n` +
+    `**Desired Prestige** ${de}\n<:reply:1507680110843658260> **${state.desiredPrestige}**\n\n` +
+    `**Current Trophies** <:Trophies:1485658086156013598>\n<:reply:1507680110843658260> **${trophyVal.toLocaleString()}**\n\n` +
+    `**Selected Brawler** <:user:1491499694734708815>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
+    `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
 
   const view = new ActionRowBuilder().addComponents(

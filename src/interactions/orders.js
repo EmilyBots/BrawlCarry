@@ -316,7 +316,9 @@ async function handleRankedSvcSubmit(interaction, state) {
   );
 
   const view = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ranked_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('✅')
+    new ButtonBuilder().setCustomId('ranked_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('<:Yes:1508365664778190878>'),
+    new ButtonBuilder().setCustomId('ranked_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
+    new ButtonBuilder().setCustomId('ranked_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
   );
   await interaction.reply({ embeds: [e], components: [view], ephemeral: true });
 }
@@ -415,7 +417,9 @@ async function handlePrestigeTrophyModal(interaction) {
   );
 
   const view = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('prestige_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('✅')
+    new ButtonBuilder().setCustomId('prestige_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('<:Yes:1508365664778190878>'),
+    new ButtonBuilder().setCustomId('prestige_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
+    new ButtonBuilder().setCustomId('prestige_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
   );
   await interaction.reply({ embeds: [e], components: [view], ephemeral: true });
 }
@@ -434,6 +438,114 @@ async function handleConfirmPrestige(interaction) {
   await interaction.showModal(modal);
 }
 
+// ── Edit Order — reopens the order config select menus ────────────────────────
+async function handleEditOrder(interaction) {
+  const id      = interaction.customId; // 'ranked_edit' or 'prestige_edit'
+  const userId  = interaction.user.id;
+  const state   = getState(userId);     // preserve existing state
+  const guildId = interaction.guildId;
+  const methods = await getPaymentMethods(guildId);
+
+  if (id === 'ranked_edit') {
+    const currentOptions = CURRENT_RANKS.map(r =>
+      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined)
+        .setDefault(r === state.currentRank)
+    );
+    const desiredOptions = state.currentRank
+      ? buildDesiredRankOptions(state.currentRank).map(o => {
+          const isDefault = o.data?.value === state.desiredRank || o.toJSON?.()?.value === state.desiredRank;
+          return isDefault ? o.setDefault(true) : o;
+        })
+      : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
+    const p11Options = P11_OPTIONS.map(p =>
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11)
+    );
+    const payOptions = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
+    );
+    const svcOptions = buildRankedSvcOptions(state.desiredRank ?? null);
+
+    const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
+    e.setDescription('>>> **Complete your ranked order by selecting the options below.**');
+
+    return interaction.update({
+      embeds: [e],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('ranked_desired')
+            .setPlaceholder('Select Desired Rank')
+            .setDisabled(!state.currentRank)
+            .addOptions(state.currentRank ? desiredOptions : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')])
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('ranked_svc').setPlaceholder('Service Type...').addOptions(svcOptions)
+        ),
+      ],
+    });
+  }
+
+  if (id === 'prestige_edit') {
+    const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined).setDefault(p === state.currentPrestige)
+    );
+    const desiredOptions = state.currentPrestige
+      ? buildDesiredPrestigeOptions(state.currentPrestige).map(o => {
+          const isDefault = o.data?.value === state.desiredPrestige || o.toJSON?.()?.value === state.desiredPrestige;
+          return isDefault ? o.setDefault(true) : o;
+        })
+      : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
+    const payOptions = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
+    );
+    const svcOptions = [
+      new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>').setDefault(state.serviceType === 'boost'),
+      new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>').setDefault(state.serviceType === 'carry'),
+    ];
+
+    const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
+    e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
+
+    return interaction.update({
+      embeds: [e],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('prest_desired')
+            .setPlaceholder('Desired Prestige...')
+            .setDisabled(!state.currentPrestige)
+            .addOptions(state.currentPrestige ? desiredOptions : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')])
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('prest_svc').setPlaceholder('Service Type...').addOptions(svcOptions)
+        ),
+      ],
+    });
+  }
+}
+
+// ── Close Order — cancels the order flow and clears session ───────────────────
+async function handleCloseOrder(interaction) {
+  orderState.delete(interaction.user.id);
+
+  const e = baseEmbed('<:sold:1507693147306852515> Order Cancelled', DANGER);
+  e.setDescription('Your order has been cancelled.\n\nAll selections have been cleared. You can start a new order at any time.');
+
+  return interaction.update({ embeds: [e], components: [] });
+}
 // ── Ranked order modal submit ─────────────────────────────────────────────────
 async function handleRankedModal(interaction) {
   const state   = getState(interaction.user.id);
@@ -919,6 +1031,8 @@ module.exports = {
   handleSelect,
   handleConfirm,
   handleConfirmPrestige,
+  handleEditOrder,
+  handleCloseOrder,
   handlePrestigeTrophyModal,
   handleRankedModal,
   handlePrestigeModal,

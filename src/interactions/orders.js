@@ -89,7 +89,7 @@ async function handleRankedPanelBtn(interaction) {
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Your desired rank (min Diamond I)...').addOptions(desiredOptions)),
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_svc').setPlaceholder('Boost or Carry? (Carry = 2x price)').addOptions(svcOptions)),
+    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_svc').setPlaceholder('Service Type...').addOptions(svcOptions)),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });
@@ -209,9 +209,9 @@ async function handleRankedSvcSubmit(interaction, state) {
   const svcEmoji = state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:Boost:1508378809676861573>';
   const svcLabel = state.serviceType === 'carry' ? 'Ranked Carry' : 'Ranked B00st';
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
-  const e  = baseEmbed(`<:Info:1501221322183934002> Confirm Your Ranked ${svcLabel} Order`, PRIMARY);
+  const e  = baseEmbed(`# <:Info:1501221322183934002> Confirm Your Ranked ${svcLabel} Order`, PRIMARY);
   e.setDescription(
-    `Please double-check your ranked order details before creating your ticket.\n\n` +
+    `## Please double-check your ranked order details before creating your ticket.\n\n` +
     `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
     `**Current Rank** ${fe}\n<:reply:1507680110843658260> **${state.currentRank}**\n\n` +
     `**Desired Rank** ${te}\n<:reply:1507680110843658260> **${state.desiredRank}**\n\n` +

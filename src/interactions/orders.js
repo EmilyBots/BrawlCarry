@@ -82,8 +82,7 @@ async function handleRankedPanelBtn(interaction) {
   ];
 
   const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
-  e.setDescription('>>> **Climb the Ranked leaderboard quickly and safely with our experienced boosters.**\n\n⚡ Fast • 🔒 Secure • ⭐ Trusted\n\n⚠️ Minimum desired rank is **Diamond I**. Desired rank must be higher than current rank.');
-
+  e.setDescription('>>> **Complete your ranked order by selecting the options below.**');
   const components = [
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Your current rank...').addOptions(currentOptions)),
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Your desired rank (min Diamond I)...').addOptions(desiredOptions)),
@@ -110,8 +109,8 @@ async function handlePrestigePanelBtn(interaction) {
     new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
   ];
 
-  const e = baseEmbed('<:copyright:1485657838897467534> Prestige Order', ACCENT);
-  e.setDescription('>>> **Reach your desired Prestige quickly and safely with our experienced boosters.**\n\n⚡ Fast • 🔒 Secure • ⭐ Trusted');
+  const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
+  e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
 
   const components = [
     new ActionRowBuilder().addComponents(

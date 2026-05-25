@@ -95,7 +95,7 @@ function buildRankedSvcOptions(desiredRank) {
     return [
       boostOption,
       new StringSelectMenuOptionBuilder()
-        .setLabel('Carry is unavailable above Masters I')
+        .setLabel('Carry is unavailable')
         .setValue('carry_unavailable')
         .setDescription('Matches at this rank are random queue only')
         .setEmoji('<:sold:1507693147306852515>'),

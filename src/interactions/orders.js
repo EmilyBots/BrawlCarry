@@ -30,6 +30,9 @@ function getState(userId) {
 // ── Prestige level helpers ────────────────────────────────────────────────────
 const PRESTIGE_LEVELS = ['Prestige 0', 'Prestige 1', 'Prestige 2', 'Prestige 3'];
 
+// Desired ranks above Masters I → random queue forced by game, Carry impossible
+const CARRY_RESTRICTED_DESIRED = new Set(['Masters II', 'Masters III', 'Pro']);
+
 const PREST_CURRENT_EMOJI = {
   'Prestige 0': '<:Prestige0:1508145555052957737>',
   'Prestige 1': '<:P1:1508147277577846856>',
@@ -75,6 +78,40 @@ function calculateMultiPrestigePrice(currentPrestige, desiredPrestige, trophyVal
   return Math.round(price * 100) / 100;
 }
 
+/**
+ * Builds the Service Type options for the Ranked select menu.
+ * If desiredRank is Masters II, Masters III, or Pro, Carry is replaced
+ * with a non-actionable informational option.
+ * Pass null when no desired rank is selected yet → returns both normal options.
+ */
+function buildRankedSvcOptions(desiredRank) {
+  const boostOption = new StringSelectMenuOptionBuilder()
+    .setLabel('B00st')
+    .setValue('boost')
+    .setDescription('We play on your account - Standard service')
+    .setEmoji('<:Boost:1508378809676861573>');
+
+  if (desiredRank && CARRY_RESTRICTED_DESIRED.has(desiredRank)) {
+    return [
+      boostOption,
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Carry is unavailable above Masters I')
+        .setValue('carry_unavailable')
+        .setDescription('Matches at this rank are random queue only')
+        .setEmoji('<:sold:1507693147306852515>'),
+    ];
+  }
+
+  return [
+    boostOption,
+    new StringSelectMenuOptionBuilder()
+      .setLabel('Carry')
+      .setValue('carry')
+      .setDescription('We play with you (2× Price)')
+      .setEmoji('<:Carry:1501221214251651082>'),
+  ];
+}
+
 // ── Panel buttons ─────────────────────────────────────────────────────────────
 async function handleRankedPanelBtn(interaction) {
   const guildId  = interaction.guildId;
@@ -83,10 +120,7 @@ async function handleRankedPanelBtn(interaction) {
   const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
   const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
   const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-  const svcOptions = [
-    new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
-  ];
+  const svcOptions = buildRankedSvcOptions(null); // desired rank reset, no restriction yet
 
   const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
   e.setDescription('>>> **Complete your ranked order by selecting the options below.**');
@@ -116,10 +150,7 @@ async function handlePrestigePanelBtn(interaction) {
   const payOptions = methods.map(m =>
     new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
   );
-  const svcOptions = [
-    new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
-    new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
-  ];
+  const svcOptions = buildRankedSvcOptions(null);
 
   const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
   e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
@@ -173,7 +204,30 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_svc').setPlaceholder('Service Type...').addOptions(svcOptions)),
     ]});
   }
-  if (id === 'ranked_desired') { state.desiredRank = value; return interaction.deferUpdate(); }
+  if (id === 'ranked_desired') {
+    state.desiredRank = value;
+    const methods = await getPaymentMethods(interaction.guildId);
+    const currentOptions = CURRENT_RANKS.map(r =>
+      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
+    );
+    const desiredOptions = DESIRED_RANKS
+      .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
+    const p11Options = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
+    const payOptions = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
+    const svcOptions = buildRankedSvcOptions(value);
+    return interaction.update({ components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Desired Rank').setDisabled(false).addOptions(desiredOptions)
+      ),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_svc').setPlaceholder('Service Type...').addOptions(svcOptions)),
+    ]});
+  }
   if (id === 'ranked_p11')     { state.p11 = value;         return interaction.deferUpdate(); }
   if (id === 'ranked_pay')     { state.payment = value;     return interaction.deferUpdate(); }
 
@@ -212,6 +266,12 @@ async function handleSelect(interaction) {
 
   // Final selects trigger confirmation
   if (id === 'ranked_svc') {
+    if (value === 'carry_unavailable') {
+      return interaction.reply({
+        content: '❌ **Carry is not available for this desired rank.** Matches above Masters I are played in random queue only. Please select **B00st** to continue.',
+        ephemeral: true,
+      });
+    }
     state.serviceType = value;
     return handleRankedSvcSubmit(interaction, state);
   }

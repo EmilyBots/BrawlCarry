@@ -204,17 +204,20 @@ async function handleRankedSvcSubmit(interaction, state) {
   const est = await calculateRankPrice(state.currentRank, state.desiredRank, state.p11, state.serviceType, interaction.guildId);
   state.estimatedPrice = est;
 
-  const fe = rankEmoji(state.currentRank);
-  const te = rankEmoji(state.desiredRank);
-  const e  = baseEmbed('📋 Order Summary', PRIMARY);
+  const fe      = rankEmoji(state.currentRank);
+  const te      = rankEmoji(state.desiredRank);
+  const svcEmoji = state.serviceType === 'carry' ? '<:Carry:1501221214251651082>' : '<:Boost:1508378809676861573>';
+  const svcLabel = state.serviceType === 'carry' ? 'Ranked Carry' : 'Ranked B00st';
+  const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
+  const e  = baseEmbed(`<:Info:1501221322183934002> Confirm Your Ranked ${svcLabel} Order`, PRIMARY);
   e.setDescription(
-    `**Please confirm your order:**\n\n` +
-    `📦 **Boost:** ${fe} \`${state.currentRank}\` → ${te} \`${state.desiredRank}\`\n` +
-    `${P11_EMOJI} **P11 Brawlers:** ${state.p11}\n` +
-    `🛠 **Service:** ${state.serviceType === 'carry' ? 'Carry 🔴 (2x price)' : 'Boost 🟢'}\n` +
-    `💰 **Payment:** ${state.payment}\n\n` +
-    `💶 **Estimated Price:** ~${est.toFixed(2)}€\n\n` +
-    'Click **Confirm & Continue** to open your ticket.'
+    `Please double-check your ranked order details before creating your ticket.\n\n` +
+    `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
+    `**Current Rank** ${fe}\n<:reply:1507680110843658260> **${state.currentRank}**\n\n` +
+    `**Desired Rank** ${te}\n<:reply:1507680110843658260> **${state.desiredRank}**\n\n` +
+    `**Power 11** ${P11_EMOJI}\n<:reply:1507680110843658260> **${state.p11}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
+    `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
 
   const view = new ActionRowBuilder().addComponents(

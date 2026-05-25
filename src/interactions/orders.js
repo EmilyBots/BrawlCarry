@@ -150,7 +150,11 @@ async function handlePrestigePanelBtn(interaction) {
   const payOptions = methods.map(m =>
     new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
   );
-  const svcOptions = buildRankedSvcOptions(null);
+
+const svcOptions = [
+  new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
+  new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
+];
 
   const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
   e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
@@ -188,10 +192,7 @@ async function handleSelect(interaction) {
     const desiredOptions = buildDesiredRankOptions(value);
     const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
     const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-    const svcOptions = [
-      new StringSelectMenuOptionBuilder().setLabel('B00st').setValue('boost').setDescription('We play on your account - Standard service').setEmoji('<:Boost:1508378809676861573>'),
-      new StringSelectMenuOptionBuilder().setLabel('Carry').setValue('carry').setDescription('We play with you (2× Price)').setEmoji('<:Carry:1501221214251651082>'),
-    ];
+    const svcOptions = buildRankedSvcOptions(null); // desired reset, no restriction yet
     return interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)

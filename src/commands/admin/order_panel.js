@@ -68,4 +68,28 @@ const prestigePanelCmd = {
   },
 };
 
-module.exports = [rankedPanelCmd, prestigePanelCmd];
+// ── Ranked Thread Channel info panel ─────────────────────────────────────────
+const rankedThreadChannelCmd = {
+  data: new SlashCommandBuilder()
+    .setName('ranked_thread_panel')
+    .setDescription('Post the Ranked Thread Channel info panel in this channel')
+    .setDefaultMemberPermissions(0x10),
+
+  async execute(interaction) {
+    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
+
+    const e = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('<:reply:1507680110843658260> Ranked Thread Channel')
+      .setDescription(
+        '### <:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
+      )
+      .setThumbnail(BOT_LOGO)
+      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+
+    await interaction.channel.send({ embeds: [e] });
+    await interaction.reply({ content: '✅ Ranked Thread Channel panel posted.', ephemeral: true });
+  },
+};
+
+module.exports = [rankedPanelCmd, prestigePanelCmd, rankedThreadChannelCmd];

@@ -26,10 +26,8 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
       // Grant temporary view access to the member so they can see the thread
       try {
         await textCh.permissionOverwrites.edit(member, {
-          ViewChannel:        true,
-          ReadMessageHistory: true,
-          SendMessages:       true,
-        });
+  ViewChannel: true,
+});
       } catch (_) {}
 
       let thread;

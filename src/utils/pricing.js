@@ -103,7 +103,7 @@ if (masterOneIdx !== -1 && fromIdx >= masterOneIdx) base *= multiplier;
 const PRESTIGE_CONFIG = {
   'Prestige 0 -> Prestige 1': { rangeStart:    0, rangeEnd: 1000, fullPrice:  8 },
   'Prestige 1 -> Prestige 2': { rangeStart: 1000, rangeEnd: 2000, fullPrice: 20 },
-  'Prestige 2 -> Prestige 3': { rangeStart: 2000, rangeEnd: 3000, fullPrice: 85 },
+  'Prestige 2 -> Prestige 3': { rangeStart: 2000, rangeEnd: 3000, fullPrice: 80 },
 };
 
 /**
@@ -130,11 +130,11 @@ function validatePrestigeTrophies(prestigeSpec, trophyVal) {
  * @returns {number}             estimated price in €
  */
 const PRESTIGE_2_3_PRICES = {
-  2000: 85,    2050: 81.7,  2100: 78,    2150: 74.5,
-  2200: 71,    2250: 67,    2300: 63.75, 2350: 59.5,
-  2400: 55.25, 2450: 51,    2500: 47.25, 2550: 42.5,
-  2600: 38.25, 2650: 35,    2700: 32,    2750: 26.5,
-  2800: 23.5,  2850: 19,    2900: 14,    2950: 9,
+  2000: 80,    2050: 77,  2100: 73.5,    2150: 70,
+  2200: 67,    2250: 63,    2300: 60, 2350: 56,
+  2400: 52, 2450: 48,    2500: 44.5, 2550: 40,
+  2600: 36, 2650: 33,    2700: 30,    2750: 25,
+  2800: 22,  2850: 18,    2900: 14,    2950: 9,
 };
 
 function calculatePrestigePrice(prestigeSpec, trophyVal, serviceType) {

@@ -132,6 +132,16 @@ async function performClose(interaction, channel, guild, messages, order, author
 
   await removeTicketActivity(channel.id);
 
+  // Remove temporary ViewChannel overwrite from the parent channel if this is a thread
+  if (channel.type === ChannelType.PublicThread || channel.type === ChannelType.PrivateThread) {
+    const userId = order?.user_id ?? messages.find(m => !m.author.bot)?.author.id ?? null;
+    if (userId && channel.parent) {
+      try {
+        await channel.parent.permissionOverwrites.delete(userId, 'Ticket closed – removing temporary access');
+      } catch (_) {}
+    }
+  }
+
   await new Promise(r => setTimeout(r, 3000));
   try {
     if (channel.type === ChannelType.PublicThread || channel.type === ChannelType.PrivateThread) {

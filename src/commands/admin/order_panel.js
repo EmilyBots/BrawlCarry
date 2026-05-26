@@ -177,7 +177,7 @@ const accountThreadChannelCmd = {
       .setColor(0x5865F2)
       .setDescription(
         '# <:reply:1507680110843658260> 4ccount Thread Channel\n' +
-        '### <:Boost:1508378809676861573> All private 4ccount tickets created by clients will appear under this channel. <:Amount:1501221154650853450>'
+        '### <:Boost:1508378809676861573> All private 4ccount tickets created by clients will appear under this channel <:Amount:1501221154650853450>'
       )
       .setThumbnail(BOT_LOGO);
 

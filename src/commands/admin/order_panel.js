@@ -269,7 +269,7 @@ const applicationThreadChannelCmd = {
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
-        '# <:reply:1507680110843658260> Application Thread Channel\n' +
+        '# <:reply:1507680110843658260> Apply Thread Channel\n' +
         '### <:Boost:1508378809676861573> All private application tickets created by members will appear under this channel <:shield:1491489447445794866>'
       )
       .setThumbnail(BOT_LOGO);

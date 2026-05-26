@@ -83,8 +83,8 @@ const rankedThreadChannelCmd = {
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
-        '# <:reply:1507680110843658260> Ranked Thread Channel\n\n' +
-        '###<:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
+        '# <:reply:1507680110843658260> Ranked Thread Channel\n' +
+        '### <:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
       )
       .setThumbnail(BOT_LOGO);
 

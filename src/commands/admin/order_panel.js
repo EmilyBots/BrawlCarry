@@ -84,7 +84,7 @@ const rankedThreadChannelCmd = {
       .setColor(0x5865F2)
       .setDescription(
         '# <:reply:1507680110843658260> Ranked Thread Channel\n' +
-        '### <:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
+        '### <:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel <:master:1491521740860428459>'
       )
       .setThumbnail(BOT_LOGO);
 
@@ -115,7 +115,7 @@ const prestigeThreadChannelCmd = {
       .setColor(0x5865F2)
       .setDescription(
         '# <:reply:1507680110843658260> Prestige Thread Channel\n' +
-        '### <:Boost:1508378809676861573> All private prestige tickets created by clients will appear under this channel. <:P3:1508147370947252345>'
+        '### <:Boost:1508378809676861573> All private prestige tickets created by clients will appear under this channel <:P3:1508147370947252345>'
       )
       .setThumbnail(BOT_LOGO);
 

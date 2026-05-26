@@ -82,15 +82,19 @@ const rankedThreadChannelCmd = {
 
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle('# <:reply:1507680110843658260> Ranked Thread Channel')
       .setDescription(
-        '### <:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
+        '# <:reply:1507680110843658260> Ranked Thread Channel\n\n' +
+        '###<:Boost:1508378809676861573> All private ranked tickets created by clients will appear under this channel. <:Matcherino:1479152020312293650>'
       )
-      .setThumbnail(BOT_LOGO)
+      .setThumbnail(BOT_LOGO);
+
+    const banner = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setImage(BANNER)
       .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
 
     await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ files: [BANNER] });
+    await interaction.channel.send({ embeds: [banner] });
     await interaction.reply({ content: '✅ Ranked Thread Channel panel posted.', ephemeral: true });
   },
 };

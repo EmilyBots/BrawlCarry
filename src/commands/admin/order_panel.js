@@ -208,7 +208,7 @@ const winstreakThreadChannelCmd = {
       .setColor(0x5865F2)
       .setDescription(
         '# <:reply:1507680110843658260> Winstreak Thread Channel\n' +
-        '### <:Boost:1508378809676861573> All private winstreak tickets created by clients will appear under this channel. <:Winstreak:1508363674908102657>'
+        '### <:Boost:1508378809676861573> All private winstreak tickets created by clients will appear under this channel <:Winstreak:1508363674908102657>'
       )
       .setThumbnail(BOT_LOGO);
 

@@ -855,6 +855,13 @@ async function handleClaim(interaction, orderId, client) {
         const customer = guild.members.cache.get(String(order.user_id));
         if (customer) await workspace.members.add(customer.id).catch(() => {});
 
+        // Grant booster temporary ViewChannel on the workspace parent channel
+        if (workspace.parent) {
+          try {
+            await workspace.parent.permissionOverwrites.edit(booster.id, { ViewChannel: true }, { reason: 'Temporary booster access for claimed order' });
+          } catch (_) {}
+        }
+
         const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
         await workspace.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
 

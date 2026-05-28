@@ -105,7 +105,16 @@ client.on('guildMemberAdd', async (member) => {
       )
       .setThumbnail('https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&');
 
-    await member.send({ content: `<@${member.id}>`, embeds: [e] });
+    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('🛒 Order Now')
+        .setStyle(ButtonStyle.Link)
+        .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
+    );
+
+    await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });
   } catch (_) {
     // DMs disabled — silently ignore
   }

@@ -113,7 +113,7 @@ client.on('guildMemberAdd', async (member) => {
       new ButtonBuilder()
         .setLabel('🛒 Order Now')
         .setStyle(ButtonStyle.Link)
-        .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
+        .setURL('https://discord.gg/BpU6dt98ka')
     );
 
     await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });

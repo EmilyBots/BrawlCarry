@@ -107,14 +107,7 @@ client.on('guildMemberAdd', async (member) => {
 
     const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('🛒 Order Now')
-        .setStyle(ButtonStyle.Link)
-        .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
-    );
-
-    await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });
+    await member.send({ content: `<@${member.id}>`, embeds: [e] });
   } catch (_) {
     // DMs disabled — silently ignore
   }

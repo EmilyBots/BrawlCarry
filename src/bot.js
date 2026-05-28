@@ -91,6 +91,26 @@ client.once('ready', async () => {
   console.log('[OK] Background tasks started');
 });
 
+// ── Welcome DM ───────────────────────────────────────────────────────────────
+const { EmbedBuilder } = require('discord.js');
+
+client.on('guildMemberAdd', async (member) => {
+  try {
+    const e = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setDescription(
+        '# Welcome to BrawlCarry™\n' +
+        '### Get your orders completed by trusted high-level players <:Boost:1508378809676861573>\n\n' +
+        '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
+      )
+      .setThumbnail('https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&');
+
+    await member.send({ content: `<@${member.id}>`, embeds: [e] });
+  } catch (_) {
+    // DMs disabled — silently ignore
+  }
+});
+
 // ── Global error handlers ────────────────────────────────────────────────────
 client.on('error', (err) => console.error('[BOT ERROR]', err));
 process.on('unhandledRejection', (err) => console.error('[UNHANDLED REJECTION]', err));

@@ -55,24 +55,19 @@ const giveawayCmd = {
     );
 
     const endTs = Math.floor(endsAt.getTime() / 1000);
-    const statsLines = [
-  `<:diamound:1491491246546616340> **${winners}** winner${winners !== 1 ? 's' : ''}`,
-  `<:user:1491499694734708815> **0** entries`,
+    // NUOVO
+const statsLines = [
+  `<:vip:1508831641135612068> **${winners}** winner${winners !== 1 ? 's' : ''}`,
+  `<:user:1508831475796148285> **0** entries`,
   `⏰ Ends <t:${endTs}:R>`,
 ];
 
-if (extraEntriesData.length) {
-  statsLines.push('');
-  statsLines.push('<:rocket:1491490870979985438> **Bonus Roles**');
-  extraEntriesData.forEach(ed => statsLines.push(`<@&${ed.role_id}> — **+${ed.count}** entries`));
-}
-
-statsLines.push(`\n↳ <:rocket:1491490870979985438> Hosted by ${interaction.user}`);
+statsLines.push(`\n<:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by ${interaction.user}`);
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
-  .setTitle(`<:gift:1491499820379275366>  ${prize}`)
-  .setDescription(`> **<:Info:1501221322183934002> ${description}**\n\n` + statsLines.join('\n'))
+  .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
+  .setDescription(`### <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
   .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);
@@ -124,24 +119,18 @@ const endGiveawayCmd = {
     const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
 const endedAt = Math.floor(Date.now() / 1000);
 
+// NUOVO
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
-  .setTitle(`<:gift:1491499820379275366>  ${prize}`)
-  .setDescription(`<:Info:1501221322183934002>  ${description}`)
+  .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
+  .setDescription(`# <:info:1508767700329959545> ${description}`)
   .addFields(
-    { name: '<:diamound:1491491246546616340>  Winners',  value: `**${winners}** winner${winners !== 1 ? 's' : ''}`, inline: true },
-    { name: '<:user:1491499694734708815>  Entries',      value: '**0**',                                            inline: true },
-    { name: '⏰  Ends',                                  value: `<t:${endTs}:R>`,                                   inline: true },
+    { name: '### <:vip:1508831641135612068>  Winners',  value: `**${winners}** winner${winners !== 1 ? 's' : ''}`, inline: true },
+    { name: '### <:user:1508831475796148285>  Entries', value: '**0**',                                            inline: true },
+    { name: '⏰  Ends',                             value: `<t:${endTs}:R>`,                                   inline: true },
   );
 
-if (extraEntriesData.length) {
-  e.addFields({
-    name: '<:rocket:1491490870979985438>  Bonus Roles',
-    value: extraEntriesData.map(ed => `<@&${ed.role_id}> — **+${ed.count}** entries`).join('\n'),
-  });
-}
-
-e.addFields({ name: '<:rocket:1491490870979985438>  Hosted by', value: `${interaction.user}` })
+e.addFields({ name: '<:arrow:1509857611816763482> <:Boost:1508378809676861573>  Hosted by', value: `${interaction.user}` })
  .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);

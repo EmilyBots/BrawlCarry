@@ -26,7 +26,7 @@ async function handleEnter(interaction, gaId) {
     const uniqueCount = new Set(list).size;
     const lines = [
       `### <:vip:1508831641135612068> **${ga.winners}** ${ga.winners !== 1 ? 'Winners' : 'Winner'}`,
-      `### <:user:1508831475796148285> **${uniqueCount}** ${uniqueCount !== 1 ? 'Entries' : 'Entry'}`,
+      `### <:user:1508831475796148285> **${uniqueCount}** ${uniqueCount !== 1 ? 'Participants' : 'Participant'}`,
       `### ⏰ Ends <t:${endTs}:R>`,
     ];
     lines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted By <@${ga.hosted_by}>`);
@@ -117,7 +117,7 @@ async function handleViewRoles(interaction, gaId) {
   const ga               = await queryOne('SELECT extra_entries FROM giveaways WHERE id = $1', [gaId]);
   const extraEntriesData = JSON.parse(ga?.extra_entries || '[]');
 
-  const baseSection = `### <:user:1508831475796148285> Base Entries\n> 1 Entry for everyone`;
+  const baseSection = `### <:user:1508831475796148285> Base Entries\n> Everyone receives 1 base entry`;
 
   let rolesSection = '';
   if (extraEntriesData.length) {

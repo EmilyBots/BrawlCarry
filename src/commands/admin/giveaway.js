@@ -57,17 +57,17 @@ const giveawayCmd = {
     const endTs = Math.floor(endsAt.getTime() / 1000);
     // NUOVO
 const statsLines = [
-  `<:vip:1508831641135612068> **${winners}** winner${winners !== 1 ? 's' : ''}`,
-  `<:user:1508831475796148285> **0** entries`,
-  `⏰ Ends <t:${endTs}:R>`,
+  `### <:vip:1508831641135612068> **${winners}** winner${winners !== 1 ? 's' : ''}`,
+  `### <:user:1508831475796148285> **0** entries`,
+  `### ⏰ Ends <t:${endTs}:R>`,
 ];
 
-statsLines.push(`\n<:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by ${interaction.user}`);
+statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by ${interaction.user}`);
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
   .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
-  .setDescription(`### <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
+  .setDescription(`# <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
   .setFooter({ text: FOOTER_BRAND });
 
 if (imageUrl) e.setImage(imageUrl);

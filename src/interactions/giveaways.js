@@ -51,12 +51,6 @@ const statsLines = [
     .setTitle(`<:Gift:1509855137156567130>  ${ga.prize}`)
     .setDescription(`### <:info:1508767700329959545> ${ga.description}\n\n` + statsLines.join('\n'))
     .setFooter({ text: FOOTER_BRAND });
-
-  const updatedEmbed = new EmbedBuilder()
-    .setColor(PRIMARY)
-    .setTitle(`<:gift:1491499820379275366>  ${ga.prize}`)
-    .setDescription(`> **<:Info:1501221322183934002> ${ga.description}**\n\n` + statsLines.join('\n'))
-    .setFooter({ text: FOOTER_BRAND });
   if (ga.image_url) updatedEmbed.setImage(ga.image_url);
 
   await interaction.message.edit({ embeds: [updatedEmbed] }).catch(() => {});

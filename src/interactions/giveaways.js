@@ -38,18 +38,19 @@ async function handleEnter(interaction, gaId) {
   const uniqueCount = new Set(participants).size;
   const endTs       = Math.floor(new Date(ga.ended_at).getTime() / 1000);
 
-  const statsLines = [
-    `<:diamound:1491491246546616340> **${ga.winners}** winner${ga.winners !== 1 ? 's' : ''}`,
-    `<:user:1491499694734708815> **${uniqueCount}** participant${uniqueCount !== 1 ? 's' : ''}`,
+  // NUOVO
+const statsLines = [
+    `<:vip:1508831641135612068> **${ga.winners}** winner${ga.winners !== 1 ? 's' : ''}`,
+    `<:user:1508831475796148285> **${uniqueCount}** participant${uniqueCount !== 1 ? 's' : ''}`,
     `⏰ Ends <t:${endTs}:R>`,
   ];
-  const extraEntriesData2 = JSON.parse(ga.extra_entries || '[]');
-  if (extraEntriesData2.length) {
-    statsLines.push('');
-    statsLines.push('<:rocket:1491490870979985438> **Bonus Roles**');
-    extraEntriesData2.forEach(ed => statsLines.push(`<@&${ed.role_id}> — **+${ed.count}** entries`));
-  }
-  statsLines.push(`\n↳ <:rocket:1491490870979985438> Hosted by <@${ga.hosted_by}>`);
+  statsLines.push(`\n<:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by <@${ga.hosted_by}>`);
+
+  const updatedEmbed = new EmbedBuilder()
+    .setColor(PRIMARY)
+    .setTitle(`<:Gift:1509855137156567130>  ${ga.prize}`)
+    .setDescription(`### <:info:1508767700329959545> ${ga.description}\n\n` + statsLines.join('\n'))
+    .setFooter({ text: FOOTER_BRAND });
 
   const updatedEmbed = new EmbedBuilder()
     .setColor(PRIMARY)

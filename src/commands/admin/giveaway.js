@@ -141,6 +141,7 @@ const endGiveawayCmd = {
     if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
     await interaction.deferReply({ ephemeral: true });
 
+    const { finishGiveaway } = getGiveawayEnd();
     const gaId = interaction.options.getString('giveaway_id');
     const ga   = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
     if (!ga) return interaction.editReply({ content: `❌ Giveaway \`${gaId}\` non trovato.` });
@@ -171,6 +172,7 @@ const rerollGiveawayCmd = {
     if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
     await interaction.deferReply({ ephemeral: true });
 
+    const { resolveChannel } = getGiveawayEnd();
     const gaId          = interaction.options.getString('giveaway_id');
     const countOverride = interaction.options.getInteger('count') ?? null;
     const ga            = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
@@ -241,6 +243,7 @@ const giveawayReminderCmd = {
     if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
     await interaction.deferReply({ ephemeral: true });
 
+    const { sendGiveawayReminder } = getGiveawayEnd();
     const gaId = interaction.options.getString('giveaway_id');
     const ga   = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
     if (!ga) return interaction.editReply({ content: `❌ Giveaway \`${gaId}\` non trovato.` });

@@ -77,7 +77,7 @@ const view = new ActionRowBuilder().addComponents(
     
 
     await interaction.channel.send({
-      content: '<a:giveaway:1506218898255773827> @everyone NEW GIVEAWAY <a:giveaway:1506218898255773827>',
+      content: '**<a:giveaway:1506218898255773827> @everyone NEW GIVEAWAY <a:giveaway:1506218898255773827>**',
       embeds: [e],
       components: [view],
       allowedMentions: { parse: ['everyone'] },

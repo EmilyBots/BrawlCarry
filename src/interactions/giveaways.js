@@ -116,14 +116,19 @@ async function handleViewParticipants(interaction, gaId) {
 async function handleViewRoles(interaction, gaId) {
   const ga               = await queryOne('SELECT extra_entries FROM giveaways WHERE id = $1', [gaId]);
   const extraEntriesData = JSON.parse(ga?.extra_entries || '[]');
-  const e                = baseEmbed('🎁 Bonus Entry Roles', ACCENT);
 
-  if (!extraEntriesData.length) {
-    e.setDescription('No bonus roles configured for this giveaway.\nEveryone gets **1 entry**.');
-  } else {
-    const lines = ['**Base:** 1 entry (everyone)\n', ...extraEntriesData.map(ed => `<@&${ed.role_id}> → **+${ed.count} extra entries**`), '\n*Bonuses stack! Having multiple roles gives you all their extra entries combined.*'];
-    e.setDescription(lines.join('\n'));
+  const baseSection = `### <:user:1508831475796148285> Base Entries\n> 1 Entry for everyone`;
+
+  let rolesSection = '';
+  if (extraEntriesData.length) {
+    rolesSection = `\n\n### <:Boost:1508378809676861573> Extra Role Bonuses\n` +
+      extraEntriesData.map(ed => `<:arrow:1509857611816763482> <@&${ed.role_id}> +${ed.count} ${ed.count !== 1 ? 'Entries' : 'Entry'}`).join('\n');
   }
+
+  const e = new EmbedBuilder()
+    .setColor(PRIMARY)
+    .setDescription(`# <:vip:1508831641135612068> Bonus Entry Roles\n\n${baseSection}${rolesSection}`)
+    .setFooter({ text: FOOTER_BRAND });
 
   await interaction.reply({ embeds: [e], ephemeral: true });
 }

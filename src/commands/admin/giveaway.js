@@ -3,7 +3,9 @@ const { queryOne, queryAll } = require('../../db/index');
 const { baseEmbed } = require('../../utils/embeds');
 const { PRIMARY, SUCCESS, GOLD, DANGER, FOOTER_BRAND } = require('../../config/constants');
 const { v4: uuidv4 } = require('uuid');
-const { finishGiveaway, sendGiveawayReminder, resolveChannel } = require('../../events/giveaway_end');
+function getGiveawayEnd() {
+  return require('../../events/giveaway_end');
+}
 
 const GIVEAWAY_ROLE = '1479079737052762205';
 function hasGiveawayRole(interaction) {

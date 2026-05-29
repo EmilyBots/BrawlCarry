@@ -55,8 +55,10 @@ const statsLines = [
 
   await interaction.message.edit({ embeds: [updatedEmbed] }).catch(() => {});
 
-  const bonusMsg = totalEntries > 1 ? ` You qualified for bonus roles and got **${totalEntries} entries** total! 🎉` : '';
-  await interaction.reply({ content: `✅ You've entered! Good luck 🍀${bonusMsg}`, ephemeral: true });
+  const replyMsg = totalEntries > 1
+    ? `<:Yes:1508365664778190878> Successfully entered the giveaway!\n\n<:vip:1508831641135612068> Total Entries: **${totalEntries}**\n\n<:Boost:1508378809676861573> Bonus role entries applied!`
+    : `<:Yes:1508365664778190878> Successfully entered the giveaway!\n\n<:vip:1508831641135612068> Total Entries: **1**`;
+  await interaction.reply({ content: replyMsg, ephemeral: true });
 }
 async function handleViewParticipants(interaction, gaId) {
   const ga = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);

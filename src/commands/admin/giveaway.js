@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { queryOne, queryAll } = require('../../db/index');
 const { baseEmbed } = require('../../utils/embeds');
-const { PRIMARY, SUCCESS, FOOTER_BRAND } = require('../../config/constants');
+const { PRIMARY, SUCCESS } = require('../../config/constants');
 const { v4: uuidv4 } = require('uuid');
 
 // ── /giveaway ─────────────────────────────────────────────────────────────────

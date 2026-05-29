@@ -25,15 +25,15 @@ async function handleEnter(interaction, gaId) {
   const buildEmbed = (list) => {
     const uniqueCount = new Set(list).size;
     const lines = [
-      `<:vip:1508831641135612068> **${ga.winners}** winner${ga.winners !== 1 ? 's' : ''}`,
-      `<:user:1508831475796148285> **${uniqueCount}** participant${uniqueCount !== 1 ? 's' : ''}`,
-      `⏰ Ends <t:${endTs}:R>`,
+      `### <:vip:1508831641135612068> **${ga.winners}** winner${ga.winners !== 1 ? 's' : ''}`,
+      `### <:user:1508831475796148285> **${uniqueCount}** participant${uniqueCount !== 1 ? 's' : ''}`,
+      `### ⏰ Ends <t:${endTs}:R>`,
     ];
-    lines.push(`\n<:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by <@${ga.hosted_by}>`);
+    lines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by <@${ga.hosted_by}>`);
     const embed = new EmbedBuilder()
       .setColor(PRIMARY)
       .setTitle(`<:Gift:1509855137156567130>  ${ga.prize}`)
-      .setDescription(`### <:info:1508767700329959545> ${ga.description}\n\n` + lines.join('\n'))
+      .setDescription(`# <:info:1508767700329959545> ${ga.description}\n\n` + lines.join('\n'))
       .setFooter({ text: FOOTER_BRAND });
     if (ga.image_url) embed.setImage(ga.image_url);
     return embed;

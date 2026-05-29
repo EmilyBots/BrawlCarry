@@ -60,13 +60,12 @@ const statsLines = [
   `### ⏰ Ends <t:${endTs}:R>`,
 ];
 
-statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted By ${interaction.user}`);
+statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by ${interaction.user}`);
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
   .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
-  .setDescription(`# > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
-  .setFooter({ text: FOOTER_BRAND });
+  .setDescription(`# > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'));
 
 
 const view = new ActionRowBuilder().addComponents(
@@ -118,8 +117,7 @@ const e = new EmbedBuilder()
     { name: '⏰  Ends',                             value: `<t:${endTs}:R>`,                                   inline: true },
   );
 
-e.addFields({ name: '<:arrow:1509857611816763482> <:Boost:1508378809676861573>  Hosted by', value: `${interaction.user}` })
- .setFooter({ text: FOOTER_BRAND });
+e.addFields({ name: '<:arrow:1509857611816763482> <:Boost:1508378809676861573>  Hosted by', value: `${interaction.user}` });
 
 if (imageUrl) e.setImage(imageUrl);
 

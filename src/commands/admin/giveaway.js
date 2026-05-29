@@ -76,7 +76,12 @@ const view = new ActionRowBuilder().addComponents(
 
     
 
-    await interaction.channel.send({ embeds: [e], components: [view] });
+    await interaction.channel.send({
+      content: '<a:giveaway:1506218898255773827> @everyone NEW GIVEAWAY <a:giveaway:1506218898255773827>',
+      embeds: [e],
+      components: [view],
+      allowedMentions: { parse: ['everyone'] },
+    });
     await interaction.reply({ content: `✅ Giveaway started! ID: \`${gaId}\``, ephemeral: true });
   },
 };

@@ -56,7 +56,7 @@ const giveawayCmd = {
     // NUOVO
 const statsLines = [
   `### <:vip:1508831641135612068> **${winners}** ${winners !== 1 ? 'Winners' : 'Winner'}`,
-  `### <:user:1508831475796148285> **0** Entries`,
+  `### <:user:1508831475796148285> **0** Participants`,
   `### ⏰ Ends <t:${endTs}:R>`,
 ];
 
@@ -71,20 +71,11 @@ const e = new EmbedBuilder()
 
 const view = new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji({ name: 'giveaway', id: '1506218898255773827', animated: true }),
-  new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1508831475796148285' }),
+  new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants List').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1508831475796148285' }),
   new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Extra Entries').setStyle(ButtonStyle.Secondary).setEmoji({ name: 'Gift', id: '1509855137156567130' }),
 );
 
-    const pingContent = ping?.toLowerCase() !== 'none'
-  ? `<a:giveaway:1506218898255773827> ${ping} **NEW GIVEAWAY** <a:giveaway:1506218898255773827>`
-  : `<a:giveaway:1506218898255773827> **NEW GIVEAWAY** <a:giveaway:1506218898255773827>`;
-
-    await interaction.channel.send({
-      content: pingContent,
-      embeds: [e],
-      components: [view],
-      allowedMentions: { parse: ['everyone', 'roles'] },
-    });
+    
 
     await interaction.reply({ content: `✅ Giveaway started! ID: \`${gaId}\``, ephemeral: true });
   },

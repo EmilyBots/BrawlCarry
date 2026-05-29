@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
-const { PRIMARY, ACCENT, FOOTER_BRAND } = require('../config/constants');
+const { PRIMARY, ACCENT } = require('../config/constants');
 
 async function handleButton(interaction) {
   const id    = interaction.customId;
@@ -29,12 +29,11 @@ async function handleEnter(interaction, gaId) {
       `### <:user:1508831475796148285> **${uniqueCount}** ${uniqueCount !== 1 ? 'Participants' : 'Participant'}`,
       `### ⏰ Ends <t:${endTs}:R>`,
     ];
-    lines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted By <@${ga.hosted_by}>`);
+    lines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by <@${ga.hosted_by}>`);
     const embed = new EmbedBuilder()
       .setColor(PRIMARY)
       .setTitle(`<:Gift:1509855137156567130>  ${ga.prize}`)
-      .setDescription(`# > <:info:1508767700329959545> ${ga.description}\n\n` + lines.join('\n'))
-      .setFooter({ text: FOOTER_BRAND });
+      .setDescription(`# > <:info:1508767700329959545> ${ga.description}\n\n` + lines.join('\n'));
     return embed;
   };
 
@@ -76,8 +75,8 @@ async function handleViewParticipants(interaction, gaId) {
 
   const allEntries = JSON.parse(ga.participants || '[]');
   if (!allEntries.length) {
-    const e = baseEmbed('👥 Giveaway Participants', PRIMARY);
-    e.setDescription('No one has entered yet.').setFooter({ text: FOOTER_BRAND });
+    const e = baseEmbed('<:user:1508831475796148285> Giveaway Participants', PRIMARY);
+    e.setDescription('No one has entered yet.');
     return interaction.reply({ embeds: [e], ephemeral: true });
   }
 
@@ -87,7 +86,7 @@ async function handleViewParticipants(interaction, gaId) {
   const lines = Object.entries(tally)
     .sort(([, a], [, b]) => b - a)
     .map(([uid, count], i) =>
-      `\`${String(i + 1).padStart(2, '0')}.\` <@${uid}> — **${count}** entr${count !== 1 ? 'ies' : 'y'}`
+      `> ${String(i + 1).padStart(2, '0')}. <@${uid}> — **${count}** ${count !== 1 ? 'Entries' : 'Entry'}`
     );
 
   const PAGE_SIZE = 15;
@@ -96,12 +95,12 @@ async function handleViewParticipants(interaction, gaId) {
 
   const totalUnique  = Object.keys(tally).length;
   const totalEntries = allEntries.length;
-  const footer       = `${totalUnique} participant${totalUnique !== 1 ? 's' : ''} · ${totalEntries} total entr${totalEntries !== 1 ? 'ies' : 'y'} · ${FOOTER_BRAND}`;
+  const footer       = `${totalUnique} participant${totalUnique !== 1 ? 's' : ''} · ${totalEntries} total entr${totalEntries !== 1 ? 'ies' : 'y'}`;
 
   const embed = new EmbedBuilder()
     .setColor(PRIMARY)
-    .setTitle('👥 Giveaway Participants')
-    .setDescription(pages[0])
+    .setTitle('<:user:1508831475796148285> Giveaway Participants')
+    .setDescription(`<:vip:1508831641135612068> Top Entries\n\n${pages[0]}`)
     .setFooter({ text: pages.length > 1 ? `Page 1/${pages.length} · ${footer}` : footer });
 
   if (pages.length === 1) return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -127,8 +126,7 @@ async function handleViewRoles(interaction, gaId) {
 
   const e = new EmbedBuilder()
     .setColor(PRIMARY)
-    .setDescription(`# <:vip:1508831641135612068> Bonus Entry Roles\n\n${baseSection}${rolesSection}`)
-    .setFooter({ text: FOOTER_BRAND });
+    .setDescription(`# <:vip:1508831641135612068> Bonus Entry Roles\n\n${baseSection}${rolesSection}`);
 
   await interaction.reply({ embeds: [e], ephemeral: true });
 }
@@ -144,8 +142,8 @@ async function handlePagination(interaction) {
 
   const lines = Object.entries(tally)
     .sort(([, a], [, b]) => b - a)
-    .map(([uid, count], i) =>
-      `\`${String(i + 1).padStart(2, '0')}.\` <@${uid}> — **${count}** entr${count !== 1 ? 'ies' : 'y'}`
+     .map(([uid, count], i) =>
+      `> ${String(i + 1).padStart(2, '0')}. <@${uid}> — **${count}** ${count !== 1 ? 'Entries' : 'Entry'}`
     );
 
   const PAGE_SIZE = 15;
@@ -157,10 +155,9 @@ async function handlePagination(interaction) {
 
   const embed = new EmbedBuilder()
     .setColor(PRIMARY)
-    .setTitle('👥 Giveaway Participants')
-    .setDescription(pages[page])
-    .setFooter({ text: `Page ${page + 1}/${pages.length} · ${totalUnique} participant${totalUnique !== 1 ? 's' : ''} · ${totalEntries} total entr${totalEntries !== 1 ? 'ies' : 'y'} · ${FOOTER_BRAND}` });
-
+    .setTitle('<:user:1508831475796148285> Giveaway Participants')
+    .setDescription(`<:vip:1508831641135612068> Top Entries\n\n${pages[page]}`)
+    .setFooter({ text: `Page ${page + 1}/${pages.length} · ${totalUnique} participant${totalUnique !== 1 ? 's' : ''} · ${totalEntries} total entr${totalEntries !== 1 ? 'ies' : 'y'}` });
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`ga_pg:${pgGaId}:${page - 1}`).setLabel('← Prev').setStyle(ButtonStyle.Secondary).setDisabled(page === 0),
     new ButtonBuilder().setCustomId(`ga_pg:${pgGaId}:${page + 1}`).setLabel('Next →').setStyle(ButtonStyle.Secondary).setDisabled(page === pages.length - 1),

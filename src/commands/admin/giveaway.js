@@ -3,6 +3,81 @@ const { queryOne, queryAll } = require('../../db/index');
 const { baseEmbed } = require('../../utils/embeds');
 const { PRIMARY, SUCCESS, GOLD, DANGER, FOOTER_BRAND } = require('../../config/constants');
 const { v4: uuidv4 } = require('uuid');
+
+// ── Cleanup helper ────────────────────────────────────────────────────────────
+// Grace period: giveaway deve essere scaduto da almeno 2 ore per essere
+// considerato candidato alla pulizia. Evita di toccare giveaway appena finiti.
+const CLEANUP_GRACE_HOURS = 2;
+
+async function runGiveawayCleanup(client) {
+  const { resolveChannel } = require('../../events/giveaway_end');
+
+  const cutoff = new Date(Date.now() - CLEANUP_GRACE_HOURS * 3600_000).toISOString();
+
+  // Tutti i giveaway candidati alla pulizia:
+  // 1. Già terminati (hanno winner_ids valorizzato, incluso NO_WINNER)
+  // 2. Scaduti da più di CLEANUP_GRACE_HOURS senza winner_ids (loop non li ha ancora processati ma il canale non esiste)
+  const rows = await require('../../db/index').queryAll(
+    `SELECT * FROM giveaways
+     WHERE
+       (winner_ids IS NOT NULL AND winner_ids != '' AND winner_ids != '[]')
+       OR
+       (ended_at IS NOT NULL AND ended_at < $1)`,
+    [cutoff]
+  );
+
+  let removedExpired  = 0;
+  let removedOrphan   = 0;
+  let removedInvalid  = 0;
+
+  const { queryOne: qOne } = require('../../db/index');
+
+  for (const ga of rows) {
+    const gaId = ga.id;
+
+    // ── Invalidi/corrotti: prize o ended_at mancanti ──────────────────────
+    if (!ga.prize || !ga.ended_at) {
+      await qOne('DELETE FROM giveaways WHERE id = $1', [gaId]);
+      removedInvalid++;
+      continue;
+    }
+
+    // ── Già terminati con winner valido: elimina dal DB ───────────────────
+    const hasValidWinner = ga.winner_ids &&
+      ga.winner_ids !== '' &&
+      ga.winner_ids !== '[]';
+
+    if (hasValidWinner) {
+      await qOne('DELETE FROM giveaways WHERE id = $1', [gaId]);
+      removedExpired++;
+      continue;
+    }
+
+    // ── Scaduti senza winner: verifica se canale esiste ancora ────────────
+    // (solo questi richiedono la verifica canale, non tutti)
+    const ch = ga.channel_id
+      ? (() => {
+          for (const guild of client.guilds.cache.values()) {
+            const found = guild.channels.cache.get(String(ga.channel_id));
+            if (found) return found;
+          }
+          return null;
+        })()
+      : null;
+
+    if (!ch) {
+      // Canale non trovato → giveaway orfano
+      await qOne('DELETE FROM giveaways WHERE id = $1', [gaId]);
+      removedOrphan++;
+      continue;
+    }
+
+    // Canale esiste ma il giveaway è scaduto e non ha winner:
+    // il loop di giveaway_end lo processerà normalmente, non tocchiamo nulla.
+  }
+
+  return { removedExpired, removedOrphan, removedInvalid };
+}
 function getGiveawayEnd() {
   return require('../../events/giveaway_end');
 }
@@ -258,4 +333,41 @@ const giveawayReminderCmd = {
   },
 };
 
-module.exports = [giveawayCmd, endGiveawayCmd, rerollGiveawayCmd, giveawayReminderCmd];
+// ── /clear-giveaways ──────────────────────────────────────────────────────────
+const clearGiveawaysCmd = {
+  data: new SlashCommandBuilder()
+    .setName('clear-giveaways')
+    .setDescription('Rimuove dal DB giveaway scaduti, orfani o corrotti'),
+
+  async execute(interaction) {
+    if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
+    await interaction.deferReply({ ephemeral: true });
+
+    let result;
+    try {
+      result = await runGiveawayCleanup(interaction.client);
+    } catch (err) {
+      console.error('[ERROR] clear-giveaways:', err);
+      return interaction.editReply({ content: `❌ Errore durante il cleanup: \`${err.message}\`` });
+    }
+
+    const { removedExpired, removedOrphan, removedInvalid } = result;
+    const total = removedExpired + removedOrphan + removedInvalid;
+
+    if (total === 0) {
+      return interaction.editReply({ content: '✅ Nessun giveaway da pulire — il DB è già pulito.' });
+    }
+
+    const lines = [
+      '✅ **Giveaway cleanup completed**\n',
+      '**Removed:**',
+      removedExpired  > 0 ? `• \`${removedExpired}\`  expired giveaways (già terminati con vincitori)`  : null,
+      removedOrphan   > 0 ? `• \`${removedOrphan}\`  orphan giveaways (canale non più esistente)`       : null,
+      removedInvalid  > 0 ? `• \`${removedInvalid}\`  invalid/corrupted giveaways (dati mancanti)`       : null,
+    ].filter(Boolean).join('\n');
+
+    await interaction.editReply({ content: lines });
+  },
+};
+
+module.exports = [giveawayCmd, endGiveawayCmd, rerollGiveawayCmd, giveawayReminderCmd, clearGiveawaysCmd];

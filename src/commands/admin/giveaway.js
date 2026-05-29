@@ -15,8 +15,7 @@ const giveawayCmd = {
       .addIntegerOption(o => o.setName('hours').setDescription('Duration in hours').setRequired(true).setMinValue(1))
       .addIntegerOption(o => o.setName('winners').setDescription('Number of winners').setRequired(true).setMinValue(1))
       .addStringOption(o => o.setName('description').setDescription('Giveaway description or rules').setRequired(true))
-      .addStringOption(o => o.setName('ping').setDescription('Who to ping: @everyone, @here, a role mention, or none'))
-      .addStringOption(o => o.setName('image_url').setDescription('Optional banner image URL'));
+      .addStringOption(o => o.setName('ping').setDescription('Who to ping: @everyone, @here, a role mention, or none'));
 
     for (let i = 1; i <= 8; i++) {
       cmd
@@ -33,7 +32,7 @@ const giveawayCmd = {
     const winners     = interaction.options.getInteger('winners');
     const description = interaction.options.getString('description');
     const ping        = interaction.options.getString('ping') ?? '@everyone';
-    const imageUrl    = interaction.options.getString('image_url');
+    
 
     const extraEntriesData = [];
     for (let i = 1; i <= 8; i++) {
@@ -49,7 +48,7 @@ const giveawayCmd = {
       `INSERT INTO giveaways
         (id, prize, description, winners, hosted_by, participants, winner_ids, image_url, extra_entries, ping, ended_at, channel_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-      [gaId, prize, description, winners, interaction.user.id, '[]', null, imageUrl,
+      [gaId, prize, description, winners, interaction.user.id, '[]', null, null,
        extraEntriesData.length ? JSON.stringify(extraEntriesData) : null,
        ping, endsAt, interaction.channelId]
     );
@@ -57,25 +56,23 @@ const giveawayCmd = {
     const endTs = Math.floor(endsAt.getTime() / 1000);
     // NUOVO
 const statsLines = [
-  `### <:vip:1508831641135612068> **${winners}** winner${winners !== 1 ? 's' : ''}`,
-  `### <:user:1508831475796148285> **0** entries`,
+  `### <:vip:1508831641135612068> **${winners}** ${winners !== 1 ? 'Winners' : 'Winner'}`,
+  `### <:user:1508831475796148285> **0** Entries`,
   `### ⏰ Ends <t:${endTs}:R>`,
 ];
 
-statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted by ${interaction.user}`);
+statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573> Hosted By ${interaction.user}`);
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
   .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
-  .setDescription(`# <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
+  .setDescription(`# > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'))
   .setFooter({ text: FOOTER_BRAND });
-
-if (imageUrl) e.setImage(imageUrl);
 
 
 const view = new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji({ name: 'giveaway', id: '1506218898255773827', animated: true }),
-  new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1491499694734708815' }),
+  new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1508831475796148285' }),
   new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Bonus Roles').setStyle(ButtonStyle.Secondary).setEmoji({ name: 'gift', id: '1491499820379275366' }),
 );
 

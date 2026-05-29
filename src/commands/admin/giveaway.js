@@ -1,8 +1,46 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { queryOne, queryAll } = require('../../db/index');
 const { baseEmbed } = require('../../utils/embeds');
-const { PRIMARY, SUCCESS } = require('../../config/constants');
+const { PRIMARY, SUCCESS, GOLD, DANGER, FOOTER_BRAND } = require('../../config/constants');
 const { v4: uuidv4 } = require('uuid');
+const { finishGiveaway, sendGiveawayReminder, resolveChannel } = require('../../events/giveaway_end');
+
+const GIVEAWAY_ROLE = '1479079737052762205';
+function hasGiveawayRole(interaction) {
+  return interaction.member?.roles?.cache?.has(GIVEAWAY_ROLE) ?? false;
+}
+const DENIED = { content: '❌ You do not have permission to use this command.', ephemeral: true };
+
+async function autocompleteActive(interaction) {
+  try {
+    const focused = interaction.options.getFocused().toLowerCase();
+    const rows = await queryAll(
+      `SELECT id, prize FROM giveaways
+       WHERE (winner_ids IS NULL OR winner_ids = '' OR winner_ids = '[]')
+         AND ended_at > NOW()
+       ORDER BY ended_at ASC LIMIT 25`
+    );
+    const choices = rows
+      .filter(r => r.id.toLowerCase().includes(focused) || r.prize.toLowerCase().includes(focused))
+      .map(r => ({ name: `${r.id} — ${r.prize}`.slice(0, 100), value: r.id }));
+    await interaction.respond(choices);
+  } catch (_) { await interaction.respond([]).catch(() => {}); }
+}
+
+async function autocompleteEnded(interaction) {
+  try {
+    const focused = interaction.options.getFocused().toLowerCase();
+    const rows = await queryAll(
+      `SELECT id, prize FROM giveaways
+       WHERE winner_ids IS NOT NULL AND winner_ids != '' AND winner_ids != '[]'
+       ORDER BY ended_at DESC LIMIT 25`
+    );
+    const choices = rows
+      .filter(r => r.id.toLowerCase().includes(focused) || r.prize.toLowerCase().includes(focused))
+      .map(r => ({ name: `${r.id} — ${r.prize}`.slice(0, 100), value: r.id }));
+    await interaction.respond(choices);
+  } catch (_) { await interaction.respond([]).catch(() => {}); }
+}
 
 // ── /giveaway ─────────────────────────────────────────────────────────────────
 const giveawayCmd = {
@@ -86,54 +124,133 @@ const view = new ActionRowBuilder().addComponents(
   },
 };
 
-// ── /end_giveaway ─────────────────────────────────────────────────────────────
+// ── /end-giveaway ─────────────────────────────────────────────────────────────
 const endGiveawayCmd = {
   data: new SlashCommandBuilder()
-    .setName('end_giveaway')
-    .setDescription('End a giveaway and pick winners')
-    .setDefaultMemberPermissions(0x10)
-    .addStringOption(o => o.setName('giveaway_id').setDescription('Giveaway ID (shown in embed footer)').setRequired(true)),
+    .setName('end-giveaway')
+    .setDescription('Termina immediatamente un giveaway attivo e sceglie i vincitori')
+    .addStringOption(o =>
+      o.setName('giveaway_id').setDescription('ID o nome del giveaway').setRequired(true).setAutocomplete(true)
+    ),
+
+  async autocomplete(interaction) { await autocompleteActive(interaction); },
 
   async execute(interaction) {
+    if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
+    await interaction.deferReply({ ephemeral: true });
+
     const gaId = interaction.options.getString('giveaway_id');
     const ga   = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
+    if (!ga) return interaction.editReply({ content: `❌ Giveaway \`${gaId}\` non trovato.` });
 
-    if (!ga) return interaction.reply({ content: '❌ Giveaway not found.', ephemeral: true });
+    const alreadyEnded = ga.winner_ids && ga.winner_ids !== '' && ga.winner_ids !== '[]';
+    if (alreadyEnded) return interaction.editReply({ content: `❌ Il giveaway \`${gaId}\` è già terminato.` });
 
-    const participants = JSON.parse(ga.participants || '[]');
-    if (!participants.length) return interaction.reply({ content: '❌ No participants to draw from.', ephemeral: true });
-
-    const unique     = [...new Set(participants)];
-    const winnerIds  = unique.sort(() => 0.5 - Math.random()).slice(0, ga.winners);
-
-    await queryOne('UPDATE giveaways SET winner_ids = $1 WHERE id = $2', [JSON.stringify(winnerIds), gaId]);
-
-    const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
-const endedAt = Math.floor(Date.now() / 1000);
-
-// NUOVO
-const e = new EmbedBuilder()
-  .setColor(PRIMARY)
-  .setTitle(`<:Gift:1509855137156567130>  ${prize}`)
-  .setDescription(`# <:info:1508767700329959545> ${description}`)
-  .addFields(
-    { name: '### <:vip:1508831641135612068>  Winners',  value: `**${winners}** winner${winners !== 1 ? 's' : ''}`, inline: true },
-    { name: '### <:user:1508831475796148285>  Entries', value: '**0**',                                            inline: true },
-    { name: '⏰  Ends',                             value: `<t:${endTs}:R>`,                                   inline: true },
-  );
-
-e.addFields({ name: '<:arrow:1509857611816763482> <:Boost:1508378809676861573>  Hosted by', value: `${interaction.user}` });
-
-if (imageUrl) e.setImage(imageUrl);
-
-await interaction.channel.send({
-  content: `<a:giveaway:1506218898255773827> Congratulations ${winnerMentions}! You won **${ga.prize}**!`,
-  embeds: [e],
-  allowedMentions: { users: winnerIds },
-});
-
-    await interaction.reply({ content: '✅ Giveaway ended.', ephemeral: true });
+    await finishGiveaway(interaction.client, ga);
+    await interaction.editReply({ content: `✅ Giveaway \`${gaId}\` terminato e vincitori annunciati.` });
   },
 };
 
-module.exports = [giveawayCmd, endGiveawayCmd];
+// ── /reroll-giveaway ──────────────────────────────────────────────────────────
+const rerollGiveawayCmd = {
+  data: new SlashCommandBuilder()
+    .setName('reroll-giveaway')
+    .setDescription('Sceglie un nuovo vincitore per un giveaway già concluso')
+    .addStringOption(o =>
+      o.setName('giveaway_id').setDescription('ID o nome del giveaway').setRequired(true).setAutocomplete(true)
+    )
+    .addIntegerOption(o =>
+      o.setName('count').setDescription('Quanti nuovi vincitori (default: stesso numero originale)').setMinValue(1)
+    ),
+
+  async autocomplete(interaction) { await autocompleteEnded(interaction); },
+
+  async execute(interaction) {
+    if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
+    await interaction.deferReply({ ephemeral: true });
+
+    const gaId          = interaction.options.getString('giveaway_id');
+    const countOverride = interaction.options.getInteger('count') ?? null;
+    const ga            = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
+
+    if (!ga) return interaction.editReply({ content: `❌ Giveaway \`${gaId}\` non trovato.` });
+
+    const notEnded = !ga.winner_ids || ga.winner_ids === '' || ga.winner_ids === '[]';
+    if (notEnded) return interaction.editReply({ content: `❌ Il giveaway \`${gaId}\` non è ancora terminato. Usa prima \`/end-giveaway\`.` });
+
+    const participants = JSON.parse(ga.participants || '[]');
+    const unique       = [...new Set(participants)];
+    if (!unique.length) return interaction.editReply({ content: `❌ Nessun partecipante — impossibile rerollare.` });
+
+    let prevWinners = [];
+    try {
+      const parsed = JSON.parse(ga.winner_ids);
+      if (Array.isArray(parsed)) prevWinners = parsed.filter(w => w !== 'NO_WINNER');
+    } catch (_) {}
+
+    const pool     = unique.filter(u => !prevWinners.includes(u));
+    const drawFrom = pool.length > 0 ? pool : unique;
+    const count    = Math.min(countOverride ?? ga.winners, drawFrom.length);
+    const newWinners = drawFrom.sort(() => 0.5 - Math.random()).slice(0, count);
+
+    const ch = await resolveChannel(interaction.client, ga.channel_id, gaId);
+    let validWinners = newWinners;
+    if (ch?.guild) {
+      const membersMap = await ch.guild.members.fetch({ user: newWinners }).catch(() => new Map());
+      validWinners = newWinners.filter(uid => membersMap.has(uid));
+    }
+
+    if (!validWinners.length) return interaction.editReply({ content: `❌ Nessuno dei partecipanti selezionati risulta ancora nel server.` });
+
+    const validMentions = validWinners.map(w => `<@${w}>`).join(' ');
+    const e = baseEmbed(`🎁 ${ga.prize} — Reroll`, GOLD);
+    e.addFields(
+      { name: '🏆 New Winner(s)',       value: validMentions,                         inline: false },
+      { name: '👥 Total Participants', value: `**${unique.length.toLocaleString()}**`, inline: true  },
+      { name: '🆔 Giveaway ID',        value: `\`${gaId}\``,                          inline: true  },
+    )
+    .setFooter({ text: `${FOOTER_BRAND} | ID: ${gaId}` })
+    .setTimestamp();
+
+    if (ch) {
+      await ch.send({
+        content: `🎉 New winner${validWinners.length !== 1 ? 's' : ''}: ${validMentions}! You won **${ga.prize}**!`,
+        embeds: [e],
+        allowedMentions: { users: validWinners },
+      }).catch(() => {});
+    }
+
+    await interaction.editReply({ content: `✅ Reroll completato. Nuovo/i vincitore/i: ${validMentions}` });
+  },
+};
+
+// ── /giveaway-reminder ────────────────────────────────────────────────────────
+const giveawayReminderCmd = {
+  data: new SlashCommandBuilder()
+    .setName('giveaway-reminder')
+    .setDescription('Invia manualmente il reminder per un giveaway attivo')
+    .addStringOption(o =>
+      o.setName('giveaway_id').setDescription('ID o nome del giveaway').setRequired(true).setAutocomplete(true)
+    ),
+
+  async autocomplete(interaction) { await autocompleteActive(interaction); },
+
+  async execute(interaction) {
+    if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
+    await interaction.deferReply({ ephemeral: true });
+
+    const gaId = interaction.options.getString('giveaway_id');
+    const ga   = await queryOne('SELECT * FROM giveaways WHERE id = $1', [gaId]);
+    if (!ga) return interaction.editReply({ content: `❌ Giveaway \`${gaId}\` non trovato.` });
+
+    const alreadyEnded = ga.winner_ids && ga.winner_ids !== '' && ga.winner_ids !== '[]';
+    if (alreadyEnded) return interaction.editReply({ content: `❌ Il giveaway \`${gaId}\` è già terminato.` });
+
+    const sent = await sendGiveawayReminder(interaction.client, ga);
+    if (!sent) return interaction.editReply({ content: `❌ Impossibile trovare il canale per il giveaway \`${gaId}\`.` });
+
+    await interaction.editReply({ content: `✅ Reminder inviato per il giveaway \`${gaId}\`.` });
+  },
+};
+
+module.exports = [giveawayCmd, endGiveawayCmd, rerollGiveawayCmd, giveawayReminderCmd];

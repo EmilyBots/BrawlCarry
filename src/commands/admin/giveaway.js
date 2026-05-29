@@ -14,8 +14,7 @@ const giveawayCmd = {
       .addStringOption(o => o.setName('prize').setDescription('Prize name').setRequired(true))
       .addIntegerOption(o => o.setName('hours').setDescription('Duration in hours').setRequired(true).setMinValue(1))
       .addIntegerOption(o => o.setName('winners').setDescription('Number of winners').setRequired(true).setMinValue(1))
-      .addStringOption(o => o.setName('description').setDescription('Giveaway description or rules').setRequired(true))
-      .addStringOption(o => o.setName('ping').setDescription('Who to ping: @everyone, @here, a role mention, or none'));
+      .addStringOption(o => o.setName('description').setDescription('Giveaway description or rules').setRequired(true));
 
     for (let i = 1; i <= 8; i++) {
       cmd
@@ -31,7 +30,7 @@ const giveawayCmd = {
     const hours       = interaction.options.getInteger('hours');
     const winners     = interaction.options.getInteger('winners');
     const description = interaction.options.getString('description');
-    const ping        = interaction.options.getString('ping') ?? '@everyone';
+    
     
 
     const extraEntriesData = [];
@@ -46,11 +45,11 @@ const giveawayCmd = {
 
     await queryOne(
       `INSERT INTO giveaways
-        (id, prize, description, winners, hosted_by, participants, winner_ids, image_url, extra_entries, ping, ended_at, channel_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        (id, prize, description, winners, hosted_by, participants, winner_ids, image_url, extra_entries, ended_at, channel_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [gaId, prize, description, winners, interaction.user.id, '[]', null, null,
        extraEntriesData.length ? JSON.stringify(extraEntriesData) : null,
-       ping, endsAt, interaction.channelId]
+       endsAt, interaction.channelId]
     );
 
     const endTs = Math.floor(endsAt.getTime() / 1000);

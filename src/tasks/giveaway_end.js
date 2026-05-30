@@ -36,7 +36,7 @@ async function finishGiveaway(client, ga) {
       if (origMsg) await origMsg.edit({
         content: '**<a:giveaway:1506218898255773827> @everyone GIVEAWAY ENDED <a:giveaway:1506218898255773827>**',
         components: [buildDisabledView(gaId)],
-      }).catch(() => {});
+      }).catch(err => console.warn(`[WARN] finishGiveaway: failed to edit original message ${gaId}:`, err));
       const e = new EmbedBuilder()
         .setColor(0xED4245)
         .setDescription(
@@ -66,10 +66,10 @@ async function finishGiveaway(client, ga) {
 
   const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
   const origMsg = await fetchOriginalMessage(ch, ga.message_id);
-  if (origMsg) await origMsg.edit({
+if (origMsg) await origMsg.edit({
     content: '**<a:giveaway:1506218898255773827> @everyone GIVEAWAY ENDED <a:giveaway:1506218898255773827>**',
     components: [buildDisabledView(gaId)],
-  }).catch(() => {});
+  }).catch(err => console.warn(`[WARN] finishGiveaway: failed to edit original message ${gaId}:`, err));
 
   const e = new EmbedBuilder()
     .setColor(0x57F287)

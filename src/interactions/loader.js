@@ -47,7 +47,7 @@ async function loadInteractions(interaction, client) {
     return;
   }
 
-  // ── Modals ────────────────────────────────────────────────────────────────
+// ── Modals ────────────────────────────────────────────────────────────────
   if (interaction.isModalSubmit()) {
     if (id === 'ranked_order_modal')   return orders.handleRankedModal(interaction, client);
     if (id === 'prestige_order_modal') return orders.handlePrestigeModal(interaction, client);
@@ -59,6 +59,17 @@ async function loadInteractions(interaction, client) {
     if (id === 'vouch_detail_modal')   return vouches.handleModal(interaction, client);
     if (id.startsWith('app_modal_'))   return applications.handleModal(interaction, client);
     if (id === 'account_sale_modal')   return accounts.handleModal(interaction, client);
+    return;
+  }
+
+  // ── Autocomplete ──────────────────────────────────────────────────────────
+  if (interaction.isAutocomplete()) {
+    const name = interaction.commandName;
+    if (name === 'end-giveaway' || name === 'reroll-giveaway' || name === 'giveaway-reminder') {
+      const cmds = require('../commands/admin/giveaway');
+      const cmd  = cmds.find(c => c.data.name === name);
+      if (cmd?.autocomplete) return cmd.autocomplete(interaction).catch(() => interaction.respond([]).catch(() => {}));
+    }
     return;
   }
 }

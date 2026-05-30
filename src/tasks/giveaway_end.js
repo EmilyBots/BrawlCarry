@@ -95,9 +95,9 @@ async function sendGiveawayReminder(client, ga, remainingSeconds = null) {
   const reminderE = new EmbedBuilder()
     .setColor(0xFFD700)
     .setDescription(
-      `<:Gift:1509855137156567130> **${ga.prize}**\n\n` +
-      `<:warning:1508835752430141482> Last **${timeStr}** to enter!\n\n` +
-      `Good luck everyone 🍀`
+      `## <:Gift:1509855137156567130> **${ga.prize}**\n\n` +
+      `## <:warning:1508835752430141482> Last **${timeStr}** to enter!\n\n` +
+      `**Good luck everyone** 🍀`
     );
 
   await ch.send({

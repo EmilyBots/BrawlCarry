@@ -86,6 +86,7 @@ client.once('ready', async () => {
   const { queryOne: _migrate } = require('./db/index');
   await _migrate(`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS reminder_seconds INTEGER DEFAULT NULL`).catch(() => {});
   await _migrate(`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
+  await _migrate(`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS message_id TEXT DEFAULT NULL`).catch(() => {});
   console.log('[OK] Schema migrations applied');
 
   await registerCommands(client);

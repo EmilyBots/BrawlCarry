@@ -74,20 +74,36 @@ function startGiveawayEndLoop(client) {
 }
 
 // ── Core: invia il reminder per un singolo giveaway ──────────────────────────
-async function sendGiveawayReminder(client, ga) {
+function formatRemaining(seconds) {
+  if (seconds >= 82_800) return '24 hours';   // ≥ 23h
+  if (seconds >= 39_600) return '12 hours';   // ≥ 11h
+  if (seconds >= 18_000) return '6 hours';    // ≥ 5h
+  if (seconds >= 3_000)  return '1 hour';     // ≥ 50m
+  const m = Math.round(seconds / 60);
+  return `${m} minute${m !== 1 ? 's' : ''}`;
+}
+
+async function sendGiveawayReminder(client, ga, remainingSeconds = null) {
   const ch = await resolveChannel(client, ga.channel_id, ga.id);
   if (!ch) return false;
 
-  const endsAt    = new Date(ga.ended_at).getTime();
-  const reminderE = baseEmbed('⏰ Giveaway Reminder', GOLD);
-  reminderE.setDescription(
-    `🎁 **${ga.prize}** giveaway ends in **24 hours**!\n<t:${Math.floor(endsAt / 1000)}:R>`
-  );
-  const ping = ga.ping && ga.ping.toLowerCase() !== 'none' ? ga.ping : null;
+  const endsAt  = new Date(ga.ended_at).getTime();
+  const seconds = remainingSeconds ?? Math.floor((endsAt - Date.now()) / 1000);
+  const timeStr = formatRemaining(seconds);
+
+  const { EmbedBuilder } = require('discord.js');
+  const reminderE = new EmbedBuilder()
+    .setColor(0xFFD700)
+    .setDescription(
+      `<:Gift:1509855137156567130> **${ga.prize}**\n\n` +
+      `<:warning:1508835752430141482> Last **${timeStr}** to enter!\n\n` +
+      `Good luck everyone 🍀`
+    );
+
   await ch.send({
-    content: ping || undefined,
+    content: `@everyone\n\n<a:giveaway:1506218898255773827> **GIVEAWAY ENDING SOON** <a:giveaway:1506218898255773827>`,
     embeds: [reminderE],
-    allowedMentions: { parse: ['everyone', 'roles'] },
+    allowedMentions: { parse: ['everyone'] },
   }).catch(() => {});
 
   return true;
@@ -143,7 +159,7 @@ function startGiveawayReminderLoop(client) {
 
         // Mark FIRST — crash mid-send cannot cause duplicate on next tick.
         await queryOne('UPDATE giveaways SET reminder_sent = TRUE WHERE id = $1', [ga.id]);
-        await sendGiveawayReminder(client, ga);
+        await sendGiveawayReminder(client, ga, remaining);
       }
     } catch (err) {
       console.error('[WARN] giveaway_reminder_loop error:', err);

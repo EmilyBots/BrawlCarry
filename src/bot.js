@@ -82,6 +82,12 @@ client.once('ready', async () => {
   await initDb();
   console.log('[OK] Database initialised');
 
+  // ── Schema migrations ──────────────────────────────────────────────────────
+  const { queryOne: _migrate } = require('./db/index');
+  await _migrate(`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS reminder_seconds INTEGER DEFAULT NULL`).catch(() => {});
+  await _migrate(`ALTER TABLE giveaways ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {});
+  console.log('[OK] Schema migrations applied');
+
   await registerCommands(client);
   console.log('[OK] Slash commands registered');
 

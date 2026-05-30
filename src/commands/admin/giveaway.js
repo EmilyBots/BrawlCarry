@@ -10,7 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const CLEANUP_GRACE_HOURS = 2;
 
 async function runGiveawayCleanup(client) {
-  const { resolveChannel } = require('../../events/giveaway_end');
+  const { resolveChannel } = require('../tasks/giveaway_end');
 
   const cutoff = new Date(Date.now() - CLEANUP_GRACE_HOURS * 3600_000).toISOString();
 

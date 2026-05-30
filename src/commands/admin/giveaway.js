@@ -129,7 +129,19 @@ const giveawayCmd = {
       .addStringOption(o => o.setName('prize').setDescription('Prize name').setRequired(true))
       .addIntegerOption(o => o.setName('hours').setDescription('Duration in hours').setRequired(true).setMinValue(1))
       .addIntegerOption(o => o.setName('winners').setDescription('Number of winners').setRequired(true).setMinValue(1))
-      .addStringOption(o => o.setName('description').setDescription('Giveaway description or rules').setRequired(true));
+      .addStringOption(o => o.setName('description').setDescription('Giveaway description or rules').setRequired(true))
+      .addStringOption(o =>
+        o.setName('reminder')
+         .setDescription('Send a reminder before the giveaway ends (e.g. 24h, 12h, 6h, 1h, 30m)')
+         .setRequired(false)
+         .addChoices(
+           { name: '24 hours before', value: '24h' },
+           { name: '12 hours before', value: '12h' },
+           { name: '6 hours before',  value: '6h'  },
+           { name: '1 hour before',   value: '1h'  },
+           { name: '30 minutes before', value: '30m' },
+         )
+      );
 
     for (let i = 1; i <= 8; i++) {
       cmd
@@ -145,8 +157,21 @@ const giveawayCmd = {
     const hours       = interaction.options.getInteger('hours');
     const winners     = interaction.options.getInteger('winners');
     const description = interaction.options.getString('description');
-    
-    
+    const reminderRaw = interaction.options.getString('reminder') ?? null;
+
+    // Converte la stringa reminder in secondi (es. "24h" → 86400, "30m" → 1800)
+    function parseReminderSeconds(str) {
+      if (!str) return null;
+      if (str.endsWith('h')) return parseInt(str) * 3600;
+      if (str.endsWith('m')) return parseInt(str) * 60;
+      return null;
+    }
+    const reminderSeconds = parseReminderSeconds(reminderRaw);
+
+    // Validazione: il reminder deve essere inferiore alla durata del giveaway
+    if (reminderSeconds !== null && reminderSeconds >= hours * 3600) {
+      return interaction.reply({ content: `❌ Reminder should be inferior to the duration of the giveaway (${hours}h).`, ephemeral: true });
+    }
 
     const extraEntriesData = [];
     for (let i = 1; i <= 8; i++) {
@@ -160,11 +185,11 @@ const giveawayCmd = {
 
     await queryOne(
       `INSERT INTO giveaways
-        (id, prize, description, winners, hosted_by, participants, winner_ids, extra_entries, ended_at, channel_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        (id, prize, description, winners, hosted_by, participants, winner_ids, extra_entries, ended_at, channel_id, reminder_seconds)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [gaId, prize, description, winners, interaction.user.id, '[]', null,
        extraEntriesData.length ? JSON.stringify(extraEntriesData) : null,
-       endsAt, interaction.channelId]
+       endsAt, interaction.channelId, reminderSeconds]
     );
 
     const endTs = Math.floor(endsAt.getTime() / 1000);
@@ -283,18 +308,19 @@ const rerollGiveawayCmd = {
     if (!validWinners.length) return interaction.editReply({ content: `❌ Nessuno dei partecipanti selezionati risulta ancora nel server.` });
 
     const validMentions = validWinners.map(w => `<@${w}>`).join(' ');
-    const e = baseEmbed(`🎁 ${ga.prize} — Reroll`, GOLD);
-    e.addFields(
-      { name: '🏆 New Winner(s)',       value: validMentions,                         inline: false },
-      { name: '👥 Total Participants', value: `**${unique.length.toLocaleString()}**`, inline: true  },
-      { name: '🆔 Giveaway ID',        value: `\`${gaId}\``,                          inline: true  },
-    )
-    .setFooter({ text: `${FOOTER_BRAND} | ID: ${gaId}` })
-    .setTimestamp();
+    const e = new EmbedBuilder()
+      .setColor(0xFFD700)
+      .setDescription(
+        `## <:Gift:1509855137156567130> **Prize**\n` +
+        `### > <:arrow:1509857611816763482> ${ga.prize}\n\n` +
+        `## <:vip:1508831641135612068> **New Winner${validWinners.length !== 1 ? 's' : ''}**\n` +
+        `### > <:arrow:1509857611816763482> ${validMentions}\n\n` +
+        `### Congratulations <a:giveaway:1506218898255773827>`
+      );
 
     if (ch) {
       await ch.send({
-        content: `🎉 New winner${validWinners.length !== 1 ? 's' : ''}: ${validMentions}! You won **${ga.prize}**!`,
+        content: `<a:giveaway:1506218898255773827> **GIVEAWAY REROLLED!** <a:giveaway:1506218898255773827>`,
         embeds: [e],
         allowedMentions: { users: validWinners },
       }).catch(() => {});

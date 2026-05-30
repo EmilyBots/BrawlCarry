@@ -1,6 +1,16 @@
 const { queryAll, queryOne } = require('../db/index');
-const { baseEmbed } = require('../utils/embeds');
-const { SUCCESS, DANGER, GOLD, FOOTER_BRAND } = require('../config/constants');
+const { EmbedBuilder } = require('discord.js');
+const { FOOTER_BRAND } = require('../config/constants');
+
+// ── Helper: fetch del messaggio originale per il reply ───────────────────────
+async function fetchOriginalMessage(ch, messageId) {
+  if (!messageId) return null;
+  try {
+    return await ch.messages.fetch(String(messageId));
+  } catch (_) {
+    return null;
+  }
+}
 
 // ── Core: termina un singolo giveaway ────────────────────────────────────────
 async function finishGiveaway(client, ga) {
@@ -12,10 +22,21 @@ async function finishGiveaway(client, ga) {
     await queryOne("UPDATE giveaways SET winner_ids = '[\"NO_WINNER\"]' WHERE id = $1", [gaId]);
     const ch = await resolveChannel(client, ga.channel_id);
     if (ch) {
-      const e = baseEmbed(`🎁 ${ga.prize} — Giveaway Ended`, DANGER);
-      e.setDescription('😔 No one entered this giveaway — there are no winners.');
-      e.setFooter({ text: `${FOOTER_BRAND} | ID: ${gaId}` });
-      await ch.send({ embeds: [e] }).catch(() => {});
+      const origMsg = await fetchOriginalMessage(ch, ga.message_id);
+      const e = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setDescription(
+          `<:Gift:1509855137156567130> **Prize**\n` +
+          `<:arrow:1509857611816763482> ${ga.prize}\n\n` +
+          `<:warning:1508835752430141482> **Giveaway Cancelled**\n` +
+          `<:arrow:1509857611816763482> No one entered this giveaway\n\n` +
+          `Better luck next time 🍀`
+        );
+      await ch.send({
+        content: `<a:giveaway:1506218898255773827> **GIVEAWAY ENDED!** <a:giveaway:1506218898255773827>`,
+        embeds: [e],
+        ...(origMsg ? { reply: { messageReference: origMsg.id, failIfNotExists: false } } : {}),
+      }).catch(() => {});
     }
     return { noWinner: true };
   }
@@ -23,26 +44,30 @@ async function finishGiveaway(client, ga) {
   const winnerIds = unique.sort(() => 0.5 - Math.random()).slice(0, ga.winners);
   await queryOne('UPDATE giveaways SET winner_ids = $1 WHERE id = $2', [JSON.stringify(winnerIds), gaId]);
 
-  const ch = await resolveChannel(client, ga.channel_id, gaId);
+  const ch = await resolveChannel(client, ga.channel_id);
   if (!ch) {
     console.warn(`[WARN] finishGiveaway: could not find channel for ${gaId}`);
     return { noChannel: true, winnerIds };
   }
 
   const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
-  const e = baseEmbed(`🎁 ${ga.prize} — Giveaway Ended`, SUCCESS);
-  e.addFields(
-    { name: '🏆 Winners',            value: winnerMentions,                        inline: false },
-    { name: '👥 Total Participants', value: `**${unique.length.toLocaleString()}**`, inline: true  },
-    { name: '🆔 Giveaway ID',        value: `\`${gaId}\``,                          inline: true  },
-  )
-  .setFooter({ text: `${FOOTER_BRAND} | ID: ${gaId}` })
-  .setTimestamp();
+  const origMsg = await fetchOriginalMessage(ch, ga.message_id);
+
+  const e = new EmbedBuilder()
+    .setColor(0x57F287)
+    .setDescription(
+      `<:Gift:1509855137156567130> **Prize**\n` +
+      `<:arrow:1509857611816763482> ${ga.prize}\n\n` +
+      `<:vip:1508831641135612068> **Winner${winnerIds.length !== 1 ? 's' : ''}**\n` +
+      `<:arrow:1509857611816763482> ${winnerMentions}\n\n` +
+      `Open a ticket to claim <:Boost:1508378809676861573>`
+    );
 
   await ch.send({
-    content: `🎉 Congratulations ${winnerMentions}! You won **${ga.prize}**!`,
+    content: `<a:giveaway:1506218898255773827> **GIVEAWAY ENDED!** <a:giveaway:1506218898255773827>`,
     embeds: [e],
     allowedMentions: { users: winnerIds },
+    ...(origMsg ? { reply: { messageReference: origMsg.id, failIfNotExists: false } } : {}),
   }).catch(err => console.warn(`[WARN] finishGiveaway announce ${gaId}:`, err));
 
   return { winnerIds };
@@ -84,14 +109,15 @@ function formatRemaining(seconds) {
 }
 
 async function sendGiveawayReminder(client, ga, remainingSeconds = null) {
-  const ch = await resolveChannel(client, ga.channel_id, ga.id);
+  const ch = await resolveChannel(client, ga.channel_id);
   if (!ch) return false;
 
   const endsAt  = new Date(ga.ended_at).getTime();
   const seconds = remainingSeconds ?? Math.floor((endsAt - Date.now()) / 1000);
   const timeStr = formatRemaining(seconds);
 
-  const { EmbedBuilder } = require('discord.js');
+  const origMsg = await fetchOriginalMessage(ch, ga.message_id);
+
   const reminderE = new EmbedBuilder()
     .setColor(0xFFD700)
     .setDescription(
@@ -105,6 +131,7 @@ async function sendGiveawayReminder(client, ga, remainingSeconds = null) {
     content: `@everyone`,
     embeds: [reminderE],
     allowedMentions: { parse: ['everyone'] },
+    ...(origMsg ? { reply: { messageReference: origMsg.id, failIfNotExists: false } } : {}),
   }).catch(() => {});
 
   return true;

@@ -160,9 +160,9 @@ const giveawayCmd = {
 
     await queryOne(
       `INSERT INTO giveaways
-        (id, prize, description, winners, hosted_by, participants, winner_ids, image_url, extra_entries, ended_at, channel_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [gaId, prize, description, winners, interaction.user.id, '[]', null, null,
+        (id, prize, description, winners, hosted_by, participants, winner_ids, extra_entries, ended_at, channel_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [gaId, prize, description, winners, interaction.user.id, '[]', null,
        extraEntriesData.length ? JSON.stringify(extraEntriesData) : null,
        endsAt, interaction.channelId]
     );

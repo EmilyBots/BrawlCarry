@@ -79,7 +79,7 @@ async function runGiveawayCleanup(client) {
   return { removedExpired, removedOrphan, removedInvalid };
 }
 function getGiveawayEnd() {
-  return require('../../events/giveaway_end');
+  return require('../tasks/giveaway_end');
 }
 
 const GIVEAWAY_ROLE = '1479079737052762205';

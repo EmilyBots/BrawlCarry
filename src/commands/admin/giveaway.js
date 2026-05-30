@@ -191,12 +191,13 @@ const view = new ActionRowBuilder().addComponents(
 
     
 
-    await interaction.channel.send({
+    const gaMsg = await interaction.channel.send({
       content: '**<a:giveaway:1506218898255773827> @everyone NEW GIVEAWAY <a:giveaway:1506218898255773827>**',
       embeds: [e],
       components: [view],
       allowedMentions: { parse: ['everyone'] },
     });
+    await queryOne('UPDATE giveaways SET message_id = $1 WHERE id = $2', [gaMsg.id, gaId]);
     await interaction.reply({ content: `✅ Giveaway started! ID: \`${gaId}\``, ephemeral: true });
   },
 };

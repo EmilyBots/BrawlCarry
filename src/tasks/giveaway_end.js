@@ -26,11 +26,11 @@ async function finishGiveaway(client, ga) {
       const e = new EmbedBuilder()
         .setColor(0xED4245)
         .setDescription(
-          `<:Gift:1509855137156567130> **Prize**\n` +
+          `## <:Gift:1509855137156567130> **Prize**\n` +
           `<:arrow:1509857611816763482> ${ga.prize}\n\n` +
-          `<:warning:1508835752430141482> **Giveaway Cancelled**\n` +
+          `## <:warning:1508835752430141482> **Giveaway Cancelled**\n` +
           `<:arrow:1509857611816763482> No one entered this giveaway\n\n` +
-          `Better luck next time 🍀`
+          `**Better luck next time** 🍀`
         );
       await ch.send({
         content: `<a:giveaway:1506218898255773827> **GIVEAWAY ENDED!** <a:giveaway:1506218898255773827>`,
@@ -56,11 +56,11 @@ async function finishGiveaway(client, ga) {
   const e = new EmbedBuilder()
     .setColor(0x57F287)
     .setDescription(
-      `<:Gift:1509855137156567130> **Prize**\n` +
-      `<:arrow:1509857611816763482> ${ga.prize}\n\n` +
-      `<:vip:1508831641135612068> **Winner${winnerIds.length !== 1 ? 's' : ''}**\n` +
-      `<:arrow:1509857611816763482> ${winnerMentions}\n\n` +
-      `Open a ticket to claim <:Boost:1508378809676861573>`
+      `## <:Gift:1509855137156567130> **Prize**\n` +
+      `### > <:arrow:1509857611816763482> ${ga.prize}\n\n` +
+      `## <:vip:1508831641135612068> **Winner${winnerIds.length !== 1 ? 's' : ''}**\n` +
+      `### > <:arrow:1509857611816763482> ${winnerMentions}\n\n` +
+      `### Open a ticket to claim <:Boost:1508378809676861573>`
     );
 
   await ch.send({

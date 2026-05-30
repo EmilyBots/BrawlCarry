@@ -12,7 +12,6 @@ async function fetchOriginalMessage(ch, messageId) {
   }
 }
 
-}
 
 // ── Helper: disabilita i bottoni del giveaway originale ──────────────────────
 function buildDisabledView(gaId) {

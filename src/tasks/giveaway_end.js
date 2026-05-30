@@ -165,27 +165,24 @@ function startGiveawayReminderLoop(client) {
       const now = Date.now();
 
       for (const ga of giveaways) {
+        // Salta giveaway senza reminder configurato
+        if (!ga.reminder_seconds || ga.reminder_seconds <= 0) continue;
+
         const endsAt    = new Date(ga.ended_at).getTime();
         const remaining = Math.floor((endsAt - now) / 1000);
 
-        // Skip already-expired or not-yet-in-window giveaways.
         if (remaining <= 0) continue;
 
-        // FIX: Skip giveaways shorter than 24h total — they will never
-        // pass through the 24h window so a reminder makes no sense.
-        // created_at must exist on the row. If it doesn't, remove this block
-        // and accept that sub-24h giveaways are silently skipped by the window check.
-        if (ga.created_at) {
-          const totalDuration = (endsAt - new Date(ga.created_at).getTime()) / 1000;
-          if (totalDuration < 86_400) continue; // giveaway is shorter than 24h
-        }
+        // Finestra dinamica basata su reminder_seconds configurato.
+        // Più larga del tick interval (5min = 300s) per sopravvivere a tick mancati.
+        const target      = ga.reminder_seconds;
+        const windowUpper = target + 300; // +5 min sopra
+        const windowLower = target - 300; // -5 min sotto
 
-        // FIX: Only one reminder — exactly when 24h remains.
-        // Window is intentionally wider than the tick interval to avoid missed ticks.
-        const inWindow = remaining <= WINDOW_UPPER && remaining > WINDOW_LOWER;
+        const inWindow = remaining <= windowUpper && remaining > windowLower;
         if (!inWindow) continue;
 
-        // Mark FIRST — crash mid-send cannot cause duplicate on next tick.
+        // Mark FIRST — crash mid-send non causa duplicati al prossimo tick.
         await queryOne('UPDATE giveaways SET reminder_sent = TRUE WHERE id = $1', [ga.id]);
         await sendGiveawayReminder(client, ga, remaining);
       }

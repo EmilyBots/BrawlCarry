@@ -1,5 +1,5 @@
 const { queryAll, queryOne } = require('../db/index');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { FOOTER_BRAND } = require('../config/constants');
 
 // ── Helper: fetch del messaggio originale per il reply ───────────────────────
@@ -10,6 +10,17 @@ async function fetchOriginalMessage(ch, messageId) {
   } catch (_) {
     return null;
   }
+}
+
+}
+
+// ── Helper: disabilita i bottoni del giveaway originale ──────────────────────
+function buildDisabledView(gaId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`ga_enter:${gaId}`).setLabel('Enter Giveaway').setStyle(ButtonStyle.Success).setEmoji({ name: 'giveaway', id: '1506218898255773827', animated: true }).setDisabled(true),
+    new ButtonBuilder().setCustomId(`ga_view:${gaId}`).setLabel('Participants List').setStyle(ButtonStyle.Primary).setEmoji({ name: 'user', id: '1508831475796148285' }).setDisabled(true),
+    new ButtonBuilder().setCustomId(`ga_roles:${gaId}`).setLabel('Extra Entries').setStyle(ButtonStyle.Secondary).setEmoji({ name: 'Gift', id: '1509855137156567130' }).setDisabled(true),
+  );
 }
 
 // ── Core: termina un singolo giveaway ────────────────────────────────────────
@@ -23,6 +34,10 @@ async function finishGiveaway(client, ga) {
     const ch = await resolveChannel(client, ga.channel_id);
     if (ch) {
       const origMsg = await fetchOriginalMessage(ch, ga.message_id);
+      if (origMsg) await origMsg.edit({
+        content: '**<a:giveaway:1506218898255773827> @everyone GIVEAWAY ENDED <a:giveaway:1506218898255773827>**',
+        components: [buildDisabledView(gaId)],
+      }).catch(() => {});
       const e = new EmbedBuilder()
         .setColor(0xED4245)
         .setDescription(
@@ -52,6 +67,10 @@ async function finishGiveaway(client, ga) {
 
   const winnerMentions = winnerIds.map(w => `<@${w}>`).join(' ');
   const origMsg = await fetchOriginalMessage(ch, ga.message_id);
+  if (origMsg) await origMsg.edit({
+    content: '**<a:giveaway:1506218898255773827> @everyone GIVEAWAY ENDED <a:giveaway:1506218898255773827>**',
+    components: [buildDisabledView(gaId)],
+  }).catch(() => {});
 
   const e = new EmbedBuilder()
     .setColor(0x57F287)

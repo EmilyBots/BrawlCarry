@@ -175,23 +175,19 @@ function startGiveawayReminderLoop(client) {
 // ── Channel resolver ──────────────────────────────────────────────────────────
 async function resolveChannel(client, channelId, gaId = null) {
   if (channelId) {
+    const id = String(channelId);
+
+    // 1. Cerca nella cache
     for (const guild of client.guilds.cache.values()) {
-      const ch = guild.channels.cache.get(String(channelId));
+      const ch = guild.channels.cache.get(id);
       if (ch) return ch;
     }
-  }
 
-  // Fallback: scan for embed with gaId in footer
-  if (gaId) {
-    for (const guild of client.guilds.cache.values()) {
-      for (const ch of guild.channels.cache.filter(c => c.isTextBased()).values()) {
-        try {
-          const msgs = await ch.messages.fetch({ limit: 100 });
-          const match = msgs.find(m => m.author.id === client.user.id && m.embeds.some(e => e.footer?.text?.includes(gaId)));
-          if (match) return ch;
-        } catch (_) {}
-      }
-    }
+    // 2. Fetch diretto via API — risolve il problema della cache mancante
+    try {
+      const ch = await client.channels.fetch(id);
+      if (ch) return ch;
+    } catch (_) {}
   }
 
   return null;

@@ -9,16 +9,11 @@ const { AttachmentBuilder } = require('discord.js');
  * @returns {Promise<AttachmentBuilder|null>}
  */
 async function fetchAndWatermark(url, blur = false) {
-  try {
-    const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
-    const rawBuffer = Buffer.from(response.data);
-    const marked = await watermarkImage(rawBuffer, 'Brawl Carry Vouches', blur);
-    return new AttachmentBuilder(marked, { name: 'proof.jpg' });
-  } catch (_) {
-    return null;
-  }
+  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+  const rawBuffer = Buffer.from(response.data);
+  const marked = await watermarkImage(rawBuffer, 'Brawl Carry Vouches', blur);
+  return new AttachmentBuilder(marked, { name: 'proof.jpg' });
 }
-
 /**
  * Apply a tiled diagonal watermark to an image buffer.
  * @param {Buffer} imageBuffer

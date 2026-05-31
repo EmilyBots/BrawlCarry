@@ -77,25 +77,36 @@ const rH    = rMeta.height;
 const stepX = Math.ceil(rW * 1.5);
 const stepY = Math.ceil(rH * 1.5);
 
-for (let row = -2; row * stepY < h + rH; row++) {
-  for (let col = -2; col * stepX < w + rW; col++) {
+// Canvas esteso con padding = rW/rH su ogni lato, poi si ritaglia
+const padX = rW;
+const padY = rH;
+const canvasW = w + padX * 2;
+const canvasH = h + padY * 2;
+
+for (let row = -2; row * stepY < canvasH + rH; row++) {
+  for (let col = -2; col * stepX < canvasW + rW; col++) {
     const offsetX = (row % 2 !== 0) ? Math.floor(stepX / 2) : 0;
     const top  = Math.round(row * stepY);
     const left = Math.round(col * stepX + offsetX);
-    if (left + rW < 0 || left > w || top + rH < 0 || top > h) continue;
+    if (left + rW < 0 || left > canvasW || top + rH < 0 || top > canvasH) continue;
     composites.push({ input: rotated, top, left });
   }
 }
 
 const overlayPng = await sharp({
-  create: { width: w, height: h, channels: 4,
+  create: { width: canvasW, height: canvasH, channels: 4,
             background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
 .composite(composites)
 .png().toBuffer();
 
+// Ritaglia al canvas originale w×h
+const overlayPngCropped = await sharp(overlayPng)
+  .extract({ left: padX, top: padY, width: w, height: h })
+  .png().toBuffer();
+
 return pipeline
-  .composite([{ input: overlayPng, blend: 'over' }])
+  .composite([{ input: overlayPngCropped, blend: 'over' }])
   .jpeg({ quality: 92 })
   .toBuffer();
 }

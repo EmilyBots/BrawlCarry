@@ -3,9 +3,12 @@ const {
 } = require('discord.js');
 const { queryOne } = require('../../db/index');
 
-module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('order_complete')
+const { debugWatermarkDiag } = require('../../watermark'); // aggiusta se watermark.js è altrove
+
+module.exports = [
+  {
+    data: new SlashCommandBuilder()
+      .setName('order_complete')
     .setDescription('Mark an order as completed (run inside the ticket thread)')
     .setDefaultMemberPermissions(0x10), // ManageChannels
 
@@ -65,3 +68,16 @@ module.exports = {
     await interaction.showModal(modal);
   },
 };
+{
+    data: new SlashCommandBuilder()
+      .setName('watermark_diag')
+      .setDescription('Debug watermark font rendering')
+      .setDefaultMemberPermissions(0x8),
+
+    async execute(interaction) {
+      await interaction.deferReply({ ephemeral: true });
+      const diag = await debugWatermarkDiag();
+      await interaction.editReply({ files: [diag] });
+    },
+  },
+];

@@ -26,7 +26,7 @@ async function fetchAndWatermark(url, blur = false) {
  * @param {boolean} blur
  * @returns {Promise<Buffer>}
  */
-async function watermarkImage(imageBuffer, text = 'Brawl Carry Vouches', blur = false) {
+async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false) {
   let pipeline = sharp(imageBuffer);
   const meta   = await pipeline.metadata();
   const w      = meta.width  ?? 800;
@@ -34,23 +34,45 @@ async function watermarkImage(imageBuffer, text = 'Brawl Carry Vouches', blur = 
 
   if (blur) pipeline = pipeline.blur(6);
 
-  // Build an SVG overlay with tiled diagonal text
-  const fontSize = Math.max(16, Math.floor(w / 18));
-  const stepX    = fontSize * text.length * 0.55 + 60;
-  const stepY    = fontSize + 40;
+  // 2-line watermark: "BrawlCarry™" + "discord.gg/brawlcarry"
+  // fontSize ~1.5× larger than old design (w/18 → w/14)
+  const fontSize   = Math.max(20, Math.floor(w / 14));
+  const lineHeight = Math.floor(fontSize * 1.3);
+  const opacity    = 0.13;
+  const subSize    = Math.floor(fontSize * 0.78);
 
+  // Tile spacing based on actual rendered stamp size
+  const charWidth = fontSize * 0.58;
+  const stampW    = Math.ceil(21 * charWidth); // widest line: "discord.gg/brawlcarry"
+  const stepX     = stampW + Math.floor(fontSize * 1.2);
+  const stepY     = lineHeight * 2 + Math.floor(fontSize * 1.0);
+
+  const angle = -30;
   const textElements = [];
-  for (let y = -h; y < h * 2; y += stepY) {
-    for (let x = -w; x < w * 2; x += stepX) {
-      textElements.push(
-        `<text
-          x="${x}" y="${y}"
-          font-family="DejaVu Sans, Arial, sans-serif"
-          font-size="${fontSize}"
-          font-weight="bold"
-          fill="rgba(255,255,255,0.22)"
-          transform="rotate(-30 ${x} ${y})"
-        >${escapeXml(text)}</text>`
+
+  for (let row = -2; row * stepY < h * 2 + h; row++) {
+    for (let col = -2; col * stepX < w * 2 + w; col++) {
+      // Offset every other row for a diagonal brick pattern
+      const x = col * stepX + (row % 2 === 0 ? 0 : stepX / 2);
+      const y = row * stepY;
+
+      textElements.push(`
+        <g transform="rotate(${angle} ${x} ${y})">
+          <text x="${x}" y="${y}"
+            font-family="DejaVu Sans, Arial, sans-serif"
+            font-size="${fontSize}"
+            font-weight="bold"
+            fill="rgba(255,255,255,${opacity})"
+            text-anchor="middle"
+          >${escapeXml('BrawlCarry™')}</text>
+          <text x="${x}" y="${y + lineHeight}"
+            font-family="DejaVu Sans, Arial, sans-serif"
+            font-size="${subSize}"
+            font-weight="bold"
+            fill="rgba(255,255,255,${opacity})"
+            text-anchor="middle"
+          >${escapeXml('discord.gg/brawlcarry')}</text>
+        </g>`
       );
     }
   }

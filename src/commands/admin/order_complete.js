@@ -64,7 +64,7 @@ module.exports = [
         .setRequired(true)
     ),
   )
-    );
+  );
 
     await interaction.showModal(modal);
   },

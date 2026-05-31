@@ -943,6 +943,8 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const orderId  = interaction.fields.getTextInputValue('order_id').trim();
   const priceStr = interaction.fields.getTextInputValue('final_price').replace('€', '').trim();
+  const imgUrl   = interaction.fields.getTextInputValue('proof_image').trim();
+  const applyWm  = interaction.fields.getTextInputValue('apply_watermark').trim().toLowerCase() === 'yes';
 
   const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
   if (!order) return interaction.followUp({ content: `❌ Order \`${orderId}\` not found.`, ephemeral: true });
@@ -958,34 +960,14 @@ async function handleOrderCompleteModal(interaction, client) {
     [priceVal, now, completionSecs, orderId]
   );
 
-  // Chiedi screenshot
-  await interaction.followUp({
-    content: '📸 Please upload your result screenshot as an attachment. You have 2 minutes to submit the image.',
-    ephemeral: true,
-  });
-
-  // Aspetta messaggio con allegato dallo stesso utente nello stesso canale
-  const filter = m => m.author.id === interaction.user.id && m.attachments.size > 0;
-  let collected;
-  try {
-    collected = await interaction.channel.awaitMessages({ filter, max: 1, time: 120_000, errors: ['time'] });
-  } catch {
-    await interaction.followUp({ content: '⏱ Tempo scaduto. Ordine completato senza screenshot.', ephemeral: true });
-    return;
-  }
-
-  const msg        = collected.first();
-  const attachment = msg.attachments.first();
-
-  // Scarica e applica watermark
   let wm = null;
-  try {
-    wm = await fetchAndWatermark(attachment.proxyURL);
-  } catch (err) {
-    await interaction.followUp({ content: `❌ Watermark fallito: \`${err?.message ?? err}\``, ephemeral: true });
-    return;
+  if (imgUrl && applyWm) {
+    try {
+      wm = await fetchAndWatermark(imgUrl);
+    } catch (err) {
+      return interaction.followUp({ content: `❌ Watermark failed: \`${err?.message ?? err}\`\n\nUsa un link Imgur diretto (https://i.imgur.com/xxx.jpg).`, ephemeral: true });
+    }
   }
-  await msg.delete().catch(() => {});
 
   // Build embed/container
   const guild          = interaction.guild;

@@ -1,7 +1,23 @@
 const sharp = require('sharp');
 const axios = require('axios');
+const fs    = require('fs');
+const path  = require('path');
 const { AttachmentBuilder } = require('discord.js');
 
+const FONT_PATHS = [
+  path.join(__dirname, 'fonts', 'DejaVuSans-Bold.ttf'),
+  path.join(__dirname, 'DejaVuSans-Bold.ttf'),
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+];
+let _fontFaceDecl = '';
+for (const fp of FONT_PATHS) {
+  try {
+    const b64 = fs.readFileSync(fp).toString('base64');
+    _fontFaceDecl = `<defs><style>@font-face{font-family:'BrawlFont';src:url('data:font/truetype;base64,${b64}');font-weight:bold;}</style></defs>`;
+    break;
+  } catch { /* try next */ }
+}
 /**
  * Fetch an image from a URL, watermark it, and return a Discord AttachmentBuilder.
  * @param {string} url
@@ -43,13 +59,15 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   // Render line 1
 const svgW = Math.ceil(fontSize * 14);
 const svgH = fontSize + lineGap + subSize + Math.ceil(fontSize * 0.2);
+const fontFamily = _fontFaceDecl ? 'BrawlFont' : 'DejaVu Sans, Liberation Sans, FreeSans, sans-serif';
 const svgBuf = Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
+    ${_fontFaceDecl}
     <text x="${svgW / 2}" y="${fontSize}" font-size="${fontSize}" font-weight="bold"
-      font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
-      fill="white" text-anchor="middle">BrawlCarry&#x2122;</text>
+      font-family="${fontFamily}"
+      fill="white" text-anchor="middle">BrawlCarry</text>
     <text x="${svgW / 2}" y="${fontSize + lineGap + subSize}" font-size="${subSize}" font-weight="bold"
-      font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
+      font-family="${fontFamily}"
       fill="white" text-anchor="middle">discord.gg/brawlcarry</text>
   </svg>`
 );

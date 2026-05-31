@@ -44,7 +44,23 @@ module.exports = {
             .setPlaceholder('e.g. 25.00')
             .setRequired(true)
         ),
-        );
+        new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('proof_image')
+        .setLabel('Proof Image URL (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('https://i.imgur.com/...')
+        .setRequired(false)
+    ),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('apply_watermark')
+        .setLabel('Apply Watermark? (yes / no)')
+        .setStyle(TextInputStyle.Short)
+        .setValue('yes')
+        .setRequired(true)
+    ),
+  );
 
     await interaction.showModal(modal);
   },

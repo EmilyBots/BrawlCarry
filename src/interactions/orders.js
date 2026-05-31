@@ -978,7 +978,13 @@ async function handleOrderCompleteModal(interaction, client) {
 
   let wm = null;
   if (imgUrl) {
-    wm = await fetchAndWatermark(imgUrl).catch(() => null);
+    wm = await fetchAndWatermark(imgUrl).catch((err) => {
+      console.error('[order_complete] fetchAndWatermark failed:', err?.message ?? err);
+      return null;
+    });
+    if (!wm) {
+      await interaction.followUp({ content: `⚠️ Could not apply watermark to the proof image. Check that the URL is valid and publicly accessible.`, ephemeral: true });
+    }
   }
 
   const container = new ContainerBuilder()

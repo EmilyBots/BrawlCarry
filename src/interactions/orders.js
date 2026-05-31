@@ -976,7 +976,6 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const msg        = collected.first();
   const attachment = msg.attachments.first();
-  await msg.delete().catch(() => {});
 
   // Scarica e applica watermark
   let wm = null;
@@ -986,6 +985,7 @@ async function handleOrderCompleteModal(interaction, client) {
     await interaction.followUp({ content: `❌ Watermark fallito: \`${err?.message ?? err}\``, ephemeral: true });
     return;
   }
+  await msg.delete().catch(() => {});
 
   // Build embed/container
   const guild          = interaction.guild;

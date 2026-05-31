@@ -3,9 +3,7 @@ const {
 } = require('discord.js');
 const { queryOne } = require('../../db/index');
 
-const { debugWatermarkDiag } = require('../../utils/watermark');
-
-module.exports = [
+module.exports = {
   {
     data: new SlashCommandBuilder()
       .setName('order_complete')
@@ -63,22 +61,8 @@ module.exports = [
         .setValue('yes')
         .setRequired(true)
     ),
-  )
   );
 
     await interaction.showModal(modal);
   },
-},
-{
-    data: new SlashCommandBuilder()
-      .setName('watermark_diag')
-      .setDescription('Debug watermark font rendering')
-      .setDefaultMemberPermissions(0x8),
-
-    async execute(interaction) {
-      await interaction.deferReply({ ephemeral: true });
-      const diag = await debugWatermarkDiag();
-      await interaction.editReply({ files: [diag] });
-    },
-  },
-];
+};

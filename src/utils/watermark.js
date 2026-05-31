@@ -33,7 +33,7 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   // fontSize ~1.5× larger than old design (w/18 → w/14)
   const fontSize   = Math.max(18, Math.floor(w / 22));
   const lineHeight = Math.floor(fontSize * 1.3);
-  const opacity    = 0.13;
+  const opacity    = 0.45;
   const subSize    = Math.floor(fontSize * 0.78);
 
   // Tile spacing calculated in rotated space to prevent overlap at -30° angle

@@ -676,7 +676,7 @@ async function handleButton(interaction, client) {
   const id = interaction.customId;
 
   if (id.startsWith('send_boosters_') || id === 'order_publish_btn_v1') {
-    if (!interaction.memberPermissions?.has('ManageChannels')) {
+    if (!interaction.member?.roles?.cache?.has('1479079737052762205')) {
       return interaction.reply({ content: '❌ Only staff can publish orders to boosters.', ephemeral: true });
     }
     const orderId = id.startsWith('send_boosters_') ? id.replace('send_boosters_', '') : null;

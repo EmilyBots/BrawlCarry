@@ -15,7 +15,7 @@ const rankedPanelCmd = {
     const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
 
     const e = baseEmbed('<:master:1491521740860428459> Ranked Service', PRIMARY);
-    e.setDescription('>>> **Climb the Ranked leaderboard quickly and safely with our experienced boosters.**\n\n⚡ Fast • 🔒 Secure • ⭐ Trusted');
+    e.setDescription('>>> ### <:arrow:1509857611816763482> **Reach higher ranks quickly and safely with our experienced players.**');
     if (imageUrls[0]) e.setImage(imageUrls[0]);
 
     const extraEmbeds = imageUrls.slice(1).map(url =>

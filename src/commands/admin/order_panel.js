@@ -1,4 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
+        ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags } = require('discord.js');
 const { baseEmbed } = require('../../utils/embeds');
 const { PRIMARY, ACCENT, FOOTER_BRAND } = require('../../config/constants');
 
@@ -14,24 +15,35 @@ const rankedPanelCmd = {
     const imageUrlRaw = interaction.options.getString('image_url');
     const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
 
-    const e = baseEmbed('', PRIMARY);
-    e.setDescription('## <:master:1491521740860428459> Ranked Service\n>>> ### <:arrow:1509857611816763482> **Reach higher ranks quickly and safely with our experienced players.**');
-    if (imageUrls[0]) e.setImage(imageUrls[0]);
+    const container = new ContainerBuilder()
+      .setAccentColor(PRIMARY)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent('## <:master:1491521740860428459> Ranked Service\n>>> ### <:arrow:1509857611816763482> **Reach higher ranks quickly and safely with our experienced players.**')
+      );
 
-    const extraEmbeds = imageUrls.slice(1).map(url =>
-      new EmbedBuilder().setColor(PRIMARY).setImage(url).setFooter({ text: FOOTER_BRAND })
-    );
+    if (imageUrls[0]) {
+      container
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems([{ media: { url: imageUrls[0] } }])
+        );
+    }
 
-    const view = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('ranked_order_btn')
-        .setLabel('Ranked Order')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji({ name: 'master', id: '1491521740860428459' })
-    );
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('ranked_order_btn')
+            .setLabel('Ranked Order')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji({ name: 'master', id: '1491521740860428459' })
+        )
+      );
 
-    await interaction.channel.send({ embeds: [e, ...extraEmbeds], components: [view] });
-    await interaction.reply({ content: '✅ Ranked Boost panel posted.', ephemeral: true });
+    await interaction.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ content: '✅ Ranked panel posted.', ephemeral: true });
   },
 };
 

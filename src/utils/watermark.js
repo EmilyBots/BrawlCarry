@@ -58,14 +58,14 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
             font-family="DejaVu Sans, Arial, sans-serif"
             font-size="${fontSize}"
             font-weight="bold"
-            fill="rgba(255,255,255,${opacity})"
+            fill="#ffffff" fill-opacity="${opacity}"
             text-anchor="middle"
           >${escapeXml('BrawlCarry™')}</text>
           <text x="${x}" y="${y + lineHeight}"
             font-family="DejaVu Sans, Arial, sans-serif"
             font-size="${subSize}"
             font-weight="bold"
-            fill="rgba(255,255,255,${opacity})"
+            fill="#ffffff" fill-opacity="${opacity}"
             text-anchor="middle"
           >${escapeXml('discord.gg/brawlcarry')}</text>
         </g>`

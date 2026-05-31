@@ -3,6 +3,7 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne, queryAll, getConfig } = require('../db/index');
 const { baseEmbed, formatDuration } = require('../utils/embeds');
@@ -973,32 +974,57 @@ async function handleOrderCompleteModal(interaction, client) {
   const baseType   = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
   const modeEmoji  = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
-  const e = baseEmbed(ordType === 'account' ? '4CCOUNT ORDER ✦' : `${baseType.toUpperCase()} ORDER ✦`, SUCCESS);
-  e.setTitle(null);
-  e.setDescription(`## <:crown:1508833236464439356> ${ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`}`);
-  if (guild.icon) e.setAuthor({ name: 'BrawlCarry', iconURL: guild.iconURL() });
-  e.addFields(
-    { name: `### Customer <:client:1508831518858940607>`, value: `<:arrow:1509857611816763482> ${custMention} ${payEmoji}`, inline: false },
-    { name: `### Order Amount <:Amount:1501221154650853450>`, value: `<:arrow:1509857611816763482> **\`€${priceVal.toFixed(2)}\`**`, inline: false },
-    { name: `### Order Type ${modeEmoji}`, value: `<:arrow:1509857611816763482> ${ordType === 'account' ? '4ccount' : `${baseType} ${svcType === 'carry' ? 'Carry' : 'B0ost'}`}`, inline: false },
-    ...(ordType !== 'account' ? [{ name: `### Order Details <:info:1508767700329959545>`, value: `<:arrow:1509857611816763482> ${details.split('\n')[0]}`, inline: false }] : []),
-  );
+  const orderTitle = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
 
   let wm = null;
   if (imgUrl) {
     wm = await fetchAndWatermark(imgUrl).catch(() => null);
-    if (wm) e.setImage('attachment://proof.jpg');
   }
 
-  const ctaView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setLabel('Create Order').setStyle(ButtonStyle.Link).setEmoji({ name: 'Boost', id: '1508378809676861573' })
-      .setURL(ordType === 'prestige'
-        ? 'https://discord.com/channels/1355262062095372429/1355262063437414564'
-        : 'https://discord.com/channels/1355262062095372429/1477338397570760784'
-      )
+  const container = new ContainerBuilder()
+    .setAccentColor(SUCCESS)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## <:crown:1508833236464439356> ${orderTitle}`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Customer <:client:1508831518858940607>\n<:arrow:1509857611816763482> ${custMention} ${payEmoji}`)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Order Amount <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **\`€${priceVal.toFixed(2)}\`**`)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Order Type ${modeEmoji}\n<:arrow:1509857611816763482> ${ordType === 'account' ? '4ccount' : `${baseType} ${svcType === 'carry' ? 'Carry' : 'B0ost'}`}`)
+    );
+
+  if (ordType !== 'account') {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${details.split('\n')[0]}`)
+    );
+  }
+
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+
+  if (wm) {
+    container
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+  }
+
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('Create Order')
+        .setStyle(ButtonStyle.Link)
+        .setEmoji({ name: 'Boost', id: '1508378809676861573' })
+        .setURL(ordType === 'prestige'
+          ? 'https://discord.com/channels/1355262062095372429/1355262063437414564'
+          : 'https://discord.com/channels/1355262062095372429/1477338397570760784'
+        )
+    )
   );
 
-  const sendArgs = { embeds: [e], components: [ctaView], ...(wm ? { files: [wm] } : {}) };
+  const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
   if (completedCh) await completedCh.send(sendArgs).catch(() => {});
   else await interaction.channel.send(sendArgs).catch(() => {});
 

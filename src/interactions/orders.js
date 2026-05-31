@@ -999,7 +999,7 @@ async function handleOrderCompleteModal(interaction, client) {
 
   if (ordType !== 'account') {
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${details.split('\n')[0]}`)
+      new TextDisplayBuilder().setContent(`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>')}`)
     );
   }
 

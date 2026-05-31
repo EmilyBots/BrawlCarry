@@ -73,16 +73,24 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
     }
   }
 
-  const svg = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
-      ${textElements.join('\n')}
-    </svg>`
-  );
+  const overlayPng = await sharp(Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
+    ${textElements.join('\n')}
+  </svg>`
+))
+  .ensureAlpha()
+  .png()
+  .toBuffer();
 
-  return pipeline
-    .composite([{ input: svg, blend: 'over' }])
-    .jpeg({ quality: 92 })
-    .toBuffer();
+const { channels } = await sharp(overlayPng).stats();
+if ((channels[3]?.sum ?? 0) === 0) {
+  throw new Error('Watermark layer is fully transparent — Sharp requires librsvg support.');
+}
+
+return pipeline
+  .composite([{ input: overlayPng, blend: 'over' }])
+  .jpeg({ quality: 92 })
+  .toBuffer();
 }
 
 function escapeXml(str) {

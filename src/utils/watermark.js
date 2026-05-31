@@ -60,7 +60,7 @@ const m1 = await sharp(line1Buf).metadata();
 const m2 = await sharp(line2Buf).metadata();
 
 // Assemble stamp
-const gap    = Math.max(0, lineHeight - m1.height);
+const gap    = lineGap;
 const stampW = Math.max(m1.width, m2.width);
 const stampH = m1.height + gap + m2.height;
 

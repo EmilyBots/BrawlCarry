@@ -31,7 +31,7 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
 
   // 2-line watermark: "BrawlCarry™" + "discord.gg/brawlcarry"
   // fontSize ~1.5× larger than old design (w/18 → w/14)
-  const fontSize = Math.max(14, Math.floor(w / 18));
+  const fontSize = Math.max(14, Math.floor(w / 13));
   const lineGap = Math.floor(fontSize * 0.30);
   const opacity    = 0.45;
   const subSize = Math.floor(fontSize * 0.68);
@@ -74,8 +74,8 @@ const rW    = rMeta.width;
 const rH    = rMeta.height;
 
   const composites = [];
-const stepX = rW;
-const stepY = rH;
+const stepX = Math.ceil(rW * 1.5);
+const stepY = Math.ceil(rH * 1.5);
 
 for (let row = -2; row * stepY < h + rH; row++) {
   for (let col = -2; col * stepX < w + rW; col++) {

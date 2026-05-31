@@ -960,7 +960,7 @@ async function handleOrderCompleteModal(interaction, client) {
 
   // Chiedi screenshot
   await interaction.followUp({
-    content: '📸 Carica ora lo screenshot come allegato in questo messaggio. Hai 2 minuti.',
+    content: '📸 Please upload your result screenshot as an attachment. You have 2 minutes to submit the image.',
     ephemeral: true,
   });
 
@@ -981,7 +981,7 @@ async function handleOrderCompleteModal(interaction, client) {
   // Scarica e applica watermark
   let wm = null;
   try {
-    wm = await fetchAndWatermark(attachment.url);
+    wm = await fetchAndWatermark(attachment.proxyURL);
   } catch (err) {
     await interaction.followUp({ content: `❌ Watermark fallito: \`${err?.message ?? err}\``, ephemeral: true });
     return;

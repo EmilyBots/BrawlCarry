@@ -4,7 +4,6 @@ const {
 const { queryOne } = require('../../db/index');
 
 module.exports = {
-  {
     data: new SlashCommandBuilder()
       .setName('order_complete')
     .setDescription('Mark an order as completed (run inside the ticket thread)')

@@ -38,10 +38,10 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
 
   // Tile spacing calculated in rotated space to prevent overlap at -30° angle
   const cos30  = Math.cos(30 * Math.PI / 180);
-  const stampW = Math.ceil(21 * fontSize * 0.58); // widest line: "discord.gg/brawlcarry"
-  const stampH = lineHeight * 2;
-  const stepX  = Math.ceil((stampW / cos30) * 1.13); // min non-overlapping X + 13% margin
-  const stepY  = Math.ceil((stampH / cos30) * 1.13); // min non-overlapping Y + 13% margin
+  const tileW = Math.ceil(21 * fontSize * 0.58);
+  const tileH = lineHeight * 2;
+  const stepX  = Math.ceil((tileW / cos30) * 1.13);
+  const stepY  = Math.ceil((tileH / cos30) * 1.13);
 
   // Render line 1
 const line1Buf = await sharp({

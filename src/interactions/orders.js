@@ -998,8 +998,18 @@ async function handleOrderCompleteModal(interaction, client) {
     );
 
   if (ordType !== 'account') {
+    let detailsLine = details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>');
+
+    if (ordType === 'prestige') {
+      const fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
+      const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
+      detailsLine = detailsLine
+        .replace(order.from_tier, `${fromEmoji} ${order.from_tier}`)
+        .replace(order.to_tier,   `${toEmoji} ${order.to_tier}`);
+    }
+
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>')}`)
+      new TextDisplayBuilder().setContent(`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${detailsLine}`)
     );
   }
 

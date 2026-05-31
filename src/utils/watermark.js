@@ -37,42 +37,24 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   const subSize = Math.floor(fontSize * 0.68);
 
   // Render line 1
-const line1Buf = await sharp({
-  text: {
-    text: '<span foreground="#ffffff">BrawlCarry™</span>',
-    font: `DejaVu Sans Bold ${fontSize}`,
-    dpi:  72,
-    rgba: true,
-  },
-}).png().toBuffer();
+const svgW = Math.ceil(fontSize * 14);
+const svgH = fontSize + lineGap + subSize + Math.ceil(fontSize * 0.2);
+const svgBuf = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
+    <text x="${svgW / 2}" y="${fontSize}" font-size="${fontSize}" font-weight="bold"
+      font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
+      fill="white" text-anchor="middle">BrawlCarry&#x2122;</text>
+    <text x="${svgW / 2}" y="${fontSize + lineGap + subSize}" font-size="${subSize}" font-weight="bold"
+      font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
+      fill="white" text-anchor="middle">discord.gg/brawlcarry</text>
+  </svg>`
+);
+const stampSvg = await sharp(svgBuf).png().toBuffer();
+const m1 = await sharp(stampSvg).metadata();
 
-// Render line 2
-const line2Buf = await sharp({
-  text: {
-    text: '<span foreground="#ffffff">discord.gg/brawlcarry</span>',
-    font: `DejaVu Sans Bold ${subSize}`,
-    dpi:  72,
-    rgba: true,
-  },
-}).png().toBuffer();
-
-const m1 = await sharp(line1Buf).metadata();
-const m2 = await sharp(line2Buf).metadata();
-
-// Assemble stamp
-const gap    = lineGap;
-const stampW = Math.max(m1.width, m2.width);
-const stampH = m1.height + gap + m2.height;
-
-const stampRaw = await sharp({
-  create: { width: stampW, height: stampH, channels: 4,
-            background: { r: 0, g: 0, b: 0, alpha: 0 } },
-})
-.composite([
-  { input: line1Buf, top: 0,               left: Math.floor((stampW - m1.width) / 2) },
-  { input: line2Buf, top: m1.height + gap, left: Math.floor((stampW - m2.width) / 2) },
-])
-.png().toBuffer();
+const stampRaw = stampSvg;
+const stampW = m1.width;
+const stampH = m1.height;
 
 // Apply 45% opacity directly on raw alpha bytes
 const { data, info } = await sharp(stampRaw).ensureAlpha().raw()

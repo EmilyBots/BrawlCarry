@@ -74,8 +74,8 @@ const rW    = rMeta.width;
 const rH    = rMeta.height;
 
   const composites = [];
-const stepX = Math.ceil(rW * 1.5);
-const stepY = Math.ceil(rH * 1.5);
+const stepX = Math.ceil(rW * 1.1);
+const stepY = Math.ceil(rH * 1.1);
 
 // Canvas esteso con padding = rW/rH su ogni lato, poi si ritaglia
 const padX = rW;

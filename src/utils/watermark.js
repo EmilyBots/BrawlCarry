@@ -9,7 +9,11 @@ const { AttachmentBuilder } = require('discord.js');
  * @returns {Promise<AttachmentBuilder|null>}
  */
 async function fetchAndWatermark(url, blur = false) {
-  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000 });
+  const response = await axios.get(url, {
+  responseType: 'arraybuffer',
+  timeout: 10000,
+  headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BrawlCarryBot/1.0)' },
+});
   const rawBuffer = Buffer.from(response.data);
   const marked = await watermarkImage(rawBuffer, 'Brawl Carry Vouches', blur);
   return new AttachmentBuilder(marked, { name: 'proof.jpg' });

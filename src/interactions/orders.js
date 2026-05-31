@@ -971,15 +971,17 @@ async function handleOrderCompleteModal(interaction, client) {
   const boosterMention = order.booster_id ? `<@${order.booster_id}>` : 'Unassigned';
   const mode       = svcType === 'carry' ? 'Carry' : 'Boost';
   const baseType   = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
-  const modeEmoji  = svcType === 'carry' ? '<:Carry:1501221214251651082>' : '<:rocket:1491490870979985438>';
+  const modeEmoji  = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
   const e = baseEmbed(ordType === 'account' ? '4CCOUNT ORDER ✦' : `${baseType.toUpperCase()} ORDER ✦`, SUCCESS);
+  e.setTitle(null);
+  e.setDescription(`## <:crown:1508833236464439356> ${ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`}`);
   if (guild.icon) e.setAuthor({ name: 'BrawlCarry', iconURL: guild.iconURL() });
   e.addFields(
-    { name: 'Customer <:Customer:1501221119900778506>', value: `${custMention}  ·  ${payEmoji} **${order.method ?? '—'}**`, inline: false },
-    { name: 'Order Amount <:Amount:1501221154650853450>', value: `➜ **€${priceVal.toFixed(2)}**`, inline: false },
-    { name: `Order Type ${modeEmoji}`, value: `➜ ${ordType === 'account' ? '4ccount' : `${baseType} **${mode}**`}`, inline: false },
-    ...(ordType !== 'account' ? [{ name: 'Order Details <:Info:1501221322183934002>', value: `➜ ${details.split('\n')[0]}`, inline: false }] : []),
+    { name: `### Customer <:client:1508831518858940607>`, value: `<:arrow:1509857611816763482> ${custMention} ${payEmoji}`, inline: false },
+    { name: `### Order Amount <:Amount:1501221154650853450>`, value: `<:arrow:1509857611816763482> **\`€${priceVal.toFixed(2)}\`**`, inline: false },
+    { name: `### Order Type ${modeEmoji}`, value: `<:arrow:1509857611816763482> ${ordType === 'account' ? '4ccount' : `${baseType} ${svcType === 'carry' ? 'Carry' : 'B0ost'}`}`, inline: false },
+    ...(ordType !== 'account' ? [{ name: `### Order Details <:info:1508767700329959545>`, value: `<:arrow:1509857611816763482> ${details.split('\n')[0]}`, inline: false }] : []),
   );
 
   let wm = null;
@@ -989,7 +991,7 @@ async function handleOrderCompleteModal(interaction, client) {
   }
 
   const ctaView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setLabel('Order now').setStyle(ButtonStyle.Link).setEmoji('<:rocket:1491490870979985438>')
+    new ButtonBuilder().setLabel('Create Order').setStyle(ButtonStyle.Link).setEmoji({ name: 'Boost', id: '1508378809676861573' })
       .setURL(ordType === 'prestige'
         ? 'https://discord.com/channels/1355262062095372429/1355262063437414564'
         : 'https://discord.com/channels/1355262062095372429/1477338397570760784'

@@ -1028,6 +1028,75 @@ async function handleOrderCompleteModal(interaction, client) {
       const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
       detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier}\``;
     } else {
+async function handleOrderCompleteModal(interaction, client) {
+  await interaction.deferReply({ ephemeral: true });
+
+  const orderId  = interaction.fields.getTextInputValue('order_id').trim();
+  const priceStr = interaction.fields.getTextInputValue('final_price').replace('€', '').trim();
+  const imgUrl   = interaction.fields.getTextInputValue('proof_image').trim();
+  const applyWm  = interaction.fields.getTextInputValue('apply_watermark').trim().toLowerCase() === 'yes';
+
+  const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
+  if (!order) return interaction.followUp({ content: `❌ Order \`${orderId}\` not found.`, ephemeral: true });
+  if (order.status === 'completed') return interaction.followUp({ content: `❌ Order \`${orderId}\` is already completed.`, ephemeral: true });
+
+  const priceVal       = parseFloat(priceStr) || order.price || 0;
+  const claimedAt      = order.claimed_at ? new Date(order.claimed_at) : null;
+  const now            = new Date();
+  const completionSecs = claimedAt ? Math.floor((now - claimedAt) / 1000) : null;
+
+  await queryOne(
+    "UPDATE orders SET status = 'completed', price = $1, completed_at = $2, completion_time_seconds = $3 WHERE id = $4",
+    [priceVal, now, completionSecs, orderId]
+  );
+
+  const guild          = interaction.guild;
+  const cfg            = await getConfig(guild.id);
+  const completedChId  = cfg?.completed_channel_id ? String(cfg.completed_channel_id) : null;
+  const completedCh    = completedChId ? guild.channels.cache.get(completedChId) : null;
+  const customer       = order.user_id ? guild.members.cache.get(String(order.user_id)) : null;
+
+  const svcType        = order.service_type ?? 'boost';
+  const ordType        = order.order_type   ?? 'ranked';
+  const details        = buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType);
+  const payEmoji       = await getPaymentEmoji(order.method, interaction.guildId);
+  const custMention    = customer?.toString() ?? `<@${order.user_id}>`;
+  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
+  const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const orderTitle     = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
+
+  let wm = null;
+  if (imgUrl && applyWm) {
+    try {
+      wm = await fetchAndWatermark(imgUrl);
+    } catch (err) {
+      return interaction.followUp({ content: `❌ Watermark failed: \`${err?.message ?? err}\`\n\nUsa un link Imgur diretto (https://i.imgur.com/xxx.jpg).`, ephemeral: true });
+    }
+  }
+
+  const container = new ContainerBuilder()
+    .setAccentColor(SUCCESS)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## <:crown:1508833236464439356> ${orderTitle}`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Customer <:client:1508831518858940607>\n<:arrow:1509857611816763482> ${custMention} ${payEmoji}`)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Order Amount <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **\`€${priceVal.toFixed(2)}\`**`)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`### Order Type ${modeEmoji}\n<:arrow:1509857611816763482> ${ordType === 'account' ? '4ccount' : `${baseType} ${svcType === 'carry' ? 'Carry' : 'B0ost'}`}`)
+    );
+
+  if (ordType !== 'account') {
+    let detailsLine;
+    if (ordType === 'prestige') {
+      const fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
+      const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
+      detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier}\``;
+    } else {
       detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
     container.addTextDisplayComponents(
@@ -1035,28 +1104,35 @@ async function handleOrderCompleteModal(interaction, client) {
     );
   }
 
-  container
-    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-    .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
-    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setLabel('Create Order')
-          .setStyle(ButtonStyle.Link)
-          .setEmoji({ name: 'Boost', id: '1508378809676861573' })
-          .setURL(ordType === 'prestige'
-            ? 'https://discord.com/channels/1355262062095372429/1355262063437414564'
-            : 'https://discord.com/channels/1355262062095372429/1477338397570760784'
-          )
-      )
-    );
+  container.addSeparatorComponents(new SeparatorBuilder().setDivider(true));
 
-  const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, files: [wm] };
+  if (wm) {
+    container
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+  } else if (imgUrl && !applyWm) {
+    container
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: imgUrl } }]))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+  }
+
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('Create Order')
+        .setStyle(ButtonStyle.Link)
+        .setEmoji({ name: 'Boost', id: '1508378809676861573' })
+        .setURL(ordType === 'prestige'
+          ? 'https://discord.com/channels/1355262062095372429/1355262063437414564'
+          : 'https://discord.com/channels/1355262062095372429/1477338397570760784'
+        )
+    )
+  );
+
+  const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
   if (completedCh) await completedCh.send(sendArgs).catch(err => console.error('[WM] send fallito:', err?.message ?? err));
   else await interaction.channel.send(sendArgs).catch(err => console.error('[WM] send fallito:', err?.message ?? err));
 
-  // DM customer
   if (customer) {
     try {
       if (order.booster_id) {

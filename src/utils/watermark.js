@@ -31,17 +31,10 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
 
   // 2-line watermark: "BrawlCarry™" + "discord.gg/brawlcarry"
   // fontSize ~1.5× larger than old design (w/18 → w/14)
-  const fontSize   = Math.max(18, Math.floor(w / 22));
-  const lineHeight = Math.floor(fontSize * 1.3);
+  const fontSize = Math.max(14, Math.floor(w / 18));
+  const lineGap = Math.floor(fontSize * 0.30);
   const opacity    = 0.45;
-  const subSize    = Math.floor(fontSize * 0.78);
-
-  // Tile spacing calculated in rotated space to prevent overlap at -30° angle
-  const cos30  = Math.cos(30 * Math.PI / 180);
-  const tileW  = Math.ceil(21 * fontSize * 0.58);
-  const tileH  = lineHeight * 2;
-  const stepX  = Math.ceil((tileW / cos30) * 1.13);
-  const stepY  = Math.ceil((tileH / cos30) * 1.13);
+  const subSize = Math.floor(fontSize * 0.68);
 
   // Render line 1
 const line1Buf = await sharp({
@@ -99,15 +92,16 @@ const rW    = rMeta.width;
 const rH    = rMeta.height;
 
   const composites = [];
+const stepX = rW;
+const stepY = rH;
+
 for (let row = -2; row * stepY < h + rH; row++) {
   for (let col = -2; col * stepX < w + rW; col++) {
-    const cx = col * stepX + (row % 2 === 0 ? 0 : Math.floor(stepX / 2));
-    const cy = row * stepY;
-    composites.push({
-      input: rotated,
-      top:   Math.round(cy - rH / 2),
-      left:  Math.round(cx - rW / 2),
-    });
+    const offsetX = (row % 2 !== 0) ? Math.floor(stepX / 2) : 0;
+    const top  = Math.round(row * stepY);
+    const left = Math.round(col * stepX + offsetX);
+    if (left + rW < 0 || left > w || top + rH < 0 || top > h) continue;
+    composites.push({ input: rotated, top, left });
   }
 }
 

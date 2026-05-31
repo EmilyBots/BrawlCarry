@@ -1003,9 +1003,9 @@ async function handleOrderCompleteModal(interaction, client) {
     if (ordType === 'prestige') {
       const fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
       const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
-      detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow_white:1482176513376911563> ${toEmoji} \`${order.to_tier}\``;
+      detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier}\``;
     } else {
-      detailsLine = details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>');
+      detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
 
     container.addTextDisplayComponents(

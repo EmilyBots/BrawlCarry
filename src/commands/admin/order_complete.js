@@ -3,7 +3,7 @@ const {
 } = require('discord.js');
 const { queryOne } = require('../../db/index');
 
-const { debugWatermarkDiag } = require('../../watermark'); // aggiusta se watermark.js è altrove
+const { debugWatermarkDiag } = require('../utils/watermark'); // aggiusta se watermark.js è altrove
 
 module.exports = [
   {

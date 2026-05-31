@@ -976,14 +976,22 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const orderTitle = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
 
+  console.log('[WM] Step 1 - order complete triggered');
+
   let wm = null;
   if (imgUrl) {
-    wm = await fetchAndWatermark(imgUrl).catch((err) => {
-      console.error('[order_complete] fetchAndWatermark failed:', err?.message ?? err);
-      return null;
-    });
-    if (!wm) {
-      await interaction.followUp({ content: `⚠️ Could not apply watermark to the proof image. Check that the URL is valid and publicly accessible.`, ephemeral: true });
+    console.log('[WM] Step 2 - image generated');
+    console.log('[WM] Original:', imgUrl);
+    try {
+      console.log('[WM] Step 3 - applying watermark');
+      wm = await fetchAndWatermark(imgUrl);
+      if (!wm) throw new Error('fetchAndWatermark returned null');
+      console.log('[WM] Step 4 - watermark completed');
+      console.log('[WM] Watermarked: proof.jpg (AttachmentBuilder in memoria)');
+    } catch (err) {
+      console.error('[WM] WATERMARK FAILED:', err?.message ?? err);
+      await interaction.followUp({ content: `⚠️ Watermark fallito: \`${err?.message ?? err}\`\n\nControlla la console del bot.`, ephemeral: true });
+      throw err;
     }
   }
 
@@ -1040,9 +1048,11 @@ async function handleOrderCompleteModal(interaction, client) {
     )
   );
 
+  console.log('[WM] Step 5 - uploading image');
+  console.log('[WM] Uploading watermarked file:', wm ? 'YES — proof.jpg' : 'NO — nessuna proof URL');
   const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
-  if (completedCh) await completedCh.send(sendArgs).catch(() => {});
-  else await interaction.channel.send(sendArgs).catch(() => {});
+  if (completedCh) await completedCh.send(sendArgs).catch((err) => { console.error('[WM] send a completedCh fallito:', err?.message ?? err); });
+  else await interaction.channel.send(sendArgs).catch((err) => { console.error('[WM] send a channel fallito:', err?.message ?? err); });
 
   // DM customer
   if (customer) {

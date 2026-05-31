@@ -942,7 +942,8 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const orderId  = interaction.fields.getTextInputValue('order_id').trim();
   const priceStr = interaction.fields.getTextInputValue('final_price').replace('€', '').trim();
-  const imgUrl   = interaction.fields.getTextInputValue('proof_image').trim();
+  const imgUrl    = interaction.fields.getTextInputValue('proof_image').trim();
+  const applyWm   = interaction.fields.getTextInputValue('apply_watermark').trim().toLowerCase() === 'yes';
 
   const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
   if (!order) return interaction.followUp({ content: `❌ Order \`${orderId}\` not found.`, ephemeral: true });
@@ -979,19 +980,11 @@ async function handleOrderCompleteModal(interaction, client) {
   console.log('[WM] Step 1 - order complete triggered');
 
   let wm = null;
-  if (imgUrl) {
-    console.log('[WM] Step 2 - image generated');
-    console.log('[WM] Original:', imgUrl);
+  if (imgUrl && applyWm) {
     try {
-      console.log('[WM] Step 3 - applying watermark');
       wm = await fetchAndWatermark(imgUrl);
-      if (!wm) throw new Error('fetchAndWatermark returned null');
-      console.log('[WM] Step 4 - watermark completed');
-      console.log('[WM] Watermarked: proof.jpg (AttachmentBuilder in memoria)');
     } catch (err) {
-      console.error('[WM] WATERMARK FAILED:', err?.message ?? err);
-      await interaction.followUp({ content: `⚠️ Watermark fallito: \`${err?.message ?? err}\`\n\nControlla la console del bot.`, ephemeral: true });
-      throw err;
+      return interaction.followUp({ content: `❌ Watermark failed: \`${err?.message ?? err}\`\n\nMake sure the image URL is publicly accessible (not a Discord CDN link or login-walled URL).`, ephemeral: true });
     }
   }
 
@@ -1032,6 +1025,10 @@ async function handleOrderCompleteModal(interaction, client) {
   if (wm) {
     container
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
+  } else if (imgUrl && !applyWm) {
+    container
+      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: imgUrl } }]))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
   }
 

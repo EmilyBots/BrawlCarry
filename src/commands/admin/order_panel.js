@@ -59,24 +59,35 @@ const prestigePanelCmd = {
     const imageUrlRaw = interaction.options.getString('image_url');
     const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
 
-    const e = baseEmbed('<:copyright:1485657838897467534> Prestige Service', ACCENT);
-    e.setDescription('>>> **Reach your desired Prestige quickly and safely with our experienced boosters.**\n\n⚡ Fast • 🔒 Secure • ⭐ Trusted');
-    if (imageUrls[0]) e.setImage(imageUrls[0]);
+    const container = new ContainerBuilder()
+      .setAccentColor(ACCENT)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent('## <:P3:1508147370947252345> Prestige Service\n>>> ### <:arrow:1509857611816763482> **Reach your desired Prestige quickly and safely with our experienced players.**')
+      );
 
-    const extraEmbeds = imageUrls.slice(1).map(url =>
-      new EmbedBuilder().setColor(ACCENT).setImage(url).setFooter({ text: FOOTER_BRAND })
-    );
+    if (imageUrls[0]) {
+      container
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems([{ media: { url: imageUrls[0] } }])
+        );
+    }
 
-    const view = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('prestige_order_btn')
-        .setLabel('Prestige Order')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji({ name: 'copyright', id: '1485657838897467534' })
-    );
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('prestige_order_btn')
+            .setLabel('Create Order')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji({ name: 'P3', id: '1508147370947252345' })
+        )
+      );
 
-    await interaction.channel.send({ embeds: [e, ...extraEmbeds], components: [view] });
-    await interaction.reply({ content: '✅ Prestige Boost panel posted.', ephemeral: true });
+    await interaction.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ content: '✅ Prestige panel posted.', ephemeral: true });
   },
 };
 

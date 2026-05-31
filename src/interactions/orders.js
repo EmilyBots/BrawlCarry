@@ -998,14 +998,14 @@ async function handleOrderCompleteModal(interaction, client) {
     );
 
   if (ordType !== 'account') {
-    let detailsLine = details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>');
+    let detailsLine;
 
     if (ordType === 'prestige') {
       const fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
       const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
-      detailsLine = detailsLine
-        .replace(order.from_tier, `${fromEmoji} ${order.from_tier}`)
-        .replace(order.to_tier,   `${toEmoji} ${order.to_tier}`);
+      detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow_white:1482176513376911563> ${toEmoji} \`${order.to_tier}\``;
+    } else {
+      detailsLine = details.split('\n')[0].replace('→', '<:arrow_white:1482176513376911563>');
     }
 
     container.addTextDisplayComponents(

@@ -43,49 +43,80 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   const stepX  = Math.ceil((stampW / cos30) * 1.13); // min non-overlapping X + 13% margin
   const stepY  = Math.ceil((stampH / cos30) * 1.13); // min non-overlapping Y + 13% margin
 
-  const angle = -30;
-  const textElements = [];
+  // Render line 1
+const line1Buf = await sharp({
+  text: {
+    text: '<span foreground="#ffffff">BrawlCarry™</span>',
+    font: `DejaVu Sans Bold ${fontSize}`,
+    dpi:  72,
+    rgba: true,
+  },
+}).png().toBuffer();
 
-  for (let row = -2; row * stepY < h * 2 + h; row++) {
-    for (let col = -2; col * stepX < w * 2 + w; col++) {
-      // Offset every other row for a diagonal brick pattern
-      const x = col * stepX + (row % 2 === 0 ? 0 : stepX / 2);
-      const y = row * stepY;
+// Render line 2
+const line2Buf = await sharp({
+  text: {
+    text: '<span foreground="#ffffff">discord.gg/brawlcarry</span>',
+    font: `DejaVu Sans Bold ${subSize}`,
+    dpi:  72,
+    rgba: true,
+  },
+}).png().toBuffer();
 
-      textElements.push(`
-        <g transform="rotate(${angle} ${x} ${y})">
-          <text x="${x}" y="${y}"
-            font-family="DejaVu Sans, Arial, sans-serif"
-            font-size="${fontSize}"
-            font-weight="bold"
-            fill="#ffffff" fill-opacity="${opacity}"
-            text-anchor="middle"
-          >${escapeXml('BrawlCarry™')}</text>
-          <text x="${x}" y="${y + lineHeight}"
-            font-family="DejaVu Sans, Arial, sans-serif"
-            font-size="${subSize}"
-            font-weight="bold"
-            fill="#ffffff" fill-opacity="${opacity}"
-            text-anchor="middle"
-          >${escapeXml('discord.gg/brawlcarry')}</text>
-        </g>`
-      );
-    }
+const m1 = await sharp(line1Buf).metadata();
+const m2 = await sharp(line2Buf).metadata();
+
+// Assemble stamp
+const gap    = Math.max(0, lineHeight - m1.height);
+const stampW = Math.max(m1.width, m2.width);
+const stampH = m1.height + gap + m2.height;
+
+const stampRaw = await sharp({
+  create: { width: stampW, height: stampH, channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0 } },
+})
+.composite([
+  { input: line1Buf, top: 0,               left: Math.floor((stampW - m1.width) / 2) },
+  { input: line2Buf, top: m1.height + gap, left: Math.floor((stampW - m2.width) / 2) },
+])
+.png().toBuffer();
+
+// Apply 45% opacity directly on raw alpha bytes
+const { data, info } = await sharp(stampRaw).ensureAlpha().raw()
+  .toBuffer({ resolveWithObject: true });
+for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * 0.45);
+const stamp = await sharp(data, {
+  raw: { width: info.width, height: info.height, channels: 4 },
+}).png().toBuffer();
+
+// Rotate stamp −30°
+const rotated = await sharp(stamp)
+  .rotate(-30, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png().toBuffer();
+
+const rMeta = await sharp(rotated).metadata();
+const rW    = rMeta.width;
+const rH    = rMeta.height;
+
+  const composites = [];
+for (let row = -2; row * stepY < h + rH; row++) {
+  for (let col = -2; col * stepX < w + rW; col++) {
+    const cx = col * stepX + (row % 2 === 0 ? 0 : Math.floor(stepX / 2));
+    const cy = row * stepY;
+    composites.push({
+      input: rotated,
+      top:   Math.round(cy - rH / 2),
+      left:  Math.round(cx - rW / 2),
+    });
   }
-
-  const overlayPng = await sharp(Buffer.from(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
-    ${textElements.join('\n')}
-  </svg>`
-))
-  .ensureAlpha()
-  .png()
-  .toBuffer();
-
-const { channels } = await sharp(overlayPng).stats();
-if ((channels[3]?.sum ?? 0) === 0) {
-  throw new Error('Watermark layer is fully transparent — Sharp requires librsvg support.');
 }
+
+const overlayPng = await sharp({
+  create: { width: w, height: h, channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0 } },
+})
+.composite(composites)
+.png().toBuffer();
 
 return pipeline
   .composite([{ input: overlayPng, blend: 'over' }])
@@ -93,12 +124,6 @@ return pipeline
   .toBuffer();
 }
 
-function escapeXml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+
 
 module.exports = { fetchAndWatermark, watermarkImage };

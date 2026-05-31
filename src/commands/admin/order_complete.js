@@ -63,11 +63,12 @@ module.exports = [
         .setValue('yes')
         .setRequired(true)
     ),
-  );
+  )
+    );
 
     await interaction.showModal(modal);
   },
-};
+},
 {
     data: new SlashCommandBuilder()
       .setName('watermark_diag')

@@ -36,7 +36,7 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
 
   // 2-line watermark: "BrawlCarry™" + "discord.gg/brawlcarry"
   // fontSize ~1.5× larger than old design (w/18 → w/14)
-  const fontSize   = Math.max(20, Math.floor(w / 14));
+  const fontSize   = Math.max(18, Math.floor(w / 22));
   const lineHeight = Math.floor(fontSize * 1.3);
   const opacity    = 0.13;
   const subSize    = Math.floor(fontSize * 0.78);
@@ -44,8 +44,8 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   // Tile spacing based on actual rendered stamp size
   const charWidth = fontSize * 0.58;
   const stampW    = Math.ceil(21 * charWidth); // widest line: "discord.gg/brawlcarry"
-  const stepX     = stampW + Math.floor(fontSize * 1.2);
-  const stepY     = lineHeight * 2 + Math.floor(fontSize * 1.0);
+  const stepX     = stampW + Math.floor(fontSize * 0.8);
+  const stepY     = lineHeight * 2 + Math.floor(fontSize * 0.7);
 
   const angle = -30;
   const textElements = [];

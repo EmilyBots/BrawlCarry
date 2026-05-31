@@ -1087,32 +1087,7 @@ async function handleOrderCompleteModal(interaction, client) {
   await interaction.followUp({ content: '✅ Order marked as completed!', ephemeral: true });
 }
 
-  console.log('[WM] Step 1 - order complete triggered');
-
-  let wm = null;
-  if (imgUrl && applyWm) {
-    try {
-      wm = await fetchAndWatermark(imgUrl);
-    } catch (err) {
-      return interaction.followUp({ content: `❌ Watermark failed: \`${err?.message ?? err}\`\n\nMake sure the image URL is publicly accessible (not a Discord CDN link or login-walled URL).`, ephemeral: true });
-    }
-  }
-
-  const container = new ContainerBuilder()
-    .setAccentColor(SUCCESS)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`## <:crown:1508833236464439356> ${orderTitle}`)
-    )
-    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Customer <:client:1508831518858940607>\n<:arrow:1509857611816763482> ${custMention} ${payEmoji}`)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Order Amount <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **\`€${priceVal.toFixed(2)}\`**`)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`### Order Type ${modeEmoji}\n<:arrow:1509857611816763482> ${ordType === 'account' ? '4ccount' : `${baseType} ${svcType === 'carry' ? 'Carry' : 'B0ost'}`}`)
-    );
+ 
 
 
 

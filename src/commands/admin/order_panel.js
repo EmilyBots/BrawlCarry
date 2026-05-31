@@ -36,7 +36,7 @@ const rankedPanelCmd = {
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId('ranked_order_btn')
-            .setLabel('Ranked Order')
+            .setLabel('Create Order')
             .setStyle(ButtonStyle.Danger)
             .setEmoji({ name: 'master', id: '1491521740860428459' })
         )

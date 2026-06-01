@@ -14,7 +14,7 @@ let _fontFaceDecl = '';
 for (const fp of FONT_PATHS) {
   try {
     const b64 = fs.readFileSync(fp).toString('base64');
-    _fontFaceDecl = `<defs><style>@font-face{font-family:'BrawlFont';src:url('data:font/truetype;base64,${b64}');font-weight:bold;}</style></defs>`;
+    _fontFaceDecl = `<defs><style>@font-face{font-family:'BrawlFont';src:url('data:font/ttf;base64,${b64}') format('truetype');font-weight:bold;}</style></defs>`;
     break;
   } catch { /* try next */ }
 }

@@ -4,17 +4,18 @@ const fs    = require('fs');
 const path  = require('path');
 const { AttachmentBuilder } = require('discord.js');
 
+const opentype = require('opentype.js');
+
 const FONT_PATHS = [
   path.join(__dirname, 'fonts', 'DejaVuSans-Bold.ttf'),
   path.join(__dirname, 'DejaVuSans-Bold.ttf'),
   '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
   '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
 ];
-let _fontFaceDecl = '';
+let _font = null;
 for (const fp of FONT_PATHS) {
   try {
-    const b64 = fs.readFileSync(fp).toString('base64');
-    _fontFaceDecl = `<defs><style>@font-face{font-family:'BrawlFont';src:url('data:font/ttf;base64,${b64}') format('truetype');font-weight:bold;}</style></defs>`;
+    _font = opentype.loadSync(fp);
     break;
   } catch { /* try next */ }
 }
@@ -57,19 +58,43 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   const subSize = Math.floor(fontSize * 0.68);
 
   // Render line 1
-const svgW = Math.ceil(fontSize * 14);
-const svgH = fontSize + lineGap + subSize + Math.ceil(fontSize * 0.2);
-const svgBuf = Buffer.from(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
-    <text x="${svgW / 2}" y="${fontSize}" font-size="${fontSize}" font-weight="bold"
-      font-family="sans-serif"
-      fill="white" text-anchor="middle">BrawlCarry</text>
-    <text x="${svgW / 2}" y="${fontSize + lineGap + subSize}" font-size="${subSize}" font-weight="bold"
-      font-family="sans-serif"
-      fill="white" text-anchor="middle">discord.gg/brawlcarry</text>
-  </svg>`
-);
-const stampSvg = await sharp(svgBuf).png().toBuffer();
+// ── Stamp PNG via opentype paths — nessun SVG text, nessun font di sistema ──
+let stampSvg;
+if (_font) {
+  // Prima passata: misura le bounding box per calcolare le dimensioni del canvas
+  const probe1 = _font.getPath('BrawlCarry',             0, fontSize,                    fontSize);
+  const probe2 = _font.getPath('discord.gg/brawlcarry',  0, fontSize + lineGap + subSize, subSize);
+  const bb1 = probe1.getBoundingBox();
+  const bb2 = probe2.getBoundingBox();
+
+  const svgW = Math.ceil(Math.max(bb1.x2 - bb1.x1, bb2.x2 - bb2.x1) * 1.15);
+  const svgH = Math.ceil(fontSize + lineGap + subSize + fontSize * 0.25);
+
+  // Seconda passata: posiziona centrato
+  const cx1 = (svgW - (bb1.x2 - bb1.x1)) / 2 - bb1.x1;
+  const cx2 = (svgW - (bb2.x2 - bb2.x1)) / 2 - bb2.x1;
+  const p1 = _font.getPath('BrawlCarry',             cx1, fontSize,                    fontSize);
+  const p2 = _font.getPath('discord.gg/brawlcarry',  cx2, fontSize + lineGap + subSize, subSize);
+
+  const svgBuf = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
+      <path d="${p1.toPathData(2)}" fill="white"/>
+      <path d="${p2.toPathData(2)}" fill="white"/>
+    </svg>`
+  );
+  stampSvg = await sharp(svgBuf).png().toBuffer();
+} else {
+  // Fallback geometrico (non dovrebbe mai accadere: il font è nel repo)
+  const svgW = Math.ceil(fontSize * 14);
+  const svgH = fontSize + lineGap + subSize + Math.ceil(fontSize * 0.2);
+  const svgBuf = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
+      <rect x="4" y="2"  width="${svgW - 8}"        height="${fontSize - 4}" fill="white" rx="3"/>
+      <rect x="4" y="${fontSize + lineGap + 2}" width="${(svgW - 8) * 0.82}" height="${subSize - 4}" fill="white" rx="2"/>
+    </svg>`
+  );
+  stampSvg = await sharp(svgBuf).png().toBuffer();
+}
 const m1 = await sharp(stampSvg).metadata();
 
 const stampRaw = stampSvg;
@@ -132,66 +157,5 @@ return pipeline
 }
 
 
-/**
- * DEBUG: returns a Discord AttachmentBuilder with a diagnostic image.
- * Call it with: const dbg = await require('./watermark').debugWatermarkDiag(); 
- * then send it in any channel.
- */
-async function debugWatermarkDiag() {
-  // ── 1. Check every font path ──────────────────────────────────────────────
-  const checks = FONT_PATHS.map(fp => {
-    let status = 'MISSING';
-    let bytes  = 0;
-    try { bytes = fs.statSync(fp).size; status = 'OK'; } catch {}
-    return { fp, status, bytes };
-  });
-
-  const fontLoaded  = _fontFaceDecl !== '';
-  const fontFamily  = fontLoaded ? 'BrawlFont (embedded)' : 'system fallback (DejaVu/Liberation)';
-  const b64Len      = _fontFaceDecl.length;
-
-  // ── 2. Try rendering the exact same SVG the watermark uses ────────────────
-  const fontSize = 28;
-  const lineGap  = Math.floor(fontSize * 0.30);
-  const subSize  = Math.floor(fontSize * 0.68);
-  const svgW     = 560;
-  const svgH     = 400;
-  const ff       = fontLoaded ? 'BrawlFont' : 'DejaVu Sans, Liberation Sans, FreeSans, sans-serif';
-
-  let renderOK = true;
-  let renderBuf;
-  try {
-    renderBuf = await sharp(Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
-        ${_fontFaceDecl}
-        <rect width="${svgW}" height="${svgH}" fill="#1a1a2e"/>
-        <!-- ── section 1: font path results ── -->
-        ${checks.map((c, i) => {
-          const colour = c.status === 'OK' ? '#00ff88' : '#ff4444';
-          const label  = `${c.status === 'OK' ? '✓' : '✗'} ${c.fp.split('/').pop()} (${c.status}${c.bytes ? ' '+c.bytes+'B' : ''})`;
-          return `<text x="10" y="${30 + i * 22}" font-size="12" font-family="DejaVu Sans,Liberation Sans,sans-serif" fill="${colour}">${label}</text>`;
-        }).join('\n')}
-        <!-- ── section 2: _fontFaceDecl state ── -->
-        <text x="10" y="${30 + checks.length * 22 + 20}" font-size="13" font-family="DejaVu Sans,Liberation Sans,sans-serif" fill="${fontLoaded ? '#00ff88' : '#ff4444'}">_fontFaceDecl: ${fontLoaded ? 'POPULATED ('+b64Len+' chars)' : 'EMPTY — no font file found'}</text>
-        <text x="10" y="${30 + checks.length * 22 + 42}" font-size="13" font-family="DejaVu Sans,Liberation Sans,sans-serif" fill="#ffffff">fontFamily used: ${fontFamily}</text>
-        <!-- ── section 3: actual watermark text rendered with the real font ── -->
-        <text x="10" y="${30 + checks.length * 22 + 80}" font-size="11" font-family="DejaVu Sans,Liberation Sans,sans-serif" fill="#aaaaaa">--- render test (font: ${ff}) ---</text>
-        <text x="${svgW/2}" y="${30 + checks.length * 22 + 110}" font-size="${fontSize}" font-weight="bold" font-family="${ff}" fill="white" text-anchor="middle">BrawlCarry</text>
-        <text x="${svgW/2}" y="${30 + checks.length * 22 + 110 + lineGap + subSize}" font-size="${subSize}" font-weight="bold" font-family="${ff}" fill="white" text-anchor="middle">discord.gg/brawlcarry</text>
-        <!-- ── section 4: sharp/librsvg version ── -->
-        <text x="10" y="${svgH - 20}" font-size="11" font-family="DejaVu Sans,Liberation Sans,sans-serif" fill="#888888">sharp ${require('sharp').versions.sharp}  |  librsvg ${require('sharp').versions.rsvg}  |  node ${process.version}</text>
-      </svg>`
-    )).png().toBuffer();
-  } catch (e) {
-    renderOK = false;
-    // fallback: plain colour block
-    renderBuf = await sharp({
-      create: { width: svgW, height: svgH, channels: 3, background: { r: 180, g: 0, b: 0 } }
-    }).png().toBuffer();
-  }
-
-  return new AttachmentBuilder(renderBuf, { name: 'watermark_diag.png' });
-}
-
-module.exports = { fetchAndWatermark, watermarkImage, debugWatermarkDiag };
+module.exports = { fetchAndWatermark, watermarkImage };
 

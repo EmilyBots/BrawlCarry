@@ -52,9 +52,9 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
 
   // 2-line watermark: "BrawlCarry™" + "discord.gg/brawlcarry"
   // fontSize ~1.5× larger than old design (w/18 → w/14)
-  const fontSize = Math.max(14, Math.floor(w / 31));
+  const fontSize = Math.max(11, Math.floor(w / 44));
   const lineGap = Math.floor(fontSize * 0.30);
-  const opacity    = 0.45;
+  const opacity    = 0.28;
   const subSize = Math.floor(fontSize * 0.68);
 
   // Render line 1
@@ -104,7 +104,7 @@ const stampH = m1.height;
 // Apply 45% opacity directly on raw alpha bytes
 const { data, info } = await sharp(stampRaw).ensureAlpha().raw()
   .toBuffer({ resolveWithObject: true });
-for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * 0.45);
+for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * 0.28);
 const stamp = await sharp(data, {
   raw: { width: info.width, height: info.height, channels: 4 },
 }).png().toBuffer();
@@ -119,8 +119,8 @@ const rW    = rMeta.width;
 const rH    = rMeta.height;
 
   const composites = [];
-const stepX = Math.ceil(rW * 0.85);
-const stepY = Math.ceil(rH * 0.85);
+const stepX = Math.ceil(rW * 1.55);
+const stepY = Math.ceil(rH * 1.55);
 
 // Canvas esteso con padding = rW/rH su ogni lato, poi si ritaglia
 const padX = rW;

@@ -59,17 +59,13 @@ async function watermarkImage(imageBuffer, text = 'BrawlCarry™', blur = false)
   // Render line 1
 const svgW = Math.ceil(fontSize * 14);
 const svgH = fontSize + lineGap + subSize + Math.ceil(fontSize * 0.2);
-const fontFamily = _fontFaceDecl ? 'BrawlFont' : 'DejaVu Sans, Liberation Sans, FreeSans, sans-serif';
-const diagColor = _fontFaceDecl ? 'rgba(0,220,0,0.6)' : 'rgba(255,0,0,0.6)';
 const svgBuf = Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}">
-    ${_fontFaceDecl}
-    <rect width="${svgW}" height="${svgH}" fill="${diagColor}"/>
     <text x="${svgW / 2}" y="${fontSize}" font-size="${fontSize}" font-weight="bold"
-      font-family="${fontFamily}"
+      font-family="sans-serif"
       fill="white" text-anchor="middle">BrawlCarry</text>
     <text x="${svgW / 2}" y="${fontSize + lineGap + subSize}" font-size="${subSize}" font-weight="bold"
-      font-family="${fontFamily}"
+      font-family="sans-serif"
       fill="white" text-anchor="middle">discord.gg/brawlcarry</text>
   </svg>`
 );

@@ -3,7 +3,7 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
-  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig } = require('../db/index');
@@ -125,18 +125,24 @@ if (orderKind === 'prestige') {
   try {
     container = new ContainerBuilder()
       .setAccentColor(GOLD)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
-          `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
-          `<:arrow:1509857611816763482> ${starDisplay}`
-        )
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+              `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+              `<:arrow:1509857611816763482> ${starDisplay}`
+            )
+          )
+          .setAccessory(
+            new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
+          )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `### <:info:1508767700329959545> Feedback\n` +
-          `<:arrow:1509857611816763482> ${feedback}\n\n` +
+          `<:arrow:1509857611816763482> ${feedback}\n` +
           `### <:Amount:1501221154650853450> Order Amount\n` +
           `<:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
         )

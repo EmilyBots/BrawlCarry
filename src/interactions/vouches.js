@@ -148,13 +148,13 @@ let container;
           new ButtonBuilder()
             .setLabel('Order Now')
             .setStyle(ButtonStyle.Link)
-            .setEmoji('<:rocket:1491490870979985438>')
+            .setEmoji({ name: 'Boost', id: '1508378809676861573' })
             .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
           new ButtonBuilder()
             .setCustomId('vouch_btn:ranked')
-            .setLabel('Submit Review')
+            .setLabel('Review')
             .setStyle(ButtonStyle.Success)
-            .setEmoji('⭐'),
+            .setEmoji({ name: 'ratingstar', id: '1511306314486386799' }),
         )
       );
   } catch (err) {

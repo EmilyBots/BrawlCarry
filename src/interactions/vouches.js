@@ -3,7 +3,7 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
-  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags,
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig } = require('../db/index');
@@ -173,7 +173,18 @@ if (orderKind === 'prestige') {
     }
 
     console.log('[VOUCH] STEP 8 — aggiungo Separator + TextDisplay body');
-    cb.addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+let container;
+  try {
+    container = new ContainerBuilder()
+      .setAccentColor(GOLD)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+          `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+          `<:arrow:1509857611816763482> ${starDisplay}`
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `### <:info:1508767700329959545> Feedback\n` +
@@ -197,10 +208,8 @@ if (orderKind === 'prestige') {
             .setEmoji('⭐'),
         )
       );
-    console.log('[VOUCH] STEP 9 — ContainerBuilder completato');
-    container = cb;
   } catch (err) {
-    console.error('[VOUCH] ContainerBuilder CRASH — ultimo step raggiunto prima del crash:', err);
+    console.error('[VOUCH] ContainerBuilder failed:', err);
     await interaction.reply({ content: '❌ Internal error building review. Please try again.', ephemeral: true });
     return;
   }

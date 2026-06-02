@@ -82,7 +82,7 @@ const prestigePanelCmd = {
             .setCustomId('prestige_order_btn')
             .setLabel('Create Order')
             .setStyle(ButtonStyle.Primary)
-            .setEmoji({ name: 'P3', id: '1508147370947252345' })
+            .setEmoji({ name: 'RP3', id: '1510915463146766407' })
         )
       );
 

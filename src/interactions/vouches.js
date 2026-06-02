@@ -126,7 +126,7 @@ if (orderKind === 'prestige') {
 let container;
   try {
     // NEW
-    const avatarURL = interaction.user.displayAvatarURL({ size: 128 });
+    const avatarURL = interaction.user.displayAvatarURL({ size: 128, extension: 'png', forceStatic: true });
     container = new ContainerBuilder()
       .setAccentColor(GOLD)
       .addSectionComponents(

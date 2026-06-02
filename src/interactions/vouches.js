@@ -125,49 +125,58 @@ if (orderKind === 'prestige') {
   kindLabel = 'Ranked Boost';
 }
 
-  const container = new ContainerBuilder()
-    .setAccentColor(GOLD)
-    .addSectionComponents(
-      new SectionBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
-            `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
-            `<:arrow:1509857611816763482> ${starDisplay}`
+  let container;
+  try {
+    container = new ContainerBuilder()
+      .setAccentColor(GOLD)
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
+              `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+              `<:arrow:1509857611816763482> ${starDisplay}`
+            )
           )
-        )
-        .setAccessory(
-          new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
-        )
-    )
-    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `### <:info:1508767700329959545> Feedback\n` +
-        `<:arrow:1509857611816763482> ${feedback}\n\n` +
-        `### <:Amount:1501221154650853450> Order Amount\n` +
-        `<:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
+          .setAccessory(
+            new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
+          )
       )
-    )
-    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setLabel('Order Now')
-          .setStyle(ButtonStyle.Link)
-          .setEmoji('<:rocket:1491490870979985438>')
-          .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
-        new ButtonBuilder()
-          .setCustomId('vouch_btn:ranked')
-          .setLabel('Submit Review')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('⭐'),
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### <:info:1508767700329959545> Feedback\n` +
+          `<:arrow:1509857611816763482> ${feedback}\n\n` +
+          `### <:Amount:1501221154650853450> Order Amount\n` +
+          `<:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
+        )
       )
-    );
-
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('Order Now')
+            .setStyle(ButtonStyle.Link)
+            .setEmoji('<:rocket:1491490870979985438>')
+            .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
+          new ButtonBuilder()
+            .setCustomId('vouch_btn:ranked')
+            .setLabel('Submit Review')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji('⭐'),
+        )
+      );
+  } catch (err) {
+    console.error('[VOUCH] ContainerBuilder failed:', err);
+    return;
+  }
   let wm = null;
-  if (imgUrl) {
-    wm = await fetchAndWatermark(imgUrl, true).catch(() => null);
+  try {
+    if (imgUrl) {
+      wm = await fetchAndWatermark(imgUrl, true).catch(() => null);
+    }
+  } catch (err) {
+    console.error('[VOUCH] Watermark failed:', err);
   }
 
   await interaction.reply({ content: '✅ Your vouch has been submitted. Thank you!', ephemeral: true });

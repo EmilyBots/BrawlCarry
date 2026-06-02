@@ -128,7 +128,7 @@ let container;
       .setAccentColor(GOLD)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+          `## <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
           `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
           `<:arrow:1509857611816763482> ${starDisplay}`
         )
@@ -152,7 +152,7 @@ let container;
             .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
           new ButtonBuilder()
             .setCustomId('vouch_btn:ranked')
-            .setLabel('Review')
+            .setLabel('Leave Review')
             .setStyle(ButtonStyle.Success)
             .setEmoji({ name: 'ratingstar', id: '1511306314486386799' }),
         )

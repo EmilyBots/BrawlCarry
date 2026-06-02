@@ -186,8 +186,12 @@ if (orderKind === 'prestige') {
   if (guild && vouchChId) {
     let ch = guild.channels.cache.get(vouchChId) ?? await guild.channels.fetch(vouchChId).catch(() => null);
     if (ch) {
-      const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
-      await ch.send(sendArgs).catch(err => console.error('[VOUCH] send failed:', err));
+      try {
+        const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
+        await ch.send(sendArgs);
+      } catch (err) {
+        console.error('[VOUCH] ch.send failed:', err);
+      }
     }
   }
 

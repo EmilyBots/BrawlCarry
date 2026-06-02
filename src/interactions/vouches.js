@@ -3,6 +3,7 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig } = require('../db/index');
@@ -112,7 +113,7 @@ await queryOne(
   const cfg       = interaction.guild ? await getConfig(interaction.guildId) : null;
   const vouchChId = cfg?.vouch_channel_id ? String(cfg.vouch_channel_id) : FALLBACK_VOUCH_CHANNEL_ID;
 
-  const customStar  = '<:star:1501524038344769546>';
+  const customStar  = '<a:ratingstar:1511306314486386799>';
   const starDisplay = customStar.repeat(stars);
 
   let kindLabel, svcIcon;
@@ -124,44 +125,59 @@ if (orderKind === 'prestige') {
   kindLabel = 'Ranked Boost';
 }
 
-  const e = new EmbedBuilder()
-    .setColor(GOLD)
-    .setTitle(`<:Customer:1501221119900778506> Customer Review from ${interaction.user.toString()}`)
-    .setThumbnail(interaction.user.displayAvatarURL())
-    .addFields(
-      { name: '<:Info:1501221322183934002> Feedback',      value: `➜ ${feedback}`,             inline: false },
-      { name: '<:Amount:1501221154650853450> Amount Paid', value: `➜ **€${amountVal.toFixed(2)}**`, inline: false },
-      { name: `<:star:1501524038344769546> Rating (${stars}/5)`, value: `➜ ${starDisplay}`,   inline: false },
+  const container = new ContainerBuilder()
+    .setAccentColor(GOLD)
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
+            `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+            `<:arrow:1509857611816763482> ${starDisplay}`
+          )
+        )
+        .setAccessory(
+          new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
+        )
     )
-    .setFooter({ text: FOOTER_BRAND });
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### <:info:1508767700329959545> Feedback\n` +
+        `<:arrow:1509857611816763482> ${feedback}\n\n` +
+        `### <:Amount:1501221154650853450> Order Amount\n` +
+        `<:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('Order Now')
+          .setStyle(ButtonStyle.Link)
+          .setEmoji('<:rocket:1491490870979985438>')
+          .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
+        new ButtonBuilder()
+          .setCustomId('vouch_btn:ranked')
+          .setLabel('Submit Review')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('⭐'),
+      )
+    );
 
   let wm = null;
   if (imgUrl) {
     wm = await fetchAndWatermark(imgUrl, true).catch(() => null);
-    if (wm) e.setImage('attachment://proof.jpg');
   }
 
   await interaction.reply({ content: '✅ Your vouch has been submitted. Thank you!', ephemeral: true });
-
-  const reviewView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel('Order Now')
-      .setStyle(ButtonStyle.Link)
-      .setEmoji('<:rocket:1491490870979985438>')
-      .setURL(`https://discord.com/channels/${guildId}/1355262063089291463`),
-    new ButtonBuilder()
-      .setCustomId('vouch_btn:ranked')
-      .setLabel('Submit Review')
-      .setStyle(ButtonStyle.Success)
-      .setEmoji('⭐'),
-  );
 
   // Post to vouch channel
   const guild = interaction.guild;
   if (guild && vouchChId) {
     let ch = guild.channels.cache.get(vouchChId) ?? await guild.channels.fetch(vouchChId).catch(() => null);
     if (ch) {
-      const sendArgs = { embeds: [e], components: [reviewView], ...(wm ? { files: [wm] } : {}) };
+      const sendArgs = { components: [container], flags: MessageFlags.IsComponentsV2, ...(wm ? { files: [wm] } : {}) };
       await ch.send(sendArgs).catch(err => console.error('[VOUCH] send failed:', err));
     }
   }

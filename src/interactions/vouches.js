@@ -138,8 +138,8 @@ let container;
               `<:arrow:1509857611816763482> ${starDisplay}`
             )
           )
-          .setAccessory(
-            new ThumbnailBuilder().setMedia({ url: avatarURL })
+.setThumbnailAccessory(
+new ThumbnailBuilder({ media: { url: avatarURL } })
           )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

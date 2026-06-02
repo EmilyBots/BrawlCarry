@@ -148,7 +148,7 @@ new ThumbnailBuilder({ media: { url: avatarURL } })
           `### <:info:1508767700329959545> Feedback\n` +
           `### <:arrow:1509857611816763482> ${feedback}\n` +
           `### <:Amount:1501221154650853450> Order Amount\n` +
-          `<:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
+          `### <:arrow:1509857611816763482> **\`€${amountVal.toFixed(2)}\`**`
         )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

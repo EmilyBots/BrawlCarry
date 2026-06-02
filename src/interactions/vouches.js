@@ -121,24 +121,59 @@ if (orderKind === 'prestige') {
   kindLabel = 'Ranked Boost';
 }
 
+  // ── Diagnostica: verifica disponibilità builder ──────────────────────────
+  console.log('[VOUCH] STEP 0 — SectionBuilder:', typeof SectionBuilder, '| ThumbnailBuilder:', typeof ThumbnailBuilder);
+
+  const avatarURL = interaction.user.displayAvatarURL({ size: 128 });
+  const useSectionLayout = typeof SectionBuilder === 'function' && typeof ThumbnailBuilder === 'function';
+  console.log('[VOUCH] STEP 1 — useSectionLayout:', useSectionLayout, '| avatarURL:', avatarURL);
+
   let container;
   try {
-    container = new ContainerBuilder()
-      .setAccentColor(GOLD)
-      .addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
-              `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
-              `<:arrow:1509857611816763482> ${starDisplay}`
-            )
+    console.log('[VOUCH] STEP 2 — inizio ContainerBuilder');
+    const cb = new ContainerBuilder().setAccentColor(GOLD);
+    console.log('[VOUCH] STEP 3 — ContainerBuilder creato');
+
+    if (useSectionLayout) {
+      console.log('[VOUCH] STEP 4a — percorso SectionBuilder');
+      let thumb;
+      try {
+        thumb = new ThumbnailBuilder().setMedia({ url: avatarURL });
+        console.log('[VOUCH] STEP 5a — ThumbnailBuilder.setMedia OK');
+      } catch (thumbErr) {
+        console.error('[VOUCH] STEP 5a FAIL — setMedia con oggetto fallito, provo stringa:', thumbErr.message);
+        thumb = new ThumbnailBuilder().setMedia(avatarURL);
+        console.log('[VOUCH] STEP 5b — ThumbnailBuilder.setMedia(stringa) OK');
+      }
+
+      const section = new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+            `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+            `<:arrow:1509857611816763482> ${starDisplay}`
           )
-          .setAccessory(
-            new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
-          )
-      )
-      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        )
+        .setAccessory(thumb);
+      console.log('[VOUCH] STEP 6a — SectionBuilder costruito');
+
+      cb.addSectionComponents(section);
+      console.log('[VOUCH] STEP 7a — addSectionComponents OK');
+    } else {
+      // Fallback: SectionBuilder/ThumbnailBuilder non disponibili nel runtime
+      console.warn('[VOUCH] STEP 4b — fallback: SectionBuilder non disponibile, uso TextDisplay puro');
+      cb.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+          `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+          `<:arrow:1509857611816763482> ${starDisplay}`
+        )
+      );
+      console.log('[VOUCH] STEP 5b — TextDisplay fallback OK');
+    }
+
+    console.log('[VOUCH] STEP 8 — aggiungo Separator + TextDisplay body');
+    cb.addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `### <:info:1508767700329959545> Feedback\n` +
@@ -162,8 +197,10 @@ if (orderKind === 'prestige') {
             .setEmoji('⭐'),
         )
       );
+    console.log('[VOUCH] STEP 9 — ContainerBuilder completato');
+    container = cb;
   } catch (err) {
-    console.error('[VOUCH] ContainerBuilder failed:', err);
+    console.error('[VOUCH] ContainerBuilder CRASH — ultimo step raggiunto prima del crash:', err);
     await interaction.reply({ content: '❌ Internal error building review. Please try again.', ephemeral: true });
     return;
   }

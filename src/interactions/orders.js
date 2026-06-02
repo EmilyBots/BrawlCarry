@@ -420,7 +420,7 @@ async function handlePrestigeTrophyModal(interaction) {
 
 async function handleConfirmPrestige(interaction) {
   return handlePrestigeModal(interaction);
-
+}
 // ── Edit Order — reopens the order config select menus ────────────────────────
 async function handleEditOrder(interaction) {
   const id      = interaction.customId; // 'ranked_edit' or 'prestige_edit'

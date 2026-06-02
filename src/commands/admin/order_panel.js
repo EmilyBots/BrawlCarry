@@ -63,7 +63,7 @@ const prestigePanelCmd = {
       .setAccentColor(ACCENT)
       .addTextDisplayComponents(
         new TextDisplayBuilder()
-          .setContent('## <:P3:1508147370947252345> Prestige Service\n>>> ### <:arrow:1509857611816763482> **Reach your desired Prestige quickly and safely with our experienced players.**')
+          .setContent('## <:RP3:1510915463146766407> Prestige Service\n>>> ### <:arrow:1509857611816763482> **Reach your desired Prestige quickly and safely with our experienced players.**')
       );
 
     if (imageUrls[0]) {

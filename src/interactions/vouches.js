@@ -3,7 +3,8 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
-  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
+  // NEW
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig } = require('../db/index');
@@ -124,14 +125,22 @@ if (orderKind === 'prestige') {
   
 let container;
   try {
+    // NEW
+    const avatarURL = interaction.user.displayAvatarURL({ size: 128 });
     container = new ContainerBuilder()
       .setAccentColor(GOLD)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
-          `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
-          `<:arrow:1509857611816763482> ${starDisplay}`
-        )
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### <:client:1508831518858940607> Customer Review from ${interaction.user.toString()}\n` +
+              `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+              `<:arrow:1509857611816763482> ${starDisplay}`
+            )
+          )
+          .setAccessory(
+            new ThumbnailBuilder().setMedia({ url: avatarURL })
+          )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(

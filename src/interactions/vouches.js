@@ -3,13 +3,11 @@ const {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   StringSelectMenuBuilder, StringSelectMenuOptionBuilder,
   EmbedBuilder,
-  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags,
+  ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
-const { getPaymentMethods, getPaymentEmoji } = require('../utils/permissions');
-const { fetchAndWatermark } = require('../utils/watermark');
 const { prestigeEmoji } = require('../utils/pricing');
 const { GOLD, FOOTER_BRAND } = require('../config/constants');
 const { v4: uuidv4 } = require('uuid');
@@ -91,8 +89,6 @@ async function handleModal(interaction) {
   const state      = getVouchState(interaction.user.id);
   const amountRaw  = interaction.fields.getTextInputValue('amount').replace('€', '').trim();
   const feedback   = interaction.fields.getTextInputValue('feedback');
-  const imgUrl     = null;
-
   const amountVal = parseFloat(amountRaw) || 0;
   const stars     = state.rating ?? 5;
   const orderKind = state.orderKind ?? 'ranked';
@@ -129,18 +125,12 @@ if (orderKind === 'prestige') {
   try {
     container = new ContainerBuilder()
       .setAccentColor(GOLD)
-      .addSectionComponents(
-        new SectionBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
-              `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
-              `<:arrow:1509857611816763482> ${starDisplay}`
-            )
-          )
-          .setAccessory(
-            new ThumbnailBuilder().setMedia({ url: interaction.user.displayAvatarURL() })
-          )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `### <:client:1508831518858940607> Review from ${interaction.user.toString()}\n` +
+          `### <a:ratingstar:1511306314486386799> Rating (${stars}/5)\n` +
+          `<:arrow:1509857611816763482> ${starDisplay}`
+        )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(
@@ -168,15 +158,8 @@ if (orderKind === 'prestige') {
       );
   } catch (err) {
     console.error('[VOUCH] ContainerBuilder failed:', err);
+    await interaction.reply({ content: '❌ Internal error building review. Please try again.', ephemeral: true });
     return;
-  }
-  let wm = null;
-  try {
-    if (imgUrl) {
-      wm = await fetchAndWatermark(imgUrl, true).catch(() => null);
-    }
-  } catch (err) {
-    console.error('[VOUCH] Watermark failed:', err);
   }
 
   await interaction.reply({ content: '✅ Your vouch has been submitted. Thank you!', ephemeral: true });

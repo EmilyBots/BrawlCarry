@@ -111,15 +111,7 @@ client.on('guildMemberAdd', async (member) => {
       )
       .setThumbnail('https://i.imgur.com/VqC9n9k.png');
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('Order Now')
-        .setStyle(ButtonStyle.Link)
-        .setEmoji('🛒')
-        .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
-    );
-
-    await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });
+    await member.send({ content: `<@${member.id}>`, embeds: [e] });
     console.log(`[WELCOME DM] Sent to ${member.user.tag}`);
   } catch (err) {
     console.warn(`[WELCOME DM] Failed for ${member.user?.tag}: ${err.message}`);

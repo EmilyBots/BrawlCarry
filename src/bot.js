@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SectionBuilder, ThumbnailBuilder, MessageFlags } = require('discord.js');
 const { initDb } = require('./db/init');
 const { loadCommands, registerCommands } = require('./commands/loader');
 const { loadInteractions } = require('./interactions/loader');
@@ -102,29 +102,43 @@ client.once('ready', async () => {
 // ── Welcome DM ───────────────────────────────────────────────────────────────
 client.on('guildMemberAdd', async (member) => {
   try {
-    const e = new EmbedBuilder()
-  .setColor(0x5865F2)
-  .setDescription(
-    '# Welcome to BrawlCarry™\n' +
-    '### Get your orders completed by trusted pro players <:Boost:1508378809676861573>\n\n' +
-    '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
-  )
-  .setThumbnail('https://i.imgur.com/VqC9n9k.png');
+    const container = new ContainerBuilder()
+      .setAccentColor(0x5865F2)
+      .addSectionComponents(
+        new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              '# Welcome to BrawlCarry™\n' +
+              '### Get your orders completed by trusted pro players <:Boost:1508378809676861573>\n\n' +
+              '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
+            )
+          )
+          .setThumbnailAccessory(
+            new ThumbnailBuilder({ media: { url: 'https://i.imgur.com/VqC9n9k.png' } })
+          )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('Order Now')
+            .setEmoji('🛒')
+            .setStyle(ButtonStyle.Link)
+            .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
+        )
+      );
 
-const row = new ActionRowBuilder().addComponents(
-  new ButtonBuilder()
-    .setLabel('Order Now')
-    .setEmoji('🛒')
-    .setStyle(ButtonStyle.Link)
-    .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
-);
-
-await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });
+    await member.send({
+      content: `<@${member.id}>`,
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+    });
     console.log(`[WELCOME DM] Sent to ${member.user.tag}`);
   } catch (err) {
     console.warn(`[WELCOME DM] Failed for ${member.user?.tag}: ${err.message}`);
   }
 });
+  
 
 
 // ── Global error handlers ────────────────────────────────────────────────────

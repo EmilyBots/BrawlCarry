@@ -102,6 +102,7 @@ client.once('ready', async () => {
 // ── Welcome DM ───────────────────────────────────────────────────────────────
 client.on('guildMemberAdd', async (member) => {
   try {
+    const avatarURL = member.user.displayAvatarURL({ size: 128, extension: 'png', forceStatic: true });
     const container = new ContainerBuilder()
       .setAccentColor(0x5865F2)
       .addSectionComponents(
@@ -114,7 +115,7 @@ client.on('guildMemberAdd', async (member) => {
             )
           )
           .setThumbnailAccessory(
-            new ThumbnailBuilder({ media: { url: 'https://i.imgur.com/VqC9n9k.png' } })
+            new ThumbnailBuilder({ media: { url: avatarURL } })
           )
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

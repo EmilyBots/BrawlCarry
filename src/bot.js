@@ -103,15 +103,23 @@ client.once('ready', async () => {
 client.on('guildMemberAdd', async (member) => {
   try {
     const e = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription(
-        '# Welcome to BrawlCarry™\n' +
-        '### Get your orders completed by trusted pro players <:Boost:1508378809676861573>\n\n' +
-        '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
-      )
-      .setThumbnail('https://i.imgur.com/VqC9n9k.png');
+  .setColor(0x5865F2)
+  .setDescription(
+    '# Welcome to BrawlCarry™\n' +
+    '### Get your orders completed by trusted pro players <:Boost:1508378809676861573>\n\n' +
+    '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
+  )
+  .setThumbnail('https://i.imgur.com/VqC9n9k.png');
 
-    await member.send({ content: `<@${member.id}>`, embeds: [e] });
+const row = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setLabel('Order Now')
+    .setEmoji('🛒')
+    .setStyle(ButtonStyle.Link)
+    .setURL('https://discord.com/channels/1355262062095372429/1355262063089291463')
+);
+
+await member.send({ content: `<@${member.id}>`, embeds: [e], components: [row] });
     console.log(`[WELCOME DM] Sent to ${member.user.tag}`);
   } catch (err) {
     console.warn(`[WELCOME DM] Failed for ${member.user?.tag}: ${err.message}`);

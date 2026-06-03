@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, Collection, EmbedBuilder } = require('discord.js');
 const { initDb } = require('./db/init');
 const { loadCommands, registerCommands } = require('./commands/loader');
 const { loadInteractions } = require('./interactions/loader');
@@ -98,6 +98,25 @@ client.once('ready', async () => {
   console.log('[OK] Background tasks started');
 });
 
+
+// ── Welcome DM ───────────────────────────────────────────────────────────────
+client.on('guildMemberAdd', async (member) => {
+  try {
+    const e = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setDescription(
+        '# Welcome to BrawlCarry™\n' +
+        '### Get your orders completed by trusted pro players <:Boost:1508378809676861573>\n\n' +
+        '-# Join our [Server Backup](https://discord.com/channels/1355262062095372429/1491416796581068860)'
+      )
+      .setThumbnail('https://i.imgur.com/VqC9n9k.png');
+
+    await member.send({ content: `<@${member.id}>`, embeds: [e] });
+    console.log(`[WELCOME DM] Sent to ${member.user.tag}`);
+  } catch (err) {
+    console.warn(`[WELCOME DM] Failed for ${member.user?.tag}: ${err.message}`);
+  }
+});
 
 
 // ── Global error handlers ────────────────────────────────────────────────────

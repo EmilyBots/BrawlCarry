@@ -750,8 +750,11 @@ async function handlePublishModal(interaction, client) {
   const svcText   = svcType === 'carry' ? 'Carry' : 'B00st';
   const svcEmojiClaim = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
+  const thumbnailId = svcType === 'carry' ? '1510590429052272660' : '1508378809676861573';
+
   const claimE = new EmbedBuilder()
     .setColor(color)
+    .setThumbnail(`https://cdn.discordapp.com/emojis/${thumbnailId}.png`)
     .setDescription(
       `## <:ticket:1508838977602457723> New ${label} Order\n\n` +
       `### You Earn <:Amount:1501221154650853450>\n` +

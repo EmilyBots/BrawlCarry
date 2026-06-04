@@ -46,7 +46,7 @@ async function handleButton(interaction) {
 
   const components = [
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Rate your experience...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' })),
+    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' }).setDisabled(true)),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });
@@ -58,7 +58,13 @@ async function handleSelect(interaction) {
   const value = interaction.values[0];
   const state = getVouchState(interaction.user.id);
 
-  if (id === 'vouch_rating_select') { state.rating = parseInt(value);  return interaction.deferUpdate(); }
+  if (id === 'vouch_rating_select') {
+    state.rating = parseInt(value);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' }).setDisabled(false)
+    );
+    return interaction.update({ components: [interaction.message.components[0], row] });
+  }
 
 
   // vouch_continue button is routed here too if the id check misses — handled in loader as button
@@ -206,12 +212,12 @@ async function handleReviewSubmit(interaction) {
 
 
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
-    new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))
+    new StringSelectMenuOptionBuilder().setLabel(`${'<a:ratingstar:1511306314486386799>'.repeat(n)} (${n}/5)`).setValue(String(n))
   );
 
   const components = [
     new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Rate your experience...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' })),
+    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' }).setDisabled(true)),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });

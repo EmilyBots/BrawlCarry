@@ -761,7 +761,7 @@ async function handlePublishModal(interaction, client) {
       `<:arrow:1509857611816763482> **€${earnings.toFixed(2)}**\n` +
       `### Order Type ${svcEmojiClaim}\n` +
       `<:arrow:1509857611816763482> ${label} **\`${svcText}\`**\n` +
-      (powerLine ? `### Power\n<:arrow:1509857611816763482> <:P11:1490776160911757575> **${order.p11_count}**\n` : '') +
+      (powerLine ? `### Power <:P11:1512113473289720070>\n<:arrow:1509857611816763482> **${order.p11_count}**\n` : '') +
       `### Order Details <:info:1508767700329959545>\n` +
       `<:arrow:1509857611816763482> ${detailLine}\n` +
       `### Claimed By <:verified:1508838509883162786>\n` +

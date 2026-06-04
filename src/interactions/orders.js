@@ -1041,9 +1041,9 @@ async function handleOrderCompleteModal(interaction, client) {
         `# <:vip:1508831641135612068> Order Complete\n\n` +
         `### Your order has been completed <:Boost:1508378809676861573>\n\n` +
         `### <:info:1508767700329959545> Order Details\n\n` +
-        `<:arrow:1509857611816763482> ${fromEmoji} ${order.from_tier ?? ''} <:arrow_white:1482176513376911563> ${toEmoji} ${order.to_tier ?? ''}\n\n` +
+        `<:arrow:1509857611816763482> ${fromEmoji} \`${order.from_tier ?? ''}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier ?? ''}\`\n\n` +
         `### Order Amount <:Amount:1501221154650853450>\n\n` +
-        `<:arrow:1509857611816763482> €${priceVal.toFixed(2)}\n\n` +
+        `<:arrow:1509857611816763482> **€${priceVal.toFixed(2)}**\n\n` +
         `-# Please leave a review in the button below<:verified:1508838509883162786>`
       );
 

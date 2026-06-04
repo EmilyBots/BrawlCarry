@@ -36,8 +36,8 @@ async function handleButton(interaction) {
   }
 
   vouchState.set(interaction.user.id, { orderKind, guildId });
-  const e = baseEmbed('<a:ratingstar:1511306314486386799> Customer Review', GOLD);
-  e.setDescription('Choose your rating below and click Continue to submit your review <:Boost:1508378809676861573>\n\n-# Thank you for supporting BrawlCarry™!');
+  const e = baseEmbed('\u200b', GOLD);
+  e.setDescription('# <a:ratingstar:1511306314486386799> Customer Review\n\n### Choose your rating below and click Continue to submit your review <:Boost:1508378809676861573>\n\n-# Thank you for supporting BrawlCarry™!');
 
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))
@@ -201,8 +201,9 @@ async function handleReviewSubmit(interaction) {
   const guildId = interaction.guildId ?? '0';
   vouchState.set(interaction.user.id, { orderKind: 'ranked', guildId });
 
-  const e = baseEmbed('<a:ratingstar:1511306314486386799> Customer Review', GOLD);
-  e.setDescription('Choose your rating below and click Continue to submit your review <:Boost:1508378809676861573>\n\n-# Thank you for supporting BrawlCarry™!');
+  const e = baseEmbed('\u200b', GOLD);
+  e.setDescription('# <a:ratingstar:1511306314486386799> Customer Review\n\n### Choose your rating below and click Continue to submit your review <:Boost:1508378809676861573>\n\n-# Thank you for supporting BrawlCarry™!');
+
 
   const ratingOptions = [5, 4, 3, 2, 1].map(n =>
     new StringSelectMenuOptionBuilder().setLabel(`${'⭐'.repeat(n)} (${n}/5)`).setValue(String(n))

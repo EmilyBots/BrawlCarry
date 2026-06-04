@@ -758,10 +758,10 @@ async function handlePublishModal(interaction, client) {
     .setDescription(
       `## <:ticket:1508838977602457723> New ${label} Order\n\n` +
       `### You Earn <:Amount:1501221154650853450>\n` +
-      `<:arrow:1509857611816763482> "**\`€${earnings.toFixed(2)}\`**"\n\n` +
+      `<:arrow:1509857611816763482> **€${earnings.toFixed(2)}**\n\n` +
       `### Order Type ${svcEmojiClaim}\n` +
       `<:arrow:1509857611816763482> ${label} **\`${svcText}\`**\n\n` +
-      (powerLine ? `### Power <:P11:1490776160911757575>\n<:arrow:1509857611816763482> "**\`${order.p11_count}\`**"\n\n` : '') +
+      (powerLine ? `### Power <:P11:1490776160911757575>\n<:arrow:1509857611816763482> **${order.p11_count}**\n\n` : '') +
       `### Order Details <:info:1508767700329959545>\n` +
       `<:arrow:1509857611816763482> ${detailLine}\n\n` +
       `### Claimed By <:verified:1508838509883162786>\n` +

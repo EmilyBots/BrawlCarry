@@ -45,8 +45,8 @@ async function handleButton(interaction) {
 
 
   const components = [
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Select your rating...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji('✅')),
+    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Rate your experience...').addOptions(ratingOptions)),
+    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' })),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });
@@ -210,8 +210,8 @@ async function handleReviewSubmit(interaction) {
   );
 
   const components = [
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Select your rating...').addOptions(ratingOptions)),
-    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji('✅')),
+    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('vouch_rating_select').setPlaceholder('Rate your experience...').addOptions(ratingOptions)),
+    new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' })),
   ];
 
   await interaction.reply({ embeds: [e], components, ephemeral: true });

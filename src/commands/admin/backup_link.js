@@ -58,22 +58,25 @@ const backupPanelCmd = {
     .setDefaultMemberPermissions(0x8),
 
   async execute(interaction) {
-    const e = baseEmbed('🛡️ Secure Your Backup Access', DANGER);
+    const e = baseEmbed('\u200b', DANGER);
+    e.setTitle(null);
     e.setDescription(
-      'If the main server is ever deleted, raided or banned, we will automatically add you to our backup server.\n\n' +
-      '**Click the button below and authorize with Discord.**\n\n' +
-      '🔒 We only request:\n' +
-      '> `identify` — to know who you are\n' +
-      '> `guilds.join` — to add you to the backup server if needed\n\n' +
-      '⚠️ You only need to do this once.'
+      '# <:Attention:1512046191653945374> Secure Backup Access\n\n' +
+      '## Protect your access to BrawlCarry™ with one quick Discord authorization.\n\n' +
+      '### We only request:\n' +
+      '> `"identify"`\n' +
+      '> `"guilds.join"`\n\n' +
+      '### Coming soon:\n' +
+      '> **Exclusive giveaway role access**\n\n' +
+      '-# One-time setup • Backup access ready'
     );
 
     const view = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setLabel('🛡️ Secure Backup Access')
+        .setLabel('Join Backup')
         .setStyle(ButtonStyle.Link)
         .setURL(OAUTH_AUTHORIZE_URL)
-        .setEmoji('🔒')
+        .setEmoji({ name: 'backup', id: '1512046788125659166' })
     );
 
     await interaction.channel.send({ embeds: [e], components: [view] });

@@ -762,7 +762,7 @@ async function handlePublishModal(interaction, client) {
       `### Order Type ${svcEmojiClaim}\n` +
       `<:arrow:1509857611816763482> ${label} **\`${svcText}\`**\n` +
       (powerLine ? `### Power <:P11:1512113473289720070>\n<:arrow:1509857611816763482> **${order.p11_count}**\n` : '') +
-      (orderType === 'prestige' && order.trophy_val ? `### Trophies <:Trophies:1485658086156013598>\n<:reply:1482062778243219507> **\`${parseInt(order.trophy_val).toLocaleString()}\`**\n` : '') +
+      (orderType === 'prestige' && order.trophy_val ? `### Trophies <:Trophies:1485658086156013598>\n<:arrow:1509857611816763482> **\`${parseInt(order.trophy_val).toLocaleString()}\`**\n` : '') +
       `### Order Details <:info:1508767700329959545>\n` +
       `<:arrow:1509857611816763482> ${detailLine}\n` +
       `### Claimed By <:verified:1508838509883162786>\n` +

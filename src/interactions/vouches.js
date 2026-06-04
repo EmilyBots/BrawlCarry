@@ -60,10 +60,30 @@ async function handleSelect(interaction) {
 
   if (id === 'vouch_rating_select') {
     state.rating = parseInt(value);
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('vouch_continue').setLabel('Continue').setStyle(ButtonStyle.Success).setEmoji({ name: 'Continue', id: '1512021790048911471' }).setDisabled(false)
-    );
-    return interaction.update({ components: [interaction.message.components[0], row] });
+    const updatedSelect = new StringSelectMenuBuilder()
+      .setCustomId('vouch_rating_select')
+      .setPlaceholder('Rate your experience...')
+      .addOptions(
+        [5, 4, 3, 2, 1].map(n =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(`${'⭐'.repeat(n)} (${n}/5)`)
+            .setValue(String(n))
+            .setEmoji({ name: 'ratingstar', id: '1511306314486386799', animated: true })
+            .setDefault(n === state.rating)
+        )
+      );
+    const continueBtn = new ButtonBuilder()
+      .setCustomId('vouch_continue')
+      .setLabel('Continue')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji({ name: 'Continue', id: '1512021790048911471' })
+      .setDisabled(false);
+    return interaction.update({
+      components: [
+        new ActionRowBuilder().addComponents(updatedSelect),
+        new ActionRowBuilder().addComponents(continueBtn),
+      ],
+    });
   }
 
 

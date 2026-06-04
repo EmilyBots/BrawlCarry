@@ -6,7 +6,7 @@ const {
   ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags,
 } = require('discord.js');
 const { queryOne, queryAll, getConfig } = require('../db/index');
-const { baseEmbed, formatDuration } = require('../utils/embeds');
+const { baseEmbed } = require('../utils/embeds');
 const { calculateRankPrice, calculatePrestigePrice, validatePrestigeTrophies, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
 const { getPaymentMethods, getPaymentEmoji, getBoosterStatus, updateTicketActivity } = require('../utils/permissions');
 const { createTicketThread } = require('../utils/tickets');
@@ -1026,28 +1026,36 @@ async function handleOrderCompleteModal(interaction, client) {
 
   if (customer) {
     try {
-      if (order.booster_id) {
-        const dmE = baseEmbed('✅ Your Order is Complete!', SUCCESS);
-        dmE.setDescription(
-          `Great news! Your order **\`${orderId}\`** has been completed.\n\n` +
-          `📦 **Result:** ${details}\n💰 **Amount:** €${priceVal.toFixed(2)}\n` +
-          `${payEmoji} **Payment:** ${order.method ?? '—'}\n` +
-          `⏱ **Time taken:** ${completionSecs ? formatDuration(completionSecs) : 'N/A'}\n\nPlease rate your booster below! ⭐`
-        );
-        const ratingView = new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId(`booster_rate:${orderId}`)
-            .setPlaceholder('Rate your booster...')
-            .addOptions([5,4,3,2,1].map(n =>
-              new StringSelectMenuOptionBuilder().setLabel(`${n} Star${n !== 1 ? 's' : ''}`).setValue(String(n)).setEmoji('⭐')
-            ))
-        );
-        await customer.send({ embeds: [dmE], components: [ratingView] });
-      } else {
-        const dmE = baseEmbed('✅ Your Order is Complete!', SUCCESS);
-        dmE.setDescription(`Great news! Your order **\`${orderId}\`** has been completed.\n\n📦 **Result:** ${details}\n💰 **Amount:** €${priceVal.toFixed(2)}\n\nThank you for choosing BrawlCarry! Consider leaving a vouch ⭐`);
-        await customer.send({ embeds: [dmE] });
+      let fromEmoji = '', toEmoji = '';
+      if (ordType === 'prestige') {
+        fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
+        toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
+      } else if (ordType !== 'account') {
+        fromEmoji = rankEmoji(order.from_tier ?? '') ?? '';
+        toEmoji   = rankEmoji(order.to_tier   ?? '') ?? '';
       }
+
+      const dmE = baseEmbed('\u200b', SUCCESS);
+      dmE.setTitle(null);
+      dmE.setDescription(
+        `# <:vip:1508831641135612068> Order Complete\n\n` +
+        `### Your order has been completed <:Boost:1508378809676861573>\n\n` +
+        `### <:info:1508767700329959545> Order Details\n\n` +
+        `<:arrow:1509857611816763482> ${fromEmoji} ${order.from_tier ?? ''} <:arrow_white:1482176513376911563> ${toEmoji} ${order.to_tier ?? ''}\n\n` +
+        `### Order Amount <:Amount:1501221154650853450>\n\n` +
+        `<:arrow:1509857611816763482> €${priceVal.toFixed(2)}\n\n` +
+        `-# Please leave a review in the button below<:verified:1508838509883162786>`
+      );
+
+      const reviewView = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('Leave Review')
+          .setStyle(ButtonStyle.Link)
+          .setEmoji({ name: 'ratingstar', id: '1511306314486386799', animated: true })
+          .setURL(`https://discord.com/channels/${guild.id}/1477344147508822258`)
+      );
+
+      await customer.send({ embeds: [dmE], components: [reviewView] });
     } catch (_) {}
   }
 

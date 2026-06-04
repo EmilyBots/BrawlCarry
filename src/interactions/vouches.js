@@ -68,7 +68,7 @@ async function handleSelect(interaction) {
           new StringSelectMenuOptionBuilder()
             .setLabel(`${'⭐'.repeat(n)} (${n}/5)`)
             .setValue(String(n))
-            .setEmoji({ name: 'ratingstar', id: '1511306314486386799', animated: true })
+            .setDefault(n === state.rating)
             .setDefault(n === state.rating)
         )
       );

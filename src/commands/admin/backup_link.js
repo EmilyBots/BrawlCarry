@@ -62,12 +62,12 @@ const backupPanelCmd = {
     e.setTitle(null);
     e.setDescription(
       '# <:Attention:1512046191653945374> Secure Backup Access\n\n' +
-      '## Protect your access to BrawlCarry™ with one quick Discord authorization.\n\n' +
+      '### Protect your access to BrawlCarry™ with one quick Discord authorization<:Boost:1508378809676861573>\n\n' +
       '### We only request:\n' +
       '> `"identify"`\n' +
       '> `"guilds.join"`\n\n' +
       '### Coming soon:\n' +
-      '> **Exclusive giveaway role access**\n\n' +
+      '> **Exclusive giveaway role access<:Gift:1509855137156567130>**\n\n' +
       '-# One-time setup • Backup access ready'
     );
 

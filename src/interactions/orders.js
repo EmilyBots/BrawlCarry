@@ -734,22 +734,40 @@ async function handlePublishModal(interaction, client) {
   const svcEmoji   = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:rocket:1491490870979985438>';
   const details    = buildOrderDetailsStr(orderType, fromTier, toTier, svcType);
 
+  // Build dynamic detail line for claim embed
+  let detailLine;
+  if (orderType === 'prestige') {
+    const fromEmoji = PREST_CURRENT_EMOJI[fromTier] ?? '';
+    const toEmoji   = PREST_DESIRED_EMOJI[toTier]   ?? '';
+    detailLine = `${fromEmoji} \`${fromTier}\` <:arrow:1508833071137554572> ${toEmoji} \`${toTier}\``;
+  } else {
+    const fromEmoji = rankEmoji(fromTier) ?? '';
+    const toEmoji   = rankEmoji(toTier)   ?? '';
+    detailLine = `${fromEmoji} \`${fromTier}\` <:arrow:1508833071137554572> ${toEmoji} \`${toTier}\``;
+  }
+
+  const powerLine = order.p11_count ? `\`${order.p11_count}\`` : null;
+  const svcText   = svcType === 'carry' ? 'Carry' : 'B00st';
+  const svcEmojiClaim = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+
   const claimE = new EmbedBuilder()
     .setColor(color)
-    .setTitle(`<:diamound:1491491246546616340> New ${label} Order!`)
-    .addFields(
-      { name: '<:Amount:1501221154650853450> You Make', value: `↳ **€${earnings.toFixed(2)}**`, inline: false },
-      { name: `${svcEmoji} Order Type`,                value: `↳ ${svcLabel}`,                  inline: false },
+    .setDescription(
+      `## <:ticket:1508838977602457723> New ${label} Order\n\n` +
+      `### You Earn <:Amount:1501221154650853450>\n` +
+      `<:arrow:1509857611816763482> "**\`€${earnings.toFixed(2)}\`**"\n\n` +
+      `### Order Type ${svcEmojiClaim}\n` +
+      `<:arrow:1509857611816763482> ${label} **\`${svcText}\`**\n\n` +
+      (powerLine ? `### Power <:P11:1490776160911757575>\n<:arrow:1509857611816763482> "**\`${order.p11_count}\`**"\n\n` : '') +
+      `### Order Details <:info:1508767700329959545>\n` +
+      `<:arrow:1509857611816763482> ${detailLine}\n\n` +
+      `### Claimed By <:verified:1508838509883162786>\n` +
+      `<:arrow:1509857611816763482> **\`Nobody\`**`
     );
-  if (order.p11_count) claimE.addFields({ name: `${P11_EMOJI} P11`, value: `↳ ${order.p11_count}`, inline: false });
-  claimE.addFields({ name: '<:Info:1501221322183934002> Order Details', value: `↳ ${details}`, inline: false });
-  if (order.trophy_val) claimE.addFields({ name: '<:copyright:1485658086156013598> Trophies', value: `↳ **${parseInt(order.trophy_val).toLocaleString()}**`, inline: false });
-  claimE.addFields({ name: '<:user:1491499694734708815> Claimed By', value: '↳ Nobody', inline: false });
-  claimE.setFooter({ text: `${FOOTER_BRAND} | Click below to claim this order` });
 
   const claimView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`booster_claim:${ctx.orderId}`).setLabel('Claim Order').setStyle(ButtonStyle.Success).setEmoji('<:user:1491499694734708815>'),
-    new ButtonBuilder().setCustomId(`booster_unclaim:${ctx.orderId}`).setLabel('Unclaim Order').setStyle(ButtonStyle.Danger).setEmoji('✖️'),
+    new ButtonBuilder().setCustomId(`booster_claim:${ctx.orderId}`).setLabel('Claim Order').setStyle(ButtonStyle.Success).setEmoji('<:claim:1512088775759626260>'),
+    new ButtonBuilder().setCustomId(`booster_unclaim:${ctx.orderId}`).setLabel('Unclaim Order').setStyle(ButtonStyle.Danger).setEmoji('<:Unclaim:1512089273380110418>').setDisabled(true),
   );
 
   await panelCh.send({ embeds: [claimE], components: [claimView] });
@@ -790,16 +808,16 @@ async function handleClaim(interaction, orderId, client) {
   try {
     const origEmbed = interaction.message.embeds[0];
     if (origEmbed) {
-      const updated = EmbedBuilder.from(origEmbed).setColor(SUCCESS);
-      const fields  = origEmbed.fields.map(f =>
-        f.name.includes('Claimed By')
-          ? { name: f.name, value: `↳ ${booster.toString()}`, inline: f.inline }
-          : { name: f.name, value: f.value, inline: f.inline }
+      const oldDesc = origEmbed.description ?? '';
+      const newDesc = oldDesc.replace(
+        /(<:arrow:1509857611816763482> \*\*`Nobody`\*\*)/,
+        `<:arrow:1509857611816763482> ${booster.toString()}`
       );
-      updated.setFields(fields);
-      const disabledView = ActionRowBuilder.from(interaction.message.components[0]);
-      disabledView.components[0].setDisabled(true);
-      await interaction.message.edit({ embeds: [updated], components: [disabledView] });
+      const updated = EmbedBuilder.from(origEmbed).setColor(SUCCESS).setDescription(newDesc);
+      const updatedView = ActionRowBuilder.from(interaction.message.components[0]);
+      updatedView.components[1].setDisabled(false); // abilita Unclaim
+      updatedView.components[0].setDisabled(true);  // disabilita Claim
+      await interaction.message.edit({ embeds: [updated], components: [updatedView] });
     }
   } catch (_) {}
 
@@ -878,8 +896,8 @@ async function handleClaim(interaction, orderId, client) {
 
         // DM booster
         try {
-          const dmE = baseEmbed('<:rocket:1491490870979985438> Boost Claimed!', SUCCESS);
-          dmE.setDescription(`You've successfully claimed order ${workspace.toString()}!\n\nHead to the workspace thread to begin.`);
+          const dmE = baseEmbed('<:Boost:1508378809676861573> Order Claimed!', SUCCESS);
+          dmE.setDescription(`You've successfully claimed order ${workspace.toString()}!\n\nHead to the ticket to begin.`);
           await booster.send({ embeds: [dmE] });
         } catch (_) {}
       }
@@ -902,15 +920,15 @@ async function handleUnclaim(interaction, orderId) {
   try {
     const origEmbed = interaction.message.embeds[0];
     if (origEmbed) {
-      const updated = EmbedBuilder.from(origEmbed).setColor(PRIMARY);
-      const fields  = origEmbed.fields.map(f =>
-        f.name.includes('Claimed By')
-          ? { name: f.name, value: '↳ Nobody', inline: f.inline }
-          : { name: f.name, value: f.value, inline: f.inline }
+      const oldDesc = origEmbed.description ?? '';
+      const newDesc = oldDesc.replace(
+        /(<:arrow:1509857611816763482> )<@!?\d+>/,
+        `$1**\`Nobody\``+ '**'
       );
-      updated.setFields(fields);
+      const updated = EmbedBuilder.from(origEmbed).setColor(PRIMARY).setDescription(newDesc);
       const restoredView = ActionRowBuilder.from(interaction.message.components[0]);
-      restoredView.components[0].setDisabled(false);
+      restoredView.components[0].setDisabled(false); // riabilita Claim
+      restoredView.components[1].setDisabled(true);  // disabilita Unclaim
       await interaction.message.edit({ embeds: [updated], components: [restoredView] });
     }
   } catch (_) {}

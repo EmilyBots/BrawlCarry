@@ -762,6 +762,7 @@ async function handlePublishModal(interaction, client) {
       `### Order Type ${svcEmojiClaim}\n` +
       `<:arrow:1509857611816763482> ${label} **\`${svcText}\`**\n` +
       (powerLine ? `### Power <:P11:1512113473289720070>\n<:arrow:1509857611816763482> **${order.p11_count}**\n` : '') +
+      (orderType === 'prestige' && order.trophy_val ? `### Trophies <:Trophies:1485658086156013598>\n<:reply:1482062778243219507> **\`${parseInt(order.trophy_val).toLocaleString()}\`**\n` : '') +
       `### Order Details <:info:1508767700329959545>\n` +
       `<:arrow:1509857611816763482> ${detailLine}\n` +
       `### Claimed By <:verified:1508838509883162786>\n` +
@@ -781,6 +782,10 @@ async function handlePublishModal(interaction, client) {
 async function handleClaim(interaction, orderId, client) {
   const booster = interaction.member;
   const guild   = interaction.guild;
+
+  if (!booster.roles.cache.has('1485296409795235910')) {
+    return interaction.reply({ content: '<:sold:1507693147306852515> Only B00ster can claim orders!', ephemeral: true });
+  }
 
   const status = await getBoosterStatus(booster.id);
   if (status !== 'available') {

@@ -774,7 +774,7 @@ async function handlePublishModal(interaction, client) {
     new ButtonBuilder().setCustomId(`booster_unclaim:${ctx.orderId}`).setLabel('Unclaim Order').setStyle(ButtonStyle.Danger).setEmoji('<:Unclaim:1512089273380110418>').setDisabled(true),
   );
 
-  await panelCh.send({ embeds: [claimE], components: [claimView] });
+  await panelCh.send({ content: '<@&1485296409795235910>', allowedMentions: { roles: ['1485296409795235910'] }, embeds: [claimE], components: [claimView] });
   await interaction.followUp({ content: `✅ Order \`${ctx.orderId}\` published to ${panelCh} with **€${earnings.toFixed(2)}** booster earnings.`, ephemeral: true });
 }
 

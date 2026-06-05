@@ -17,6 +17,9 @@ const backupLinkCmd = {
     .addStringOption(o => o.setName('link').setDescription('Backup server invite link').setRequired(true)),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     await interaction.deferReply({ ephemeral: true });
     const link    = interaction.options.getString('link');
     const members = (await interaction.guild.members.fetch()).filter(m => !m.user.bot);
@@ -58,6 +61,9 @@ const backupPanelCmd = {
     .setDefaultMemberPermissions(0x8),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const e = baseEmbed('\u200b', DANGER);
     e.setTitle(null);
     e.setDescription(
@@ -93,6 +99,9 @@ const restoreBackupCmd = {
     .addStringOption(o => o.setName('backup_server_id').setDescription('ID of the backup server').setRequired(true)),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const cfg     = await getConfig(interaction.guildId);
     const ownerId = cfg?.owner_id ? String(cfg.owner_id) : null;
 

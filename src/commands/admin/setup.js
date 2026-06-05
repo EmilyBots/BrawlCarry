@@ -31,6 +31,9 @@ module.exports = {
     .addStringOption(o => o.setName('reviewer_roles').setDescription('Roles allowed to review applications, comma-separated')),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const g = n => interaction.options.getChannel(n);
     const r = n => interaction.options.getRole(n);
     const u = n => interaction.options.getUser(n);

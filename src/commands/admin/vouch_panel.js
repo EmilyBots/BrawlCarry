@@ -11,6 +11,9 @@ module.exports = {
     .addStringOption(o => o.setName('order_kind').setDescription('ranked or prestige (default: ranked)')),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205') && !interaction.member.roles.cache.has('1484297795094581373')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const user      = interaction.options.getUser('user');
     const orderKind = ['ranked', 'prestige'].includes(interaction.options.getString('order_kind')?.toLowerCase())
       ? interaction.options.getString('order_kind').toLowerCase()

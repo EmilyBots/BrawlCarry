@@ -10,6 +10,9 @@ const availabilityCmd = {
     .setDescription('Set your booster availability status'),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205') && !interaction.member.roles.cache.has('1485296409795235910')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const current   = await getBoosterStatus(interaction.user.id);
     const statusMap = { available: '🟢 Available', busy: '🟡 Busy', offline: '🔴 Offline' };
 
@@ -35,6 +38,9 @@ const reviewCmd = {
     .setDescription('Submit a review for your completed order'),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1484297795094581373') && !interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const e = baseEmbed('⭐ Submit Your Vouch', GOLD);
     e.setDescription(
       'Select your **rating**, **payment method** and **service type**, then click **Continue** ' +

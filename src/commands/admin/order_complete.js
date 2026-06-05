@@ -10,6 +10,9 @@ module.exports = {
     .setDefaultMemberPermissions(0x10), // ManageChannels
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const channel = interaction.channel;
 
     if (channel.type !== ChannelType.PublicThread && channel.type !== ChannelType.PrivateThread) {

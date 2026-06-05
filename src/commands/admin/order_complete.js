@@ -56,14 +56,14 @@ module.exports = {
         .setRequired(false)
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder()
-        .setCustomId('apply_watermark')
-        .setLabel('Apply Watermark? (yes / no)')
-        .setStyle(TextInputStyle.Short)
-        .setValue('yes')
-        .setRequired(true)
-    ),
-  );
+          new TextInputBuilder()
+            .setCustomId('apply_watermark')
+            .setLabel('Apply Watermark? (yes / no)')
+            .setStyle(TextInputStyle.Short)
+            .setValue('yes')
+            .setRequired(true)
+        ),
+      );
 
     await interaction.showModal(modal);
   },

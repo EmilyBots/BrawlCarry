@@ -12,6 +12,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const imageUrl = interaction.options.getString('image_url');
 
     // ── Main embed ────────────────────────────────────────────────────────────

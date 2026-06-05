@@ -13,6 +13,9 @@ const statsCmd = {
     .addUserOption(o => o.setName('user').setDescription('User to look up (defaults to you)')),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const target = interaction.options.getUser('user') ?? interaction.user;
     const row    = await queryOne('SELECT COUNT(*) AS count, SUM(price) AS total FROM orders WHERE user_id = $1', [target.id]);
     const vc     = await queryOne('SELECT COUNT(*) AS vc FROM vouchers WHERE used_by = $1', [target.id]);
@@ -36,6 +39,9 @@ const boosterStatsCmd = {
     .addUserOption(o => o.setName('user').setDescription('Booster to look up (defaults to you)')),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205') && !interaction.member.roles.cache.has('1485296409795235910')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const target    = interaction.options.getUser('user') ?? interaction.user;
     const row       = await queryOne(
       'SELECT COUNT(*) AS completed, SUM(booster_earnings) AS total_earnings, AVG(booster_rating) AS avg_rating FROM orders WHERE booster_id = $1 AND status = $2',
@@ -76,6 +82,9 @@ const leaderboardCmd = {
     )),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205') && !interaction.member.roles.cache.has('1485296409795235910')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const sortBy = interaction.options.getString('sort_by') ?? 'earnings';
     const orderByMap = { orders: 'completed DESC', earnings: 'total_earnings DESC', rating: 'avg_rating DESC' };
 
@@ -121,6 +130,9 @@ const myOrdersCmd = {
     )),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const filter = interaction.options.getString('filter_by') ?? 'all';
     let orders;
     if (filter === 'active') {
@@ -169,6 +181,9 @@ const priceEstimateCmd = {
     )),
 
   async execute(interaction) {
+    if (!interaction.member.roles.cache.has('1479079737052762205')) {
+      return interaction.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+    }
     const fromRank   = interaction.options.getString('from_rank');
     const toRank     = interaction.options.getString('to_rank');
     const p11        = interaction.options.getString('p11') ?? '41-50';

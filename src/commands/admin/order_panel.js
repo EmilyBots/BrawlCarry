@@ -3,6 +3,13 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const { baseEmbed } = require('../../utils/embeds');
 const { PRIMARY, ACCENT, FOOTER_BRAND } = require('../../config/constants');
 
+const ADMIN_ROLE_ID = '1479079737052762205';
+const guardAdmin = (i) => {
+  if (i.member.roles.cache.has(ADMIN_ROLE_ID)) return false;
+  i.reply({ content: '❌ You do not have the required role to use this command.', ephemeral: true });
+  return true;
+};
+
 // ── Ranked panel ──────────────────────────────────────────────────────────────
 const rankedPanelCmd = {
   data: new SlashCommandBuilder()
@@ -12,6 +19,7 @@ const rankedPanelCmd = {
     .addStringOption(o => o.setName('image_url').setDescription('Image URLs separated by commas')),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const imageUrlRaw = interaction.options.getString('image_url');
     const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
 
@@ -56,6 +64,7 @@ const prestigePanelCmd = {
     .addStringOption(o => o.setName('image_url').setDescription('Image URLs separated by commas')),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const imageUrlRaw = interaction.options.getString('image_url');
     const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
 
@@ -99,6 +108,7 @@ const rankedThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -130,6 +140,7 @@ const prestigeThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -161,6 +172,7 @@ const supportThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -192,6 +204,7 @@ const accountThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -223,6 +236,7 @@ const winstreakThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -254,6 +268,7 @@ const trophiesThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
@@ -285,6 +300,7 @@ const applicationThreadChannelCmd = {
     .setDefaultMemberPermissions(0x10),
 
   async execute(interaction) {
+    if (guardAdmin(interaction)) return;
     const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
 
     const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';

@@ -153,6 +153,7 @@ const giveawayCmd = {
   })(),
 
   async execute(interaction) {
+    if (!hasGiveawayRole(interaction)) return interaction.reply(DENIED);
     const prize       = interaction.options.getString('prize');
     const hours       = interaction.options.getInteger('hours');
     const winners     = interaction.options.getInteger('winners');

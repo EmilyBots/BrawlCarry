@@ -119,23 +119,24 @@ function buildSvcTypeEmbed(orderType, carryRestricted = false) {
     .setAccentColor(PRIMARY)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## <:info:1508767700329959545> Choose Your Service Type\n\n### Select your preferred service type:`
+        `## <:info:1508767700329959545> Choose Your Service Type\n` +
+        `### Select your preferred service type:`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `<:Boost:1508378809676861573> B00st\n\n` +
-        `> ### <:arrow:1509857611816763482> A b00ster will play on your account and reach your desired rank for you.\n\n` +
-        `> ### <:arrow:1509857611816763482> __Fastest__ and most __affordable__ option`
+        `### <:Boost:1508378809676861573> **B00st**\n` +
+        `> <:arrow:1509857611816763482> A b00ster will play on your account and reach your desired rank for you.\n` +
+        `> <:arrow:1509857611816763482> __Fastest__ and most __affordable__ option`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `<:Carry:1510590429052272660> Carry __(2× Price)__\n\n` +
-        `> ### <:arrow:1509857611816763482> Play together with one of our b00sters while they help you reach your desired rank.\n\n` +
-        `> ### <:arrow:1509857611816763482> __No__ account access required.\n\n` +
+        `### <:Carry:1510590429052272660> **Carry** __(2× Price)__\n` +
+        `> <:arrow:1509857611816763482> Play together with one of our b00sters while they help you reach your desired rank.\n` +
+        `> <:arrow:1509857611816763482> __No__ account access required.\n` +
         `> -# <:warning:1508835752430141482> Carry orders cost 2× more because they are harder to provide.»`
       )
     )
@@ -214,25 +215,51 @@ async function handlePrestigePanelBtn(interaction) {
 async function showRankedConfig(interaction) {
   const guildId = interaction.guildId;
   const methods = await getPaymentMethods(guildId);
-  const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
-  const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
-  const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
+  const currentOptions = CURRENT_RANKS.map(r =>
+    new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined)
+  );
+  const p11Options = P11_OPTIONS.map(p =>
+    new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI)
+  );
+  const payOptions = methods.map(m =>
+    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+  );
   const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
   e.setDescription('>>> **Complete your ranked order by selecting the options below.**');
   return interaction.reply({
     embeds: [e],
     components: [
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+        new StringSelectMenuBuilder()
+          .setCustomId('ranked_current')
+          .setPlaceholder('Select Current Rank')
+          .addOptions(currentOptions)
       ),
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Current Rank First...').setDisabled(true)
+        new StringSelectMenuBuilder()
+          .setCustomId('ranked_desired')
+          .setPlaceholder('Select Current Rank First...')
+          .setDisabled(true)
           .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
       ),
-      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
-      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+        new StringSelectMenuBuilder()
+          .setCustomId('ranked_p11')
+          .setPlaceholder('Number of Power 11 brawlers...')
+          .addOptions(p11Options)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('ranked_pay')
+          .setPlaceholder('Payment method...')
+          .addOptions(payOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('ranked_svc_proceed')
+          .setLabel('Continue')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('<:arrow:1509857611816763482>')
       ),
     ],
     ephemeral: true,
@@ -254,15 +281,30 @@ async function showPrestigeConfig(interaction) {
     embeds: [e],
     components: [
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
+        new StringSelectMenuBuilder()
+          .setCustomId('prest_current')
+          .setPlaceholder('Current Prestige...')
+          .addOptions(currentOptions)
       ),
       new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder().setCustomId('prest_desired').setPlaceholder('Desired Prestige (select Current first)...').setDisabled(true)
+        new StringSelectMenuBuilder()
+          .setCustomId('prest_desired')
+          .setPlaceholder('Desired Prestige (select Current first)...')
+          .setDisabled(true)
           .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
       ),
-      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+        new StringSelectMenuBuilder()
+          .setCustomId('prest_pay')
+          .setPlaceholder('Payment method...')
+          .addOptions(payOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('prest_svc_proceed')
+          .setLabel('Continue')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('<:arrow:1509857611816763482>')
       ),
     ],
     ephemeral: true,

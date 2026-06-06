@@ -662,9 +662,9 @@ async function handleRankedModal(interaction) {
   const te       = rankEmoji(state.desiredRank);
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
-  const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:rocket:1491490870979985438>';
+  const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
-  const activatedE = baseEmbed('<:rocket:1491490870979985438> Order Ticket', PRIMARY);
+  const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', PRIMARY);
   activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.\n\nYou can manage your ticket using the options below.');
 
   const closeView = new ActionRowBuilder().addComponents(
@@ -690,11 +690,11 @@ async function handleRankedModal(interaction) {
     { name: 'Power Level <:copyright:1489943698203480214>', value: `→ ${state.p11} Power 11`, inline: false },
     { name: `Order Type ${modeEmoji}`,  value: `→ ${modeClean}`,          inline: false },
     { name: `Payment Method ${payEmoji}`, value: `→ ${state.payment}`,    inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ 💰  €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**`, inline: false },
+    { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**` inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:rocket:1491490870979985438>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
   await interaction.reply({ content: `✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
@@ -732,7 +732,7 @@ async function handlePrestigeModal(interaction) {
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
 
-  const activatedE = baseEmbed('<:rocket:1491490870979985438> Order Ticket', ACCENT);
+  const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', ACCENT);
   activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.\n\nYou can manage your ticket using the options below.');
 
   const closeView = new ActionRowBuilder().addComponents(
@@ -756,13 +756,13 @@ async function handlePrestigeModal(interaction) {
     { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           
     { name: '<:user:1491499694734708815> Brawler',      value: `→ **${state.brawlerName}**`,                                                        inline: false },
     { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
-    { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:rocket:1491490870979985438>'} Order Type`, value: `→ **${modeClean}**`, inline: false },
+    { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'} Order Type`, value: `→ **${modeClean}**`, inline: false },
     { name: `${payEmoji} Payment Method`,               value: `→ **${state.payment}**`,                                                            inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ 💰 €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`,                    inline: false },
+    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`                    inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:rocket:1491490870979985438>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
     // ✅ editReply instead of reply (interaction is already deferred)
@@ -859,7 +859,7 @@ async function handlePublishModal(interaction, client) {
   const color      = orderType === 'ranked' ? PRIMARY : ACCENT;
   const label      = orderType === 'ranked' ? 'Ranked' : 'Prestige';
   const svcLabel   = svcType === 'carry' ? `${label} **Carry**` : `${label} **Boost**`;
-  const svcEmoji   = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:rocket:1491490870979985438>';
+  const svcEmoji = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
   const details    = buildOrderDetailsStr(orderType, fromTier, toTier, svcType);
 
   // Build dynamic detail line for claim embed
@@ -1005,7 +1005,7 @@ async function handleClaim(interaction, orderId, client) {
         const details      = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
         const orderLabel   = (order.order_type ?? 'ranked').charAt(0).toUpperCase() + (order.order_type ?? 'ranked').slice(1);
         const svcLabel     = (order.service_type ?? 'boost').charAt(0).toUpperCase() + (order.service_type ?? 'boost').slice(1);
-        const svcEmoji     = order.service_type === 'carry' ? '<:Carry:1510590429052272660>' : '<:rocket:1491490870979985438>';
+        const svcEmoji = order.service_type === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
         const custMention  = customer?.toString() ?? `<@${order.user_id}>`;
 
         const orderEmbed = baseEmbed(`<:diamound:1491491246546616340> Active ${orderLabel} ${svcLabel} Order`, SUCCESS);
@@ -1025,8 +1025,8 @@ async function handleClaim(interaction, orderId, client) {
         await workspace.send({ embeds: [safetyEmbed], components: [closeView] });
 
         // Notify original ticket
-        const notifyE = baseEmbed('<:rocket:1491490870979985438> Booster Assigned', SUCCESS);
-        notifyE.setDescription(`${booster.toString()} has successfully claimed your order.\n\nA private thread has been created for both the customer and booster to safely manage communication and progress updates.\n\nPlease continue all communication inside the private thread.`);
+        const notifyE = baseEmbed('<:Boost:1508378809676861573> B00ster Assigned', SUCCESS);
+        notifyE.setDescription(`${booster.toString()} has successfully claimed your order.\n\nA private thread has been created.\n\nPlease continue all communication inside the private thread.`);
         await ticketCh.send({ embeds: [notifyE] }).catch(() => {});
         await updateTicketActivity(ticketChId, guild.id);
 

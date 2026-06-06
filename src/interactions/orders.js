@@ -318,6 +318,12 @@ async function handleSelect(interaction) {
 
   if (id === 'ranked_desired') {
     state.desiredRank = value;
+    // Se tutti i campi sono già completi, vai direttamente alla submit SENZA update prima
+    if (!state.rankedProgressed && state.currentRank && state.p11 && state.payment) {
+      state.rankedProgressed = true;
+      return handleRankedSvcSubmit(interaction, state);
+    }
+    // Altrimenti aggiorna solo la UI
     const methods = await getPaymentMethods(interaction.guildId);
     const currentOptions = CURRENT_RANKS.map(r =>
       new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
@@ -337,10 +343,6 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
     ]});
-    if (!state.rankedProgressed && state.currentRank && state.p11 && state.payment) {
-      state.rankedProgressed = true;
-      return handleRankedSvcSubmit(interaction, state);
-    }
     return;
   }
 

@@ -61,11 +61,7 @@ function buildDesiredPrestigeOptions(currentPrestige) {
   );
 }
 
-/**
- * Somma i prezzi di ogni step tra currentPrestige e desiredPrestige.
- * Per il primo step usa trophyVal reale; per i successivi usa rangeStart (= prezzo pieno).
- * Il moltiplicatore carry viene applicato UNA VOLTA sul totale finale.
- */
+
 function calculateMultiPrestigePrice(currentPrestige, desiredPrestige, trophyVal, serviceType) {
   const ci = PRESTIGE_LEVELS.indexOf(currentPrestige);
   const di = PRESTIGE_LEVELS.indexOf(desiredPrestige);
@@ -79,12 +75,7 @@ function calculateMultiPrestigePrice(currentPrestige, desiredPrestige, trophyVal
   return Math.round(price * 100) / 100;
 }
 
-/**
- * Builds the Service Type options for the Ranked select menu.
- * If desiredRank is Masters II, Masters III, or Pro, Carry is replaced
- * with a non-actionable informational option.
- * Pass null when no desired rank is selected yet → returns both normal options.
- */
+
 function buildRankedSvcOptions(desiredRank) {
   const boostOption = new StringSelectMenuOptionBuilder()
     .setLabel('B00st')

@@ -236,7 +236,7 @@ async function showRankedConfig(interaction) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId('ranked_p11')
-          .setPlaceholder('Number of Power 11 brawlers...')
+          .setPlaceholder('Power 11 brawlers...')
           .addOptions(p11Options)
       ),
       new ActionRowBuilder().addComponents(
@@ -244,13 +244,6 @@ async function showRankedConfig(interaction) {
           .setCustomId('ranked_pay')
           .setPlaceholder('Payment method...')
           .addOptions(payOptions)
-      ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('ranked_svc_proceed')
-          .setLabel('Continue')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('<:arrow:1509857611816763482>')
       ),
     ],
     ephemeral: true,
@@ -290,13 +283,6 @@ async function showPrestigeConfig(interaction) {
           .setPlaceholder('Payment method...')
           .addOptions(payOptions)
       ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('prest_svc_proceed')
-          .setLabel('Continue')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('<:arrow:1509857611816763482>')
-      ),
     ],
     ephemeral: true,
   });
@@ -307,15 +293,17 @@ async function handleSelect(interaction) {
   const value = interaction.values[0];
   const state = getState(interaction.user.id);
 
+  // ── RANKED ────────────────────────────────────────────────────────────────
   if (id === 'ranked_current') {
     state.currentRank = value;
-    state.desiredRank = null; // reset desired se current cambia
+    state.desiredRank = null;
+    state.rankedProgressed = false; // reset flag se l'utente cambia current
     const methods = await getPaymentMethods(interaction.guildId);
     const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
     const desiredOptions = buildDesiredRankOptions(value);
     const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
     const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-    return interaction.update({ components: [
+    await interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
       ),
@@ -324,11 +312,10 @@ async function handleSelect(interaction) {
       ),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-      ),
     ]});
+    return;
   }
+
   if (id === 'ranked_desired') {
     state.desiredRank = value;
     const methods = await getPaymentMethods(interaction.guildId);
@@ -340,7 +327,7 @@ async function handleSelect(interaction) {
       .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
     const p11Options = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
     const payOptions = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
-    return interaction.update({ components: [
+    await interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
       ),
@@ -349,17 +336,39 @@ async function handleSelect(interaction) {
       ),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-      ),
     ]});
+    if (!state.rankedProgressed && state.currentRank && state.p11 && state.payment) {
+      state.rankedProgressed = true;
+      return handleRankedSvcSubmit(interaction, state);
+    }
+    return;
   }
-  if (id === 'ranked_p11')     { state.p11 = value;         return interaction.deferUpdate(); }
-  if (id === 'ranked_pay')     { state.payment = value;     return interaction.deferUpdate(); }
 
+  if (id === 'ranked_p11') {
+    state.p11 = value;
+    if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.payment) {
+      state.rankedProgressed = true;
+      await interaction.deferUpdate();
+      return handleRankedSvcSubmit(interaction, state);
+    }
+    return interaction.deferUpdate();
+  }
+
+  if (id === 'ranked_pay') {
+    state.payment = value;
+    if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.p11) {
+      state.rankedProgressed = true;
+      await interaction.deferUpdate();
+      return handleRankedSvcSubmit(interaction, state);
+    }
+    return interaction.deferUpdate();
+  }
+
+  // ── PRESTIGE ──────────────────────────────────────────────────────────────
   if (id === 'prest_current') {
     state.currentPrestige = value;
-    state.desiredPrestige = null; // reset se l'utente cambia current
+    state.desiredPrestige = null;
+    state.prestigeProgressed = false; // reset flag se l'utente cambia current
     const methods = await getPaymentMethods(interaction.guildId);
     const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
       new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined).setDefault(p === value)
@@ -368,7 +377,7 @@ async function handleSelect(interaction) {
     const payOptions = methods.map(m =>
       new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
     );
-    return interaction.update({ components: [
+    await interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
       ),
@@ -378,15 +387,30 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
       ),
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-      ),
     ]});
+    return;
   }
-  if (id === 'prest_desired') { state.desiredPrestige = value; return interaction.deferUpdate(); }
-  if (id === 'prest_pay')     { state.payment = value;         return interaction.deferUpdate(); }
 
+  if (id === 'prest_desired') {
+    state.desiredPrestige = value;
+    if (!state.prestigeProgressed && state.currentPrestige && state.payment) {
+      state.prestigeProgressed = true;
+      await interaction.deferUpdate();
+      return handlePrestigeSvcSubmit(interaction, state);
+    }
+    return interaction.deferUpdate();
   }
+
+  if (id === 'prest_pay') {
+    state.payment = value;
+    if (!state.prestigeProgressed && state.currentPrestige && state.desiredPrestige) {
+      state.prestigeProgressed = true;
+      await interaction.deferUpdate();
+      return handlePrestigeSvcSubmit(interaction, state);
+    }
+    return interaction.deferUpdate();
+  }
+}
 
 async function handleRankedSvcSubmit(interaction, state) {
   const missing = [];
@@ -756,10 +780,7 @@ async function handlePrestigeModal(interaction) {
 async function handleButton(interaction, client) {
   const id = interaction.customId;
 
-  // ── Service Type proceed & selection ────────────────────────────────────────
-  if (id === 'ranked_svc_proceed' || id === 'prest_svc_proceed') {
-    return handleSvcProceedBtn(interaction);
-  }
+  
 
   if (id.startsWith('svc_boost_') || id.startsWith('svc_carry_')) {
     const parts     = id.split('_');     // ['svc', 'boost'|'carry', 'ranked'|'prestige']

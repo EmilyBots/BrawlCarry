@@ -673,9 +673,8 @@ async function handleRankedModal(interaction) {
 
   let ticket;
   try {
-    ticket = await createTicketThread(guild, member, `ranked-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.ranked_ticket_channel_id ?? null);
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
+    ticket = await createTicketThread(guild, member, `ranked-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.ranked_ticket_channel_id ?? null, staffPings);
   } catch (err) {
     return interaction.followUp({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
   }
@@ -741,9 +740,8 @@ async function handlePrestigeModal(interaction) {
 
   let ticket;
   try {
-    ticket = await createTicketThread(guild, member, `prestige-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.prestige_ticket_channel_id ?? null);
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
+    ticket = await createTicketThread(guild, member, `prestige-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.prestige_ticket_channel_id ?? null, staffPings);
   } catch (err) {
     return interaction.editReply({ content: `❌ Failed to create ticket: \`${err.message}\`` });
   }

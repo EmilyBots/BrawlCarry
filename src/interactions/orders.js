@@ -137,7 +137,7 @@ function buildSvcTypeEmbed(orderType, carryRestricted = false) {
         `### <:Carry:1510590429052272660> **Carry** __(2× Price)__\n` +
         `> <:arrow:1509857611816763482> Play together with one of our b00sters while they help you reach your desired rank.\n` +
         `> <:arrow:1509857611816763482> __No__ account access required.\n` +
-        `> -# <:warning:1508835752430141482> Carry orders cost 2× more because they are harder to provide.»`
+        `> -# <:warning:1508835752430141482> Carry orders cost 2× more because they are harder to provide.`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

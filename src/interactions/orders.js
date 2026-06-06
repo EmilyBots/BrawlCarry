@@ -665,7 +665,7 @@ async function handleRankedModal(interaction) {
   const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
   const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', PRIMARY);
-  activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.\n\nYou can manage your ticket using the options below.');
+  activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.');
 
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
@@ -687,17 +687,17 @@ async function handleRankedModal(interaction) {
   orderE.addFields(
     { name: `Current Rank ${fe}`,       value: `<:arrow:1509857611816763482> ${state.currentRank}`,  inline: false },
     { name: `Desired Rank ${te}`,       value: `<:arrow:1509857611816763482> ${state.desiredRank}`,  inline: false },
-    { name: 'Power <:P11:1512113473289720070>', value: `<:arrow:1509857611816763482> ${state.p11}`, inline: false },
     { name: `Order Type ${modeEmoji}`,  value: `<:arrow:1509857611816763482> ${modeClean}`,          inline: false },
+    { name: 'Power <:P11:1512113473289720070>', value: `<:arrow:1509857611816763482> ${state.p11}`, inline: false },
     { name: `Payment Method ${payEmoji}`, value: `<:arrow:1509857611816763482> ${state.payment}`,    inline: false },
     { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**`, inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Publish Order').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
-  await interaction.reply({ content: `✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
+  await interaction.reply({ content: `✅ Your Ranked order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
 
   orderState.delete(interaction.user.id);
 }
@@ -733,7 +733,7 @@ async function handlePrestigeModal(interaction) {
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
 
   const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', ACCENT);
-  activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.\n\nYou can manage your ticket using the options below.');
+  activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.');
 
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
@@ -762,10 +762,9 @@ async function handlePrestigeModal(interaction) {
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Publish Order').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
-    // ✅ editReply instead of reply (interaction is already deferred)
   await interaction.editReply({ content: `✅ Your Prestige order has been placed!\n📩 Ticket opened: ${ticket.toString()}` });
   orderState.delete(interaction.user.id);
 }

@@ -10,8 +10,9 @@ const { PRIMARY, SUCCESS, HARDCODED_SUPPORT_ROLES } = require('../config/constan
 async function handleButton(interaction, client) {
   const id = interaction.customId;
 
-  if (id === 'ticket_close_v2') return handleCloseBtn(interaction, client);
-  if (id === 'ticket_general_btn') return handleGeneralSupportBtn(interaction, client);
+  if (id === 'ticket_close_v2')        return handleCloseDirectly(interaction, client);
+  if (id === 'ticket_close_reason_v2') return handleCloseBtn(interaction, client);
+  if (id === 'ticket_general_btn')     return handleGeneralSupportBtn(interaction, client);
 }
 
 async function handleGeneralSupportBtn(interaction) {
@@ -30,7 +31,8 @@ async function handleGeneralSupportBtn(interaction) {
 
   const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
   );
 
   const overrideCh = cfg?.application_ticket_channel_id ?? null;
@@ -40,7 +42,48 @@ async function handleGeneralSupportBtn(interaction) {
   await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
   await interaction.reply({ content: `✅ Support ticket created: ${ticket.toString()}`, ephemeral: true });
 }
+// NUOVO — funzione da aggiungere
+async function handleCloseDirectly(interaction, client) {
+  await interaction.deferReply({ ephemeral: false }).catch(() => {});
 
+  const channel = interaction.channel;
+  const guild   = interaction.guild;
+
+  const messages = [];
+  try {
+    let fetched, before = null;
+    do {
+      fetched = await channel.messages.fetch({ limit: 100, before });
+      fetched.forEach(m => messages.unshift(m));
+      before = fetched.last()?.id;
+    } while (fetched.size === 100 && messages.length < 500);
+  } catch (_) {}
+
+  const order = await queryOne(
+    'SELECT * FROM orders WHERE ticket_channel_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [channel.id]
+  );
+  let authorMention = order?.user_id ? `<@${order.user_id}>` : null;
+  if (!authorMention) {
+    const firstHuman = messages.find(m => !m.author.bot);
+    authorMention = firstHuman?.author.toString() ?? '—';
+  }
+
+  const chName = channel.name.toLowerCase();
+  let ticketType = 'Support';
+  if (chName.includes('ranked'))        ticketType = 'Ranked';
+  else if (chName.includes('prestige')) ticketType = 'Prestige';
+  else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
+
+  const htmlBuf = buildTranscript(messages, channel, ticketType, authorMention, interaction.member);
+  const transcriptFile = new AttachmentBuilder(htmlBuf, { name: `transcript-${channel.name}.html` });
+
+  const cfg     = await getConfig(guild.id);
+  const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
+  const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
+
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, interaction.member, null);
+                     }
 async function handleCloseBtn(interaction, client) {
   const channel = interaction.channel;
   const guild   = interaction.guild;
@@ -181,7 +224,8 @@ async function handleSupportCenterSelect(interaction, choice) {
   const cfg    = await getConfig(interaction.guildId);
 
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
   );
 
   if (choice === 'support') {
@@ -237,9 +281,10 @@ async function handleApplicationCenterSelect(interaction, choice) {
 
   const e = baseEmbed(title, PRIMARY);
   e.setDescription(`## Your ${slug} application has been successfully created.\n\nOur management team will review your application shortly.\n\nYou can manage your ticket using the options below.`);
-
+  
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
   );
 
   const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg, overrideChId);

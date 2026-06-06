@@ -694,7 +694,7 @@ async function handleRankedModal(interaction) {
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Publish Order').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
   await interaction.reply({ content: `✅ Your Ranked Boost order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
@@ -762,7 +762,7 @@ async function handlePrestigeModal(interaction) {
   );
 
   const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Send to Boosters').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
+    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Publish Order').setStyle(ButtonStyle.Primary).setEmoji('<:Boost:1508378809676861573>')
   );
   await ticket.send({ embeds: [orderE], components: [publishView] });
     // ✅ editReply instead of reply (interaction is already deferred)

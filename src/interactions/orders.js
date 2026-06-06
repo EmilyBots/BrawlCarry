@@ -668,7 +668,8 @@ async function handleRankedModal(interaction) {
   activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.');
 
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
   );
 
   let ticket;
@@ -733,9 +734,10 @@ async function handlePrestigeModal(interaction) {
 
   const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', ACCENT);
   activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.');
-
+  
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
   );
 
   let ticket;

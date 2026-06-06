@@ -690,7 +690,7 @@ async function handleRankedModal(interaction) {
     { name: 'Power Level <:copyright:1489943698203480214>', value: `→ ${state.p11} Power 11`, inline: false },
     { name: `Order Type ${modeEmoji}`,  value: `→ ${modeClean}`,          inline: false },
     { name: `Payment Method ${payEmoji}`, value: `→ ${state.payment}`,    inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**` inline: false },
+    { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**`, inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(

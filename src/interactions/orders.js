@@ -176,8 +176,7 @@ async function handleSvcProceedBtn(interaction) {
       return interaction.reply({ content: `❌ Your desired rank **${state.desiredRank}** must be **higher** than your current rank **${state.currentRank}**.`, ephemeral: true });
     }
 
-    const carryRestricted = CARRY_RESTRICTED_DESIRED.has(state.desiredRank);
-    return interaction.update({ content: null, embeds: [], components: [buildSvcTypeEmbed('ranked', carryRestricted)], flags: MessageFlags.IsComponentsV2 });
+    return handleRankedSvcSubmit(interaction, state);
   } else {
     const missing = [];
     if (!state.currentPrestige) missing.push('Current Prestige');
@@ -189,69 +188,86 @@ async function handleSvcProceedBtn(interaction) {
     const di = PRESTIGE_LEVELS.indexOf(state.desiredPrestige);
     if (di <= ci) return interaction.reply({ content: '❌ Desired Prestige must be higher than Current Prestige.', ephemeral: true });
 
-    return interaction.update({ content: null, embeds: [], components: [buildSvcTypeEmbed('prestige', false)], flags: MessageFlags.IsComponentsV2 });
+    return handlePrestigeSvcSubmit(interaction, state);
   }
 }
 
 // ── Panel buttons ─────────────────────────────────────────────────────────────
 async function handleRankedPanelBtn(interaction) {
-  const guildId  = interaction.guildId;
-  const methods  = await getPaymentMethods(guildId);
+  orderState.delete(interaction.user.id);
+  await interaction.reply({
+    components: [buildSvcTypeEmbed('ranked', false)],
+    flags: MessageFlags.IsComponentsV2,
+    ephemeral: true,
+  });
+}
 
+async function handlePrestigePanelBtn(interaction) {
+  orderState.delete(interaction.user.id);
+  await interaction.reply({
+    components: [buildSvcTypeEmbed('prestige', false)],
+    flags: MessageFlags.IsComponentsV2,
+    ephemeral: true,
+  });
+}
+// ── Order config helpers — shown after service type is chosen ─────────────────
+async function showRankedConfig(interaction) {
+  const guildId = interaction.guildId;
+  const methods = await getPaymentMethods(guildId);
   const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
   const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
   const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
   const e = baseEmbed('<:master:1491521740860428459> Ranked Order', PRIMARY);
   e.setDescription('>>> **Complete your ranked order by selecting the options below.**');
-  const components = [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
-    ),
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Current Rank First...').setDisabled(true)
-        .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
-    ),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-    ),
-  ];
-
-  await interaction.reply({ embeds: [e], components, ephemeral: true });
+  return interaction.reply({
+    embeds: [e],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Current Rank First...').setDisabled(true)
+          .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
+      ),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+      ),
+    ],
+    ephemeral: true,
+  });
 }
 
-async function handlePrestigePanelBtn(interaction) {
+async function showPrestigeConfig(interaction) {
   const guildId = interaction.guildId;
   const methods = await getPaymentMethods(guildId);
-
   const currentOptions = ['Prestige 0', 'Prestige 1', 'Prestige 2'].map(p =>
     new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(PREST_CURRENT_EMOJI[p] || undefined)
   );
   const payOptions = methods.map(m =>
     new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
   );
-
-const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
+  const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
   e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
-
-  const components = [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
-    ),
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder().setCustomId('prest_desired').setPlaceholder('Desired Prestige (select Current first)...').setDisabled(true)
-        .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
-    ),
-    new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-    ),
-  ];
-
-  await interaction.reply({ embeds: [e], components, ephemeral: true });
+  return interaction.reply({
+    embeds: [e],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_current').setPlaceholder('Current Prestige...').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('prest_desired').setPlaceholder('Desired Prestige (select Current first)...').setDisabled(true)
+          .addOptions(new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder'))
+      ),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+      ),
+    ],
+    ephemeral: true,
+  });
 }
-
 // ── Select handlers ───────────────────────────────────────────────────────────
 async function handleSelect(interaction) {
   const id    = interaction.customId;
@@ -276,7 +292,7 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
       ),
     ]});
   }
@@ -301,7 +317,7 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+        new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
       ),
     ]});
   }
@@ -330,7 +346,7 @@ async function handleSelect(interaction) {
         new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
       ),
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+        new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
       ),
     ]});
   }
@@ -377,7 +393,7 @@ async function handleRankedSvcSubmit(interaction, state) {
     new ButtonBuilder().setCustomId('ranked_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
     new ButtonBuilder().setCustomId('ranked_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
   );
-  await interaction.reply({ embeds: [e], components: [view], ephemeral: true });
+  await interaction.update({ embeds: [e], components: [view] });
 }
 
 async function handlePrestigeSvcSubmit(interaction, state) {
@@ -524,7 +540,7 @@ async function handleEditOrder(interaction) {
           new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
         ),
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+          new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
         ),
       ],
     });
@@ -562,7 +578,7 @@ async function handleEditOrder(interaction) {
           new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
         ),
         new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue to Service Type').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
+          new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
         ),
       ],
     });
@@ -718,8 +734,8 @@ async function handleButton(interaction, client) {
     const orderType = parts[2];          // 'ranked' or 'prestige'
     const state     = getState(interaction.user.id);
     state.serviceType = svcType;
-    if (orderType === 'ranked')   return handleRankedSvcSubmit(interaction, state);
-    if (orderType === 'prestige') return handlePrestigeSvcSubmit(interaction, state);
+    if (orderType === 'ranked')   return showRankedConfig(interaction);
+    if (orderType === 'prestige') return showPrestigeConfig(interaction);
   }
 
   if (id.startsWith('send_boosters_') || id === 'order_publish_btn_v1') {

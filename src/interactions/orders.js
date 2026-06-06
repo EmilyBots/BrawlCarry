@@ -432,7 +432,7 @@ async function handleRankedSvcSubmit(interaction, state) {
   const svcEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
   const svcLabel = state.serviceType === 'carry' ? 'Ranked Carry' : 'Ranked B00st';
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
-  const e  = baseEmbed(`<:Info:1501221322183934002> Review Your ${svcLabel} Order`, PRIMARY);
+  const e  = baseEmbed(`<:info:1508767700329959545> Review Your ${svcLabel} Order`, PRIMARY);
   e.setDescription(
     `## Please double-check your ranked order details before creating your ticket.\n\n` +
     `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
@@ -524,7 +524,7 @@ async function handlePrestigeTrophyModal(interaction) {
   const pe        = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
   const de        = PREST_DESIRED_EMOJI[state.desiredPrestige]  ?? '✨';
   const payEmoji  = await getPaymentEmoji(state.payment, interaction.guildId);
-  const e  = baseEmbed(`<:Info:1501221322183934002> Review Your ${svcLabel} Order`, ACCENT);
+  const e  = baseEmbed(`<:info:1508767700329959545> Review Your ${svcLabel} Order`, ACCENT);
   e.setDescription(
     `## Please double-check your prestige order details before creating your ticket.\n\n` +
     `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
@@ -682,7 +682,7 @@ async function handleRankedModal(interaction) {
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
 
-  const orderE = baseEmbed('<:Info:1501221322183934002> Order Details', PRIMARY);
+  const orderE = baseEmbed('<:info:1508767700329959545> Order Details', PRIMARY);
   orderE.setDescription(`## Your Ranked ${modeClean} Order`);
   orderE.addFields(
     { name: `Current Rank ${fe}`,       value: `→ ${state.currentRank}`,  inline: false },
@@ -750,7 +750,7 @@ async function handlePrestigeModal(interaction) {
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
 
-  const orderE = baseEmbed('<:Info:1501221322183934002> Order Details', ACCENT);
+  const orderE = baseEmbed('<:info:1508767700329959545> Order Details', ACCENT);
   orderE.setDescription(`## Your Prestige ${modeClean} Order`);
   orderE.addFields(
     { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           
@@ -1011,9 +1011,9 @@ async function handleClaim(interaction, orderId, client) {
         const orderEmbed = baseEmbed(`<:diamound:1491491246546616340> Active ${orderLabel} ${svcLabel} Order`, SUCCESS);
         orderEmbed.addFields(
           { name: '<:Customer:1501221119900778506> Customer', value: `↳ ${custMention}`,      inline: false },
-          { name: '<:user:1491499694734708815> Booster',      value: `↳ ${booster.toString()}`, inline: false },
+          { name: '<:user:1491499694734708815> B00ster',      value: `↳ ${booster.toString()}`, inline: false },
           { name: `${svcEmoji} Order Type`,                   value: `↳ **${svcLabel}**`,      inline: false },
-          { name: '<:Info:1501221322183934002> Order Details', value: `↳ ${details}`,           inline: false },
+          { name: '<:info:1508767700329959545> Order Details', value: `↳ ${details}`,           inline: false },
         );
         await workspace.send({ embeds: [orderEmbed] });
 

@@ -758,7 +758,7 @@ async function handlePrestigeModal(interaction) {
     { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
     { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'} Order Type`, value: `→ **${modeClean}**`, inline: false },
     { name: `${payEmoji} Payment Method`,               value: `→ **${state.payment}**`,                                                            inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`                    inline: false },
+    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`,                    inline: false },
   );
 
   const publishView = new ActionRowBuilder().addComponents(

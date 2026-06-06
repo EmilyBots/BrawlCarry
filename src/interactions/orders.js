@@ -551,6 +551,8 @@ async function handleEditOrder(interaction) {
   const id      = interaction.customId; // 'ranked_edit' or 'prestige_edit'
   const userId  = interaction.user.id;
   const state   = getState(userId);     // preserve existing state
+  state.rankedProgressed   = false;
+  state.prestigeProgressed = false;
   const guildId = interaction.guildId;
   const methods = await getPaymentMethods(guildId);
 
@@ -592,9 +594,6 @@ async function handleEditOrder(interaction) {
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
         ),
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('ranked_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
-        ),
       ],
     });
   }
@@ -629,9 +628,6 @@ async function handleEditOrder(interaction) {
         ),
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder().setCustomId('prest_pay').setPlaceholder('Payment method...').addOptions(payOptions)
-        ),
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('prest_svc_proceed').setLabel('Continue').setStyle(ButtonStyle.Primary).setEmoji('<:arrow:1509857611816763482>')
         ),
       ],
     });
@@ -679,7 +675,7 @@ async function handleRankedModal(interaction) {
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
     await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
   } catch (err) {
-    return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
+    return interaction.followUp({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
   }
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);

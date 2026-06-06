@@ -17,7 +17,6 @@ async function loadInteractions(interaction, client) {
   if (interaction.isButton()) {
     if (id.startsWith('booster_claim:') || id.startsWith('booster_unclaim:') || id.startsWith('order_publish_btn') || id.startsWith('send_boosters_')) return orders.handleButton(interaction, client);
     if (id.startsWith('svc_boost_') || id.startsWith('svc_carry_')) return orders.handleButton(interaction, client);
-    return orders.handleButton(interaction, client);
     if (id === 'ranked_order_btn')    return orders.handleRankedPanelBtn(interaction, client);
     if (id === 'prestige_order_btn')  return orders.handlePrestigePanelBtn(interaction, client);
     if (id === 'ticket_close_v2' || id === 'ticket_general_btn') return tickets.handleButton(interaction, client);

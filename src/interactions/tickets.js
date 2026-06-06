@@ -42,50 +42,10 @@ async function handleGeneralSupportBtn(interaction) {
 }
 
 async function handleCloseBtn(interaction, client) {
-  await interaction.deferReply({ ephemeral: false }).catch(() => {});
-
   const channel = interaction.channel;
   const guild   = interaction.guild;
 
-  // Fetch transcript messages
-  const messages = [];
-  try {
-    let fetched;
-    let before = null;
-    do {
-      fetched = await channel.messages.fetch({ limit: 100, before });
-      fetched.forEach(m => messages.unshift(m));
-      before = fetched.last()?.id;
-    } while (fetched.size === 100 && messages.length < 500);
-  } catch (_) {}
-
-  // Resolve order and author
-  const order = await queryOne(
-    'SELECT * FROM orders WHERE ticket_channel_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [channel.id]
-  );
-  let authorMention = order?.user_id ? `<@${order.user_id}>` : null;
-  if (!authorMention) {
-    const firstHuman = messages.find(m => !m.author.bot);
-    authorMention = firstHuman?.author.toString() ?? '—';
-  }
-
-  // Detect ticket type
-  const chName = channel.name.toLowerCase();
-  let ticketType = 'Support';
-  if (chName.includes('ranked'))   ticketType = 'Ranked';
-  else if (chName.includes('prestige'))  ticketType = 'Prestige';
-  else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
-
-  // Build transcript
-  const htmlBuf = buildTranscript(messages, channel, ticketType, authorMention, interaction.member);
-  const transcriptFile = new AttachmentBuilder(htmlBuf, { name: `transcript-${channel.name}.html` });
-
-  // Log embed
-  const cfg      = await getConfig(guild.id);
-  const logChId  = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
-  const logCh    = logChId ? guild.channels.cache.get(logChId) : null;
-
+  // Show modal FIRST — no defer before showModal
   const modal = new ModalBuilder()
     .setCustomId('close_reason_modal')
     .setTitle('Close Ticket with Reason')
@@ -100,12 +60,8 @@ async function handleCloseBtn(interaction, client) {
       )
     );
 
-  // Store context on the interaction for the modal handler
-  // Use a global ephemeral state keyed by interaction id
-  pendingCloses.set(interaction.id, { channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy: interaction.member });
-
-  // We already deferred — cannot show modal after defer. Show inline instead.
-  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, interaction.member, null);
+  pendingCloses.set(interaction.user.id, { channel, guild, closedBy: interaction.member });
+  await interaction.showModal(modal);
 }
 
 // ── Close with optional reason (called from modal or direct) ──────────────────
@@ -164,11 +120,49 @@ async function handleSetupModal(interaction) {
 // ── Modal: close with reason ──────────────────────────────────────────────────
 async function handleCloseModal(interaction, client) {
   const reason = interaction.fields.getTextInputValue('close_reason');
-  await interaction.deferUpdate().catch(() => {});
-  const ctx = pendingCloses.get(interaction.message?.interaction?.id);
+  await interaction.deferReply({ ephemeral: false }).catch(() => {});
+
+  const ctx = pendingCloses.get(interaction.user.id);
   if (!ctx) return;
-  pendingCloses.delete(interaction.message?.interaction?.id);
-  await performClose(interaction, ctx.channel, ctx.guild, ctx.messages, ctx.order, ctx.authorMention, ctx.ticketType, ctx.transcriptFile, ctx.logCh, ctx.closedBy, reason);
+  pendingCloses.delete(interaction.user.id);
+
+  const { channel, guild, closedBy } = ctx;
+
+  const messages = [];
+  try {
+    let fetched;
+    let before = null;
+    do {
+      fetched = await channel.messages.fetch({ limit: 100, before });
+      fetched.forEach(m => messages.unshift(m));
+      before = fetched.last()?.id;
+    } while (fetched.size === 100 && messages.length < 500);
+  } catch (_) {}
+
+  const order = await queryOne(
+    'SELECT * FROM orders WHERE ticket_channel_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [channel.id]
+  );
+  let authorMention = order?.user_id ? `<@${order.user_id}>` : null;
+  if (!authorMention) {
+    const firstHuman = messages.find(m => !m.author.bot);
+    authorMention = firstHuman?.author.toString() ?? '—';
+  }
+
+  const chName = channel.name.toLowerCase();
+  let ticketType = 'Support';
+  if (chName.includes('ranked'))        ticketType = 'Ranked';
+  else if (chName.includes('prestige')) ticketType = 'Prestige';
+  else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
+
+  const htmlBuf = buildTranscript(messages, channel, ticketType, authorMention, closedBy);
+  const transcriptFile = new AttachmentBuilder(htmlBuf, { name: `transcript-${channel.name}.html` });
+
+  const cfg     = await getConfig(guild.id);
+  const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
+  const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
+
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy, reason);
 }
 
 // ── Select: support center ────────────────────────────────────────────────────

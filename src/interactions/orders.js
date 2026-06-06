@@ -685,11 +685,11 @@ async function handleRankedModal(interaction) {
   const orderE = baseEmbed('<:info:1508767700329959545> Order Details', PRIMARY);
   orderE.setDescription(`## Your Ranked ${modeClean} Order`);
   orderE.addFields(
-    { name: `Current Rank ${fe}`,       value: `→ ${state.currentRank}`,  inline: false },
-    { name: `Desired Rank ${te}`,       value: `→ ${state.desiredRank}`,  inline: false },
-    { name: 'Power Level <:copyright:1489943698203480214>', value: `→ ${state.p11} Power 11`, inline: false },
-    { name: `Order Type ${modeEmoji}`,  value: `→ ${modeClean}`,          inline: false },
-    { name: `Payment Method ${payEmoji}`, value: `→ ${state.payment}`,    inline: false },
+    { name: `Current Rank ${fe}`,       value: `<:arrow:1509857611816763482> ${state.currentRank}`,  inline: false },
+    { name: `Desired Rank ${te}`,       value: `<:arrow:1509857611816763482> ${state.desiredRank}`,  inline: false },
+    { name: 'Power <:P11:1512113473289720070>', value: `<:arrow:1509857611816763482> ${state.p11}`, inline: false },
+    { name: `Order Type ${modeEmoji}`,  value: `<:arrow:1509857611816763482> ${modeClean}`,          inline: false },
+    { name: `Payment Method ${payEmoji}`, value: `<:arrow:1509857611816763482> ${state.payment}`,    inline: false },
     { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**`, inline: false },
   );
 
@@ -753,11 +753,11 @@ async function handlePrestigeModal(interaction) {
   const orderE = baseEmbed('<:info:1508767700329959545> Order Details', ACCENT);
   orderE.setDescription(`## Your Prestige ${modeClean} Order`);
   orderE.addFields(
-    { name: `Prestige ${pe}`,                          value: `→ ${specLabel}`,                                                                    inline: false },                                                           
-    { name: '<:user:1491499694734708815> Brawler',      value: `→ **${state.brawlerName}**`,                                                        inline: false },
-    { name: '<:copyright:1485658086156013598> Trophies', value: `→ **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
-    { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'} Order Type`, value: `→ **${modeClean}**`, inline: false },
-    { name: `${payEmoji} Payment Method`,               value: `→ **${state.payment}**`,                                                            inline: false },
+    { name: `Prestige ${pe}`,                          value: `<:arrow:1509857611816763482> ${specLabel}`,                                                                    inline: false },
+    { name: '<:user:1491499694734708815> Brawler',      value: `<:arrow:1509857611816763482> **${state.brawlerName}**`,                                                        inline: false },
+    { name: '<:copyright:1485658086156013598> Trophies', value: `<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
+    { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'} Order Type`, value: `<:arrow:1509857611816763482> **${modeClean}**`, inline: false },
+    { name: `${payEmoji} Payment Method`,               value: `<:arrow:1509857611816763482> **${state.payment}**`,                                                            inline: false },
     { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`,                    inline: false },
   );
 

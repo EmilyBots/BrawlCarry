@@ -347,8 +347,7 @@ async function handleSelect(interaction) {
   if (id === 'ranked_p11') {
     state.p11 = value;
     if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.payment) {
-      state.rankedProgressed = true;
-      await interaction.deferUpdate();
+      state.rankedProgressed = true;      
       return handleRankedSvcSubmit(interaction, state);
     }
     return interaction.deferUpdate();
@@ -357,8 +356,7 @@ async function handleSelect(interaction) {
   if (id === 'ranked_pay') {
     state.payment = value;
     if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.p11) {
-      state.rankedProgressed = true;
-      await interaction.deferUpdate();
+      state.rankedProgressed = true;      
       return handleRankedSvcSubmit(interaction, state);
     }
     return interaction.deferUpdate();
@@ -395,8 +393,7 @@ async function handleSelect(interaction) {
     state.desiredPrestige = value;
     if (!state.prestigeProgressed && state.currentPrestige && state.payment) {
       state.prestigeProgressed = true;
-      await interaction.deferUpdate();
-      return handlePrestigeSvcSubmit(interaction, state);
+     return handlePrestigeSvcSubmit(interaction, state);
     }
     return interaction.deferUpdate();
   }
@@ -405,7 +402,6 @@ async function handleSelect(interaction) {
     state.payment = value;
     if (!state.prestigeProgressed && state.currentPrestige && state.desiredPrestige) {
       state.prestigeProgressed = true;
-      await interaction.deferUpdate();
       return handlePrestigeSvcSubmit(interaction, state);
     }
     return interaction.deferUpdate();

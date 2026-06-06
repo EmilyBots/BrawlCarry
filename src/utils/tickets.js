@@ -16,7 +16,7 @@ const { updateTicketActivity } = require('./permissions');
  * @param {bigint|null} overrideChannelId  force a specific parent channel
  * @returns {Promise<import('discord.js').ThreadChannel|import('discord.js').TextChannel>}
  */
-async function createTicketThread(guild, member, name, topicEmbed, view, cfg, overrideChannelId = null) {
+async function createTicketThread(guild, member, name, topicEmbed, view, cfg, overrideChannelId = null, pingContent = null) {
   const ticketChId = overrideChannelId ?? cfg?.ticket_channel_id ?? null;
   const categoryId = cfg?.ticket_category_id ?? null;
 
@@ -46,6 +46,7 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
       }
 
       await thread.members.add(member.id);
+      if (pingContent) await thread.send({ content: pingContent, allowedMentions: { parse: ['roles'] } });
       await thread.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
       await updateTicketActivity(thread.id, guild.id);
       return thread;
@@ -85,6 +86,7 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
     topic:              `Opened by ${member.user.tag} | ${new Date().toISOString().slice(0, 16)} UTC`,
   });
 
+  if (pingContent) await ch.send({ content: pingContent, allowedMentions: { parse: ['roles'] } });
   await ch.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
   await updateTicketActivity(ch.id, guild.id);
   return ch;

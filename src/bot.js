@@ -92,6 +92,11 @@ client.once('ready', async () => {
   await registerCommands(client);
   console.log('[OK] Slash commands registered');
 
+  // RIMUOVI QUESTA RIGA DOPO IL PRIMO DEPLOY
+  const { REST, Routes } = require('discord.js');
+  await new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN).put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID), { body: [] });
+  console.log('[OK] Global commands cleared');
+
   startGiveawayEndLoop(client);
   startGiveawayReminderLoop(client);
   startInactiveTicketLoop(client);

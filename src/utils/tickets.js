@@ -50,7 +50,8 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
       if (topicEmbed) {
         await thread.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
       } else {
-        await thread.send({ content: member.toString(), components: [view], flags: MessageFlags.IsComponentsV2 });
+        await thread.send({ content: member.toString() });
+        await thread.send({ components: [view], flags: MessageFlags.IsComponentsV2 });
       }
       await updateTicketActivity(thread.id, guild.id);
       return thread;
@@ -94,7 +95,8 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
   if (topicEmbed) {
     await ch.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
   } else {
-    await ch.send({ content: member.toString(), components: [view], flags: MessageFlags.IsComponentsV2 });
+    await ch.send({ content: member.toString() });
+    await ch.send({ components: [view], flags: MessageFlags.IsComponentsV2 });
   }
   await updateTicketActivity(ch.id, guild.id);
   return ch;

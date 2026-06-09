@@ -664,18 +664,29 @@ async function handleRankedModal(interaction) {
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
   const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
-  const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', PRIMARY);
-  activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.');
-
-  const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
-new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
-  );
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('<:Boost:1508378809676861573> **Ranked Order Ticket**')
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.'
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
 
   let ticket;
   try {
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    ticket = await createTicketThread(guild, member, `ranked-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.ranked_ticket_channel_id ?? null, staffPings);
+    ticket = await createTicketThread(guild, member, `ranked-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.ranked_ticket_channel_id ?? null, staffPings);
   } catch (err) {
     return interaction.followUp({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
   }
@@ -732,18 +743,29 @@ async function handlePrestigeModal(interaction) {
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
 
-  const activatedE = baseEmbed('<:Boost:1508378809676861573> Order Ticket', ACCENT);
-  activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.');
-  
-  const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
-new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
-  );
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(ACCENT)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent('<:Boost:1508378809676861573> **Prestige Order Ticket**')
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.'
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
 
   let ticket;
   try {
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    ticket = await createTicketThread(guild, member, `prestige-${member.user.username.slice(0, 12).toLowerCase()}`, activatedE, closeView, cfg, cfg?.prestige_ticket_channel_id ?? null, staffPings);
+    ticket = await createTicketThread(guild, member, `prestige-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.prestige_ticket_channel_id ?? null, staffPings);
   } catch (err) {
     return interaction.editReply({ content: `❌ Failed to create ticket: \`${err.message}\`` });
   }

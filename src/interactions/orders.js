@@ -668,8 +668,8 @@ async function handleRankedModal(interaction) {
   activatedE.setDescription('## Your Ranked request has been successfully created.\n\nOur team will review and begin processing it shortly.');
 
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
   let ticket;
@@ -736,8 +736,8 @@ async function handlePrestigeModal(interaction) {
   activatedE.setDescription('## Your Prestige request has been successfully created.\n\nOur team will review and begin processing it shortly.');
   
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
   let ticket;
@@ -1019,7 +1019,7 @@ async function handleClaim(interaction, orderId, client) {
         const safetyEmbed = baseEmbed('⚠️ Reminder', GOLD);
         safetyEmbed.setDescription('**Never DM the booster directly.**\n\nAlways use this thread for communication.\n\nThis helps prevent scams and keeps everything tracked safely.\n\n**Any attempt to bypass this rule by either the customer or the booster may result in consequences.**');
         const closeView = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+          new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' })
         );
         await workspace.send({ embeds: [safetyEmbed], components: [closeView] });
 

@@ -708,7 +708,7 @@ async function handleRankedModal(interaction) {
         `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n\n` +
         `**Power** <:P11:1512113473289720070>\n<:arrow:1509857611816763482> ${state.p11}\n\n` +
         `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n\n` +
-        `**Estimated Price** <:Amount:1501221154650853450>\n**€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+        `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
@@ -797,7 +797,7 @@ async function handlePrestigeModal(interaction) {
         `**Trophies** <:copyright:1485658086156013598>\n<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**\n\n` +
         `**Order Type** ${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'}\n<:arrow:1509857611816763482> **${modeClean}**\n\n` +
         `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> **${state.payment}**\n\n` +
-        `**Estimated Price** <:Amount:1501221154650853450>\n**€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+        `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
       )
     )
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

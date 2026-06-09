@@ -31,8 +31,8 @@ async function handleGeneralSupportBtn(interaction) {
 
   const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
   const overrideCh = cfg?.application_ticket_channel_id ?? null;
@@ -224,8 +224,8 @@ async function handleSupportCenterSelect(interaction, choice) {
   const cfg    = await getConfig(interaction.guildId);
 
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
   if (choice === 'support') {
@@ -283,8 +283,8 @@ async function handleApplicationCenterSelect(interaction, choice) {
   e.setDescription(`## Your ${slug} application has been successfully created.\n\nOur management team will review your application shortly.\n\nYou can manage your ticket using the options below.`);
   
   const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Secondary).setEmoji('📝')
+    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
   const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg, overrideChId);

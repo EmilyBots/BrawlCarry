@@ -6,12 +6,33 @@ const { createTicketThread, buildTranscript } = require('../utils/tickets');
 const { removeTicketActivity, updateTicketActivity } = require('../utils/permissions');
 const { PRIMARY, SUCCESS, HARDCODED_SUPPORT_ROLES } = require('../config/constants');
 
+// ── Staff roles allowed to close tickets ─────────────────────────────────────
+const STAFF_ROLES = [
+  '1491447093078921267',
+  '1355262062124859600',
+  '1496415531899687034',
+  '1496410940214874302',
+  '1479079737052762205',
+];
+
+function isStaff(member) {
+  return STAFF_ROLES.some(id => member.roles.cache.has(id));
+}
+
 // ── Button handler ────────────────────────────────────────────────────────────
 async function handleButton(interaction, client) {
   const id = interaction.customId;
 
-  if (id === 'ticket_close_v2')        return handleCloseDirectly(interaction, client);
-  if (id === 'ticket_close_reason_v2') return handleCloseBtn(interaction, client);
+  if (id === 'ticket_close_v2' || id === 'ticket_close_reason_v2') {
+    if (!isStaff(interaction.member)) {
+      return interaction.reply({
+        content: '### <:sold:1507693147306852515> Only staff members can manage ticket closures <:ticket:1508838977602457723>',
+        ephemeral: true,
+      });
+    }
+    if (id === 'ticket_close_v2')        return handleCloseDirectly(interaction, client);
+    if (id === 'ticket_close_reason_v2') return handleCloseBtn(interaction, client);
+  }
   if (id === 'ticket_general_btn')     return handleGeneralSupportBtn(interaction, client);
 }
 

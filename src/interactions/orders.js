@@ -693,21 +693,31 @@ async function handleRankedModal(interaction) {
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
 
-  const orderE = baseEmbed('<:info:1508767700329959545> Order Details', PRIMARY);
-  orderE.setDescription(`## Your Ranked ${modeClean} Order`);
-  orderE.addFields(
-    { name: `Current Rank ${fe}`,       value: `<:arrow:1509857611816763482> ${state.currentRank}`,  inline: false },
-    { name: `Desired Rank ${te}`,       value: `<:arrow:1509857611816763482> ${state.desiredRank}`,  inline: false },
-    { name: `Order Type ${modeEmoji}`,  value: `<:arrow:1509857611816763482> ${modeClean}`,          inline: false },
-    { name: 'Power <:P11:1512113473289720070>', value: `<:arrow:1509857611816763482> ${state.p11}`, inline: false },
-    { name: `Payment Method ${payEmoji}`, value: `<:arrow:1509857611816763482> ${state.payment}`,    inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `** ╔══ €${(state.estimatedPrice ?? 0).toFixed(2)}  ══╗**`, inline: false },
-  );
-
-  const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
-  );
-  await ticket.send({ embeds: [orderE], components: [publishView] });
+  const orderContainer = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `<:info:1508767700329959545> **Order Details**\n## Your Ranked ${modeClean} Order`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Current Rank** ${fe}\n<:arrow:1509857611816763482> ${state.currentRank}\n\n` +
+        `**Desired Rank** ${te}\n<:arrow:1509857611816763482> ${state.desiredRank}\n\n` +
+        `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n\n` +
+        `**Power** <:P11:1512113473289720070>\n<:arrow:1509857611816763482> ${state.p11}\n\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n\n` +
+        `**Estimated Price** <:Amount:1501221154650853450>\n**€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
+      )
+    );
+  await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
   await interaction.reply({ content: `✅ Your Ranked order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
 
   orderState.delete(interaction.user.id);
@@ -772,21 +782,31 @@ async function handlePrestigeModal(interaction) {
 
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
 
-  const orderE = baseEmbed('<:info:1508767700329959545> Order Details', ACCENT);
-  orderE.setDescription(`## Your Prestige ${modeClean} Order`);
-  orderE.addFields(
-    { name: `Prestige ${pe}`,                          value: `<:arrow:1509857611816763482> ${specLabel}`,                                                                    inline: false },
-    { name: '<:user:1491499694734708815> Brawler',      value: `<:arrow:1509857611816763482> **${state.brawlerName}**`,                                                        inline: false },
-    { name: '<:copyright:1485658086156013598> Trophies', value: `<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**`,                                inline: false },
-    { name: `${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'} Order Type`, value: `<:arrow:1509857611816763482> **${modeClean}**`, inline: false },
-    { name: `${payEmoji} Payment Method`,               value: `<:arrow:1509857611816763482> **${state.payment}**`,                                                            inline: false },
-    { name: '<:Amount:1501221154650853450> Estimated Price', value: `**╔══ €${(state.estimatedPrice ?? 0).toFixed(2)} ══╗**`,                    inline: false },
-  );
-
-  const publishView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
-  );
-  await ticket.send({ embeds: [orderE], components: [publishView] });
+  const orderContainer = new ContainerBuilder()
+    .setAccentColor(ACCENT)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `<:info:1508767700329959545> **Order Details**\n## Your Prestige ${modeClean} Order`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Prestige** ${pe}\n<:arrow:1509857611816763482> ${specLabel}\n\n` +
+        `**Brawler** <:user:1508831475796148285>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n\n` +
+        `**Trophies** <:copyright:1485658086156013598>\n<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**\n\n` +
+        `**Order Type** ${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'}\n<:arrow:1509857611816763482> **${modeClean}**\n\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> **${state.payment}**\n\n` +
+        `**Estimated Price** <:Amount:1501221154650853450>\n**€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
+      )
+    );
+  await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
   await interaction.editReply({ content: `✅ Your Prestige order has been placed!\n📩 Ticket opened: ${ticket.toString()}` });
   orderState.delete(interaction.user.id);
 }

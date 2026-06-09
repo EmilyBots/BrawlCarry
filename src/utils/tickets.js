@@ -1,4 +1,4 @@
-const { ChannelType, PermissionOverwrite } = require('discord.js');
+const { ChannelType, PermissionOverwrite, MessageFlags } = require('discord.js');
 const { HARDCODED_SUPPORT_ROLES } = require('../config/constants');
 const { updateTicketActivity } = require('./permissions');
 
@@ -47,7 +47,11 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
 
       await thread.members.add(member.id);
       if (pingContent) await thread.send({ content: pingContent, allowedMentions: { parse: ['roles'] } });
-      await thread.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
+      if (topicEmbed) {
+        await thread.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
+      } else {
+        await thread.send({ content: member.toString(), components: [view], flags: MessageFlags.IsComponentsV2 });
+      }
       await updateTicketActivity(thread.id, guild.id);
       return thread;
     }
@@ -87,7 +91,11 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
   });
 
   if (pingContent) await ch.send({ content: pingContent, allowedMentions: { parse: ['roles'] } });
-  await ch.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
+  if (topicEmbed) {
+    await ch.send({ content: member.toString(), embeds: [topicEmbed], components: [view] });
+  } else {
+    await ch.send({ content: member.toString(), components: [view], flags: MessageFlags.IsComponentsV2 });
+  }
   await updateTicketActivity(ch.id, guild.id);
   return ch;
 }

@@ -703,11 +703,11 @@ async function handleRankedModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `**Current Rank** ${fe}\n<:arrow:1509857611816763482> ${state.currentRank}\n\n` +
-        `**Desired Rank** ${te}\n<:arrow:1509857611816763482> ${state.desiredRank}\n\n` +
-        `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n\n` +
-        `**Power** <:P11:1512113473289720070>\n<:arrow:1509857611816763482> ${state.p11}\n\n` +
-        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n\n` +
+        `**Current Rank** ${fe}\n<:arrow:1509857611816763482> ${state.currentRank}\n` +
+        `**Desired Rank** ${te}\n<:arrow:1509857611816763482> ${state.desiredRank}\n` +
+        `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n` +
+        `**Power** <:P11:1512113473289720070>\n<:arrow:1509857611816763482> ${state.p11}\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
         `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
       )
     )
@@ -792,11 +792,11 @@ async function handlePrestigeModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `**Prestige** ${pe}\n<:arrow:1509857611816763482> ${specLabel}\n\n` +
-        `**Brawler** <:user:1508831475796148285>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n\n` +
-        `**Trophies** <:copyright:1485658086156013598>\n<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**\n\n` +
-        `**Order Type** ${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'}\n<:arrow:1509857611816763482> **${modeClean}**\n\n` +
-        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> **${state.payment}**\n\n` +
+        `**Prestige** ${pe}\n<:arrow:1509857611816763482> ${specLabel}\n` +
+        `**Brawler** <:user:1508831475796148285>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n` +
+        `**Trophies** <:copyright:1485658086156013598>\n<:arrow:1509857611816763482> **${state.trophyVal?.toLocaleString() ?? '—'}**\n` +
+        `**Order Type** ${state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>'}\n<:arrow:1509857611816763482> **${modeClean}**\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> **${state.payment}**\n` +
         `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
       )
     )

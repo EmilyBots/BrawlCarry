@@ -85,8 +85,7 @@ async function calculateRankPrice(fromRank, toRank, p11Str, serviceType, guildId
   }
 
   let multiplier = 1.0;
-if (p11Num < 40) multiplier = 1.0 + Math.min((40 - p11Num) * 0.005, 0.25);
-else if (p11Num > 50) multiplier = 1.0 - Math.min((p11Num - 50) * 0.004, 0.20);
+if (p11Num < 40) multiplier = 1.0 + Math.min((40 - p11Num) * 0.005, 0.08);
 
 const masterOneIdx = ALL_RANKS.indexOf('Masters I');
 const fromIdx = ALL_RANKS.indexOf(fromRank);

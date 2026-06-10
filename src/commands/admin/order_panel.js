@@ -30,13 +30,13 @@ const rankedPanelCmd = {
           .setContent('## <:master:1491521740860428459> Ranked Service\n>>> ### <:arrow:1509857611816763482> **Reach higher ranks quickly and safely with our experienced players.**')
       );
 
-    if (imageUrls[0]) {
-      container
-        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-        .addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems([{ media: { url: imageUrls[0] } }])
-        );
-    }
+    if (imageUrls.length > 0) {
+  container
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(imageUrls.map(url => ({ media: { url } })))
+    );
+}
 
     container
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
@@ -75,13 +75,13 @@ const prestigePanelCmd = {
           .setContent('## <:RP3:1510915463146766407> Prestige Service\n>>> ### <:arrow:1509857611816763482> **Reach your desired Prestige quickly and safely with our experienced players.**')
       );
 
-    if (imageUrls[0]) {
-      container
-        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
-        .addMediaGalleryComponents(
-          new MediaGalleryBuilder().addItems([{ media: { url: imageUrls[0] } }])
-        );
-    }
+    if (imageUrls.length > 0) {
+  container
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(imageUrls.map(url => ({ media: { url } })))
+    );
+}
 
     container
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))

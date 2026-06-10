@@ -85,20 +85,20 @@ const TIER_DIVISION_PRICES = {
 const EXPLICIT_RANK_PRICES = {
   'Silver I|Gold I':         2.60,
   'Gold I|Diamond I':        4.00,
-  'Diamond I|Mythic I':      7.00,
+  'Diamond I|Mythic I':      5.65,
   'Mythic I|Legendary I':    14.00,
   'Legendary I|Masters I':   30.00,
-  'Masters I|Pro':           180.00,
+  'Masters I|Pro':           225.00,
   'Mythic I|Mythic II':      4.00,
   'Mythic II|Mythic III':    5.00,
   'Mythic III|Legendary I':  5.00,
-  'Diamond III|Mythic I':    3.00,
+  'Diamond III|Mythic I':    2.25,
   'Legendary I|Legendary II':  9.00,
   'Legendary II|Legendary III': 9.00,
   'Legendary III|Masters I': 12.00,
-  'Masters I|Masters II':    30.00,
-  'Masters II|Masters III':  55.00,
-  'Masters III|Pro':         95.00,
+  'Masters I|Masters II':    35.00,
+  'Masters II|Masters III':  70.00,
+  'Masters III|Pro':         120.00,
 };
 
 // ── Misc options ──────────────────────────────────────────────────────────────

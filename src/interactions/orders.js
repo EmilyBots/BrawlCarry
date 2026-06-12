@@ -236,7 +236,7 @@ async function showRankedConfig(interaction) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
           .setCustomId('ranked_p11')
-          .setPlaceholder('Power 11 brawlers...')
+          .setPlaceholder('Power 11 Brawlers...')
           .addOptions(p11Options)
       ),
       new ActionRowBuilder().addComponents(
@@ -301,8 +301,8 @@ async function handleSelect(interaction) {
     const methods = await getPaymentMethods(interaction.guildId);
     const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
     const desiredOptions = buildDesiredRankOptions(value);
-    const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
-    const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
+    const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11));
+    const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment));
     await interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
@@ -310,7 +310,7 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Desired Rank').setDisabled(false).addOptions(desiredOptions)
       ),
-      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Power 11 Brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
     ]});
     return;
@@ -331,8 +331,8 @@ async function handleSelect(interaction) {
     const desiredOptions = DESIRED_RANKS
       .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
       .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
-    const p11Options = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI));
-    const payOptions = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined));
+    const p11Options = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11));
+    const payOptions = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment));
     await interaction.update({ components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
@@ -340,7 +340,7 @@ async function handleSelect(interaction) {
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Desired Rank').setDisabled(false).addOptions(desiredOptions)
       ),
-      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Power 11 Brawlers...').addOptions(p11Options)),
       new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
     ]});
     return;
@@ -349,19 +349,75 @@ async function handleSelect(interaction) {
   if (id === 'ranked_p11') {
     state.p11 = value;
     if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.payment) {
-      state.rankedProgressed = true;      
+      state.rankedProgressed = true;
       return handleRankedSvcSubmit(interaction, state);
     }
-    return interaction.deferUpdate();
+    const methods = await getPaymentMethods(interaction.guildId);
+    const currentOptions = CURRENT_RANKS.map(r =>
+      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
+    );
+    const desiredOptions = state.currentRank
+      ? DESIRED_RANKS
+          .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+          .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.desiredRank))
+      : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
+    const p11Options = P11_OPTIONS.map(p =>
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === value)
+    );
+    const payOptions = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
+    );
+    return interaction.update({ components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Desired Rank').setDisabled(!state.currentRank).addOptions(desiredOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Power 11 Brawlers...').addOptions(p11Options)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+      ),
+    ]});
   }
 
   if (id === 'ranked_pay') {
     state.payment = value;
     if (!state.rankedProgressed && state.currentRank && state.desiredRank && state.p11) {
-      state.rankedProgressed = true;      
+      state.rankedProgressed = true;
       return handleRankedSvcSubmit(interaction, state);
     }
-    return interaction.deferUpdate();
+    const methods = await getPaymentMethods(interaction.guildId);
+    const currentOptions = CURRENT_RANKS.map(r =>
+      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
+    );
+    const desiredOptions = state.currentRank
+      ? DESIRED_RANKS
+          .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+          .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.desiredRank))
+      : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
+    const p11Options = P11_OPTIONS.map(p =>
+      new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11)
+    );
+    const payOptions = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === value)
+    );
+    return interaction.update({ components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_current').setPlaceholder('Select Current Rank').addOptions(currentOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_desired').setPlaceholder('Select Desired Rank').setDisabled(!state.currentRank).addOptions(desiredOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Power 11 Brawlers...').addOptions(p11Options)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+      ),
+    ]});
   }
 
   // ── PRESTIGE ──────────────────────────────────────────────────────────────
@@ -591,7 +647,7 @@ async function handleEditOrder(interaction) {
             .addOptions(state.currentRank ? desiredOptions : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')])
         ),
         new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Number of Power 11 brawlers...').addOptions(p11Options)
+          new StringSelectMenuBuilder().setCustomId('ranked_p11').setPlaceholder('Power 11 Brawlers...').addOptions(p11Options)
         ),
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)

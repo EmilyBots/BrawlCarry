@@ -1142,17 +1142,27 @@ async function handleClaim(interaction, orderId, client) {
         const details      = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
         const orderLabel   = (order.order_type ?? 'ranked').charAt(0).toUpperCase() + (order.order_type ?? 'ranked').slice(1);
         const svcLabel     = (order.service_type ?? 'boost').charAt(0).toUpperCase() + (order.service_type ?? 'boost').slice(1);
-        const svcEmoji = order.service_type === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+        const svcEmoji     = order.service_type === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
         const custMention  = customer?.toString() ?? `<@${order.user_id}>`;
+        const detailsLine  = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
 
-        const orderEmbed = baseEmbed(`<:diamound:1491491246546616340> Active ${orderLabel} ${svcLabel} Order`, SUCCESS);
-        orderEmbed.addFields(
-          { name: '<:Customer:1501221119900778506> Customer', value: `↳ ${custMention}`,      inline: false },
-          { name: '<:user:1491499694734708815> B00ster',      value: `↳ ${booster.toString()}`, inline: false },
-          { name: `${svcEmoji} Order Type`,                   value: `↳ **${svcLabel}**`,      inline: false },
-          { name: '<:info:1508767700329959545> Order Details', value: `↳ ${details}`,           inline: false },
-        );
-        await workspace.send({ embeds: [orderEmbed] });
+        const orderContainer = new ContainerBuilder()
+          .setAccentColor(SUCCESS)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### <:ticket:1508838977602457723> **Active ${orderLabel} ${svcLabel} Order**`
+            )
+          )
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### Customer <:client:1508831518858940607>\n<:reply:1507680110843658260> ${custMention}\n\n` +
+              `### B00ster <:booster:1508831601600106547>\n<:reply:1507680110843658260> ${booster.toString()}\n\n` +
+              `### Order Type ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
+              `### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${detailsLine}`
+            )
+          );
+        await workspace.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
 
         const safetyEmbed = baseEmbed('⚠️ Reminder', GOLD);
         safetyEmbed.setDescription('**Never DM the booster directly.**\n\nAlways use this thread for communication.\n\nThis helps prevent scams and keeps everything tracked safely.\n\n**Any attempt to bypass this rule by either the customer or the booster may result in consequences.**');

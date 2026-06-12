@@ -1172,7 +1172,7 @@ async function handleClaim(interaction, orderId, client) {
           .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `### Your order has been successfully assigned to ${booster.toString()}.\n\n` +
+              `### Your order has been successfully assigned to ${booster.user.username}.\n\n` +
               `-# Please continue all communication inside the private thread.`
             )
           );

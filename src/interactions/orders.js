@@ -1162,11 +1162,23 @@ async function handleClaim(interaction, orderId, client) {
         await workspace.send({ embeds: [safetyEmbed], components: [closeView] });
 
         // Notify original ticket
+        const assignedContainer = new ContainerBuilder()
+          .setAccentColor(SUCCESS)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `<:Boost:1508378809676861573> **B00ster Assigned**`
+            )
+          )
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `### Your order has been successfully assigned to ${booster.toString()}.\n\n` +
+              `-# Please continue all communication inside the private thread.`
+            )
+          );
         await ticketCh.send({
-          content:
-            `**<:Boost:1508378809676861573> B00ster Assigned**\n\n` +
-            `### Your order has been successfully assigned to ${booster.toString()}.\n\n` +
-            `> -# Please continue all communication inside the private thread.`,
+          components: [assignedContainer],
+          flags: MessageFlags.IsComponentsV2,
         }).catch(() => {});
         await updateTicketActivity(ticketChId, guild.id);
 

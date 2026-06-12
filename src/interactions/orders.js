@@ -40,13 +40,13 @@ const CARRY_MAX_DESIRED = 'Masters I';
 
 const PREST_CURRENT_EMOJI = {
   'Prestige 0': '<:Prestige0:1508145555052957737>',
-  'Prestige 1': '<:P1:1508147277577846856>',
-  'Prestige 2': '<:P2:1508147330983923833>',
+  'Prestige 1': '<:RP1:1510915359111380993>',
+  'Prestige 2': '<:RP2:1510915418225639526>',
 };
 const PREST_DESIRED_EMOJI = {
-  'Prestige 1': '<:P1:1508147277577846856>',
-  'Prestige 2': '<:P2:1508147330983923833>',
-  'Prestige 3': '<:P3:1508147370947252345>',
+  'Prestige 1': '<:RP1:1510915359111380993>',
+  'Prestige 2': '<:RP2:1510915418225639526>',
+  'Prestige 3': '<:RP3:1510915463146766407>',
 };
 
 /** Build desired rank options, filtered to only ranks above currentRank.
@@ -271,7 +271,7 @@ async function showPrestigeConfig(interaction) {
   const payOptions = methods.map(m =>
     new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
   );
-  const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
+  const e = baseEmbed('<:RP3:1510915463146766407> Prestige Order', ACCENT);
   e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
   return interaction.reply({
     embeds: [e],
@@ -531,7 +531,7 @@ async function handleRankedSvcSubmit(interaction, state) {
     `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
     `**Current Rank** ${fe}\n<:reply:1507680110843658260> **${state.currentRank}**\n\n` +
     `**Desired Rank** ${te}\n<:reply:1507680110843658260> **${state.desiredRank}**\n\n` +
-    `**Power 11** ${P11_EMOJI}\n<:reply:1507680110843658260> **${state.p11}**\n\n` +
+    `**Power** ${P11_EMOJI}\n<:reply:1507680110843658260> **${state.p11}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
     `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
@@ -709,7 +709,7 @@ async function handleEditOrder(interaction) {
     const payOptions = methods.map(m =>
       new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
     );
-    const e = baseEmbed('<:P3:1508147370947252345> Prestige Order', ACCENT);
+    const e = baseEmbed('<:RP3:1510915463146766407> Prestige Order', ACCENT);
     e.setDescription('>>> **Complete your prestige order by selecting the options below.**');
 
     return interaction.update({

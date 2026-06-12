@@ -34,6 +34,10 @@ const PRESTIGE_LEVELS = ['Prestige 0', 'Prestige 1', 'Prestige 2', 'Prestige 3']
 // Desired ranks above Masters I → random queue forced by game, Carry impossible
 const CARRY_RESTRICTED_DESIRED = new Set(['Masters II', 'Masters III', 'Pro']);
 
+// ── Carry rank limits ─────────────────────────────────────────────────────────
+const CARRY_MAX_CURRENT = 'Legendary III';
+const CARRY_MAX_DESIRED = 'Masters I';
+
 const PREST_CURRENT_EMOJI = {
   'Prestige 0': '<:Prestige0:1508145555052957737>',
   'Prestige 1': '<:P1:1508147277577846856>',
@@ -45,11 +49,17 @@ const PREST_DESIRED_EMOJI = {
   'Prestige 3': '<:P3:1508147370947252345>',
 };
 
-/** Build desired rank options, filtered to only ranks above currentRank. */
-function buildDesiredRankOptions(currentRank) {
-  const ci = ALL_RANKS.indexOf(currentRank);
+/** Build desired rank options, filtered to only ranks above currentRank.
+ *  When isCarry=true, caps options at CARRY_MAX_DESIRED and excludes Pro. */
+function buildDesiredRankOptions(currentRank, isCarry = false) {
+  const ci     = ALL_RANKS.indexOf(currentRank);
+  const maxIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_DESIRED) : Infinity;
   return DESIRED_RANKS
-    .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ci)
+    .filter(r => {
+      if (r === 'Pro') return !isCarry;
+      const ri = ALL_RANKS.indexOf(r);
+      return ri > ci && ri <= maxIdx;
+    })
     .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
 }
 
@@ -206,9 +216,11 @@ async function handlePrestigePanelBtn(interaction) {
 async function showRankedConfig(interaction) {
   const guildId = interaction.guildId;
   const methods = await getPaymentMethods(guildId);
-  const currentOptions = CURRENT_RANKS.map(r =>
-    new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined)
-  );
+  const isCarry = getState(interaction.user.id).serviceType === 'carry';
+  const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+  const currentOptions = CURRENT_RANKS
+    .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+    .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined));
   const p11Options = P11_OPTIONS.map(p =>
     new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI)
   );
@@ -299,8 +311,12 @@ async function handleSelect(interaction) {
     state.desiredRank = null;
     state.rankedProgressed = false; // reset flag se l'utente cambia current
     const methods = await getPaymentMethods(interaction.guildId);
-    const currentOptions = CURRENT_RANKS.map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
-    const desiredOptions = buildDesiredRankOptions(value);
+    const isCarry = state.serviceType === 'carry';
+    const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+    const currentOptions = CURRENT_RANKS
+      .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
+    const desiredOptions = buildDesiredRankOptions(value, isCarry);
     const p11Options     = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11));
     const payOptions     = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment));
     await interaction.update({ components: [
@@ -325,11 +341,18 @@ async function handleSelect(interaction) {
     }
     // Altrimenti aggiorna solo la UI
     const methods = await getPaymentMethods(interaction.guildId);
-    const currentOptions = CURRENT_RANKS.map(r =>
-      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
-    );
+    const isCarry = state.serviceType === 'carry';
+    const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+    const carryMaxDesiredIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_DESIRED) : Infinity;
+    const currentOptions = CURRENT_RANKS
+      .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank));
     const desiredOptions = DESIRED_RANKS
-      .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+      .filter(r => {
+        if (r === 'Pro') return !isCarry;
+        const ri = ALL_RANKS.indexOf(r);
+        return ri > ALL_RANKS.indexOf(state.currentRank) && ri <= carryMaxDesiredIdx;
+      })
       .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === value));
     const p11Options = P11_OPTIONS.map(p => new StringSelectMenuOptionBuilder().setLabel(p).setValue(p).setEmoji(P11_EMOJI).setDefault(p === state.p11));
     const payOptions = methods.map(m => new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment));
@@ -353,12 +376,19 @@ async function handleSelect(interaction) {
       return handleRankedSvcSubmit(interaction, state);
     }
     const methods = await getPaymentMethods(interaction.guildId);
-    const currentOptions = CURRENT_RANKS.map(r =>
-      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
-    );
+    const isCarry = state.serviceType === 'carry';
+    const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+    const carryMaxDesiredIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_DESIRED) : Infinity;
+    const currentOptions = CURRENT_RANKS
+      .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank));
     const desiredOptions = state.currentRank
       ? DESIRED_RANKS
-          .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+          .filter(r => {
+            if (r === 'Pro') return !isCarry;
+            const ri = ALL_RANKS.indexOf(r);
+            return ri > ALL_RANKS.indexOf(state.currentRank) && ri <= carryMaxDesiredIdx;
+          })
           .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.desiredRank))
       : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
     const p11Options = P11_OPTIONS.map(p =>
@@ -390,12 +420,19 @@ async function handleSelect(interaction) {
       return handleRankedSvcSubmit(interaction, state);
     }
     const methods = await getPaymentMethods(interaction.guildId);
-    const currentOptions = CURRENT_RANKS.map(r =>
-      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank)
-    );
+    const isCarry = state.serviceType === 'carry';
+    const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+    const carryMaxDesiredIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_DESIRED) : Infinity;
+    const currentOptions = CURRENT_RANKS
+      .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.currentRank));
     const desiredOptions = state.currentRank
       ? DESIRED_RANKS
-          .filter(r => r === 'Pro' || ALL_RANKS.indexOf(r) > ALL_RANKS.indexOf(state.currentRank))
+          .filter(r => {
+            if (r === 'Pro') return !isCarry;
+            const ri = ALL_RANKS.indexOf(r);
+            return ri > ALL_RANKS.indexOf(state.currentRank) && ri <= carryMaxDesiredIdx;
+          })
           .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined).setDefault(r === state.desiredRank))
       : [new StringSelectMenuOptionBuilder().setLabel('—').setValue('placeholder')];
     const p11Options = P11_OPTIONS.map(p =>
@@ -615,12 +652,15 @@ async function handleEditOrder(interaction) {
   const methods = await getPaymentMethods(guildId);
 
   if (id === 'ranked_edit') {
-    const currentOptions = CURRENT_RANKS.map(r =>
-      new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined)
+    const isCarry = state.serviceType === 'carry';
+    const carryMaxCurrentIdx = isCarry ? ALL_RANKS.indexOf(CARRY_MAX_CURRENT) : Infinity;
+    const currentOptions = CURRENT_RANKS
+      .filter(r => ALL_RANKS.indexOf(r) <= carryMaxCurrentIdx)
+      .map(r => new StringSelectMenuOptionBuilder().setLabel(r).setValue(r).setEmoji(rankEmoji(r) || undefined)
         .setDefault(r === state.currentRank)
-    );
+      );
     const desiredOptions = state.currentRank
-      ? buildDesiredRankOptions(state.currentRank).map(o => {
+      ? buildDesiredRankOptions(state.currentRank, isCarry).map(o => {
           const isDefault = o.data?.value === state.desiredRank || o.toJSON?.()?.value === state.desiredRank;
           return isDefault ? o.setDefault(true) : o;
         })

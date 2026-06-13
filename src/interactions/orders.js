@@ -1156,10 +1156,10 @@ async function handleClaim(interaction, orderId, client) {
           .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `### Customer <:client:1508831518858940607>\n<:reply:1507680110843658260> ${custMention}\n\n` +
-              `### B00ster <:booster:1508831601600106547>\n<:reply:1507680110843658260> ${booster.toString()}\n\n` +
-              `### Order Type ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
-              `### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${detailsLine}`
+              `### Customer <:client:1508831518858940607>\n<:reply:1507680110843658260> ${custMention}\n` +
+`### B00ster <:booster:1508831601600106547>\n<:reply:1507680110843658260> ${booster.toString()}\n` +
+`### Order Type ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n` +
+`### Order Details <:info:1508767700329959545>\n<:arrow:1509857611816763482> ${detailsLine}`
             )
           );
         await workspace.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });

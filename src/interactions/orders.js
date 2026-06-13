@@ -624,7 +624,7 @@ async function handlePrestigeTrophyModal(interaction) {
     `**Current Prestige** ${pe}\n<:reply:1507680110843658260> **${state.currentPrestige}**\n\n` +
     `**Desired Prestige** ${de}\n<:reply:1507680110843658260> **${state.desiredPrestige}**\n\n` +
     `**Current Trophies** <:Trophies:1485658086156013598>\n<:reply:1507680110843658260> **${trophyVal.toLocaleString()}**\n\n` +
-    `**Selected Brawler** <:user:1491499694734708815>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
+    `**Selected Brawler** <:user:1508831475796148285>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
     `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
@@ -844,7 +844,7 @@ async function handlePrestigeModal(interaction) {
     [orderId, interaction.user.id, fromP, toP, 0.0, state.payment, 'prestige', state.serviceType, state.brawlerName, state.trophyVal]
   );
 
-  const specLabel = `${state.currentPrestige} → ${state.desiredPrestige}`;
+  const specLabel = `${state.currentPrestige} <:arrow:1508833071137554572> ${state.desiredPrestige}`;
   const pe        = PREST_CURRENT_EMOJI[state.currentPrestige] ?? '✨';
   const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
   const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';

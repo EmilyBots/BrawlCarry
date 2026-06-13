@@ -1164,12 +1164,28 @@ async function handleClaim(interaction, orderId, client) {
           );
         await workspace.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
 
-        const safetyEmbed = baseEmbed('⚠️ Reminder', GOLD);
-        safetyEmbed.setDescription('**Never DM the booster directly.**\n\nAlways use this thread for communication.\n\nThis helps prevent scams and keeps everything tracked safely.\n\n**Any attempt to bypass this rule by either the customer or the booster may result in consequences.**');
-        const closeView = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' })
-        );
-        await workspace.send({ embeds: [safetyEmbed], components: [closeView] });
+        const safetyContainer = new ContainerBuilder()
+  .setAccentColor(GOLD)
+  .addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `### <:Reminder:1515417037214847026> Reminder`
+    )
+  )
+  .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+  .addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `## Do __not DM__ the b00ster.\n` +
+      `### Keep __all__ communication in this ticket.\n` +
+      `> -# Bypassing this rule will result in consequences <:warning:1508835752430141482>`
+    )
+  )
+  .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+  .addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' })
+    )
+  );
+await workspace.send({ components: [safetyContainer], flags: MessageFlags.IsComponentsV2 });
 
         // Notify original ticket
         const assignedContainer = new ContainerBuilder()

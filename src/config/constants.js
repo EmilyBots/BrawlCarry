@@ -116,14 +116,14 @@ const DEFAULT_PAYMENT_METHODS = [
 
 // ── Winstreak ─────────────────────────────────────────────────────────────────
 const WINSTREAK_EMOJI   = '<:Winstreak:1508363674908102657>';
-const WINSTREAK_OPTIONS = ['50 Wins', '67 Wins', '100 Wins', '111 Wins', '125 Wins', '200 Wins'];
+const WINSTREAK_OPTIONS = ['50 Winstreak', '67 Winstreak', '100 Winstreak', '111 Winstreak', '125 Winstreak', '200 Winstreak'];
 const WINSTREAK_PRICES  = {
-  '50 Wins':  20,
-  '67 Wins':  30,
-  '100 Wins': 50,
-  '111 Wins': 60,
-  '125 Wins': 70,
-  '200 Wins': 105,
+  '50 Winstreak':  20,
+  '67 Winstreak':  30,
+  '100 Winstreak': 50,
+  '111 Winstreak': 60,
+  '125 Winstreak': 70,
+  '200 Winstreak': 105,
 };
 
 module.exports = {

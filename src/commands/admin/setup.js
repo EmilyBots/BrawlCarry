@@ -14,7 +14,8 @@ module.exports = {
     .addChannelOption(o => o.setName('completed_channel').setDescription('Channel where completed orders will be posted'))
     .addChannelOption(o => o.setName('ranked_ticket_channel').setDescription('Text channel where Ranked Boost ticket threads are created'))
     .addChannelOption(o => o.setName('prestige_ticket_channel').setDescription('Text channel where Prestige Boost ticket threads are created'))
-    .addChannelOption(o => o.setName('ranked_panel_channel').setDescription('Channel where booster claiming cards for Ranked orders are posted'))
+    .addChannelOption(o => o.setName('winstreak_ticket_channel').setDescription('Text channel where Winstreak ticket threads are created'))
+    .addChannelOption(o => o.setName('ranked_panel_channel')
     .addChannelOption(o => o.setName('prestige_panel_channel').setDescription('Channel where booster claiming cards for Prestige orders are posted'))
     .addUserOption(o => o.setName('owner').setDescription('The server owner/admin who manages the bot'))
     .addChannelOption(o => o.setName('ticket_log_channel').setDescription('Channel where closed ticket logs and transcripts will be sent'))
@@ -46,6 +47,7 @@ module.exports = {
     const completedCh        = g('completed_channel');
     const rankedTicketCh     = g('ranked_ticket_channel');
     const prestigeTicketCh   = g('prestige_ticket_channel');
+    const winstreakTicketCh  = g('winstreak_ticket_channel');
     const rankedPanelCh      = g('ranked_panel_channel');
     const prestigePanelCh    = g('prestige_panel_channel');
     const owner              = u('owner');
@@ -76,6 +78,7 @@ module.exports = {
     if (completedCh)        updates.completed_channel_id          = completedCh.id;
     if (rankedTicketCh)     updates.ranked_ticket_channel_id      = rankedTicketCh.id;
     if (prestigeTicketCh)   updates.prestige_ticket_channel_id    = prestigeTicketCh.id;
+    if (winstreakTicketCh)  updates.winstreak_ticket_channel_id   = winstreakTicketCh.id;
     if (rankedPanelCh)      updates.ranked_panel_channel_id       = rankedPanelCh.id;
     if (prestigePanelCh)    updates.prestige_panel_channel_id     = prestigePanelCh.id;
     if (owner)              updates.owner_id                      = owner.id;
@@ -101,7 +104,8 @@ module.exports = {
     if (completedCh)        e.addFields({ name: '✅ Completed Channel',           value: completedCh.toString(),         inline: true });
     if (rankedTicketCh)     e.addFields({ name: '🔥 Ranked Ticket Channel',       value: rankedTicketCh.toString(),      inline: true });
     if (prestigeTicketCh)   e.addFields({ name: '✨ Prestige Ticket Channel',     value: prestigeTicketCh.toString(),    inline: true });
-    if (rankedPanelCh)      e.addFields({ name: '📢 Ranked Claiming Channel',     value: rankedPanelCh.toString(),       inline: true });
+    if (winstreakTicketCh)  e.addFields({ name: '⚡ Winstreak Ticket Channel',    value: winstreakTicketCh.toString(),   inline: true });
+    if (rankedPanelCh)      e.addFields({ name: '📢 Ranked Claiming Channel',
     if (prestigePanelCh)    e.addFields({ name: '📢 Prestige Claiming Channel',   value: prestigePanelCh.toString(),     inline: true });
     if (owner)              e.addFields({ name: '👑 Owner',                       value: `<@${owner.id}>`,               inline: true });
     if (logCh)              e.addFields({ name: '📋 Ticket Log Channel',          value: logCh.toString(),               inline: true });

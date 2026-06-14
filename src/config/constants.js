@@ -114,6 +114,18 @@ const DEFAULT_PAYMENT_METHODS = [
   { label: 'Crypto',        emoji: '🪙' },
 ];
 
+// ── Winstreak ─────────────────────────────────────────────────────────────────
+const WINSTREAK_EMOJI   = '<:Winstreak:1508363674908102657>';
+const WINSTREAK_OPTIONS = ['50 Wins', '67 Wins', '100 Wins', '111 Wins', '125 Wins', '200 Wins'];
+const WINSTREAK_PRICES  = {
+  '50 Wins':  20,
+  '67 Wins':  30,
+  '100 Wins': 50,
+  '111 Wins': 60,
+  '125 Wins': 70,
+  '200 Wins': 105,
+};
+
 module.exports = {
   PRIMARY, GOLD, SUCCESS, DANGER, DARK, ACCENT,
   FOOTER_BRAND, HARDCODED_SUPPORT_ROLES,
@@ -122,4 +134,5 @@ module.exports = {
   TIER_DIVISION_PRICES, EXPLICIT_RANK_PRICES,
   P11_OPTIONS, P11_EMOJI, TROPHY_OPTIONS,
   AVAILABILITY_STATUSES, DEFAULT_PAYMENT_METHODS,
+  WINSTREAK_EMOJI, WINSTREAK_OPTIONS, WINSTREAK_PRICES,
 };

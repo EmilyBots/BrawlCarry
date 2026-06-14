@@ -299,7 +299,7 @@ async function handleWinstreakBrawlerModal(interaction) {
     `## Please double-check your winstreak order details before creating your ticket.\n\n` +
     `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
     `**Wins Target** ${WINSTREAK_EMOJI}\n<:reply:1507680110843658260> **${state.winsTarget}**\n\n` +
-    `**Brawler** <:user:1491499694734708815>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
+    `**Brawler** <:user:1508831475796148285>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
     `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
@@ -333,7 +333,7 @@ async function handleWinstreakModal(interaction) {
   );
 
   const ticketContainer = new ContainerBuilder()
-    .setAccentColor(SUCCESS)
+    .setAccentColor(PRIMARY)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`${WINSTREAK_EMOJI} **Winstreak Order Ticket**`)
     )
@@ -354,7 +354,7 @@ async function handleWinstreakModal(interaction) {
   let ticket;
   try {
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    ticket = await createTicketThread(guild, member, `winstreak-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.ranked_ticket_channel_id ?? null, staffPings);
+    ticket = await createTicketThread(guild, member, `winstreak-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.winstreak_ticket_channel_id ?? cfg?.ranked_ticket_channel_id ?? null, staffPings);
   } catch (err) {
     return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
   }
@@ -362,7 +362,7 @@ async function handleWinstreakModal(interaction) {
   await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
 
   const orderContainer = new ContainerBuilder()
-    .setAccentColor(SUCCESS)
+    .setAccentColor(PRIMARY)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `<:info:1508767700329959545> **Order Details**\n## Your Winstreak ${modeClean} Order`
@@ -372,7 +372,7 @@ async function handleWinstreakModal(interaction) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `**Wins Target** ${WINSTREAK_EMOJI}\n<:arrow:1509857611816763482> ${state.winsTarget}\n` +
-        `**Brawler** <:user:1491499694734708815>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n` +
+        `**Brawler** <:user:1508831475796148285>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n` +
         `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n` +
         `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
         `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
@@ -381,7 +381,7 @@ async function handleWinstreakModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Winstreak', id: '1508363674908102657' })
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
       )
     );
   await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });

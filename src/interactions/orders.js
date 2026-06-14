@@ -1532,6 +1532,7 @@ async function handleOrderCompleteModal(interaction, client) {
   const custMention    = customer?.toString() ?? `<@${order.user_id}>`;
   const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : 'Ranked';
   const orderTitle     = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
+  const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
   let wm = null;
   if (imgUrl && applyWm) {

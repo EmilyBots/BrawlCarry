@@ -105,7 +105,7 @@ module.exports = {
     if (rankedTicketCh)     e.addFields({ name: '🔥 Ranked Ticket Channel',       value: rankedTicketCh.toString(),      inline: true });
     if (prestigeTicketCh)   e.addFields({ name: '✨ Prestige Ticket Channel',     value: prestigeTicketCh.toString(),    inline: true });
     if (winstreakTicketCh)  e.addFields({ name: '⚡ Winstreak Ticket Channel',    value: winstreakTicketCh.toString(),   inline: true });
-    if (rankedPanelCh)      e.addFields({ name: '📢 Ranked Claiming Channel',
+    if (rankedPanelCh)      e.addFields({ name: '📢 Ranked Claiming Channel',     value: rankedPanelCh.toString(),       inline: true });
     if (prestigePanelCh)    e.addFields({ name: '📢 Prestige Claiming Channel',   value: prestigePanelCh.toString(),     inline: true });
     if (owner)              e.addFields({ name: '👑 Owner',                       value: `<@${owner.id}>`,               inline: true });
     if (logCh)              e.addFields({ name: '📋 Ticket Log Channel',          value: logCh.toString(),               inline: true });

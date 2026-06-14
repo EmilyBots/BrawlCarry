@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
         ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags } = require('discord.js');
 const { baseEmbed } = require('../../utils/embeds');
-const { PRIMARY, ACCENT, FOOTER_BRAND } = require('../../config/constants');
+const { PRIMARY, ACCENT, SUCCESS, FOOTER_BRAND } = require('../../config/constants');
 
 const ADMIN_ROLE_ID = '1479079737052762205';
 const guardAdmin = (i) => {
@@ -324,4 +324,49 @@ const applicationThreadChannelCmd = {
   },
 };
 
-module.exports = [rankedPanelCmd, prestigePanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd];
+// ── Winstreak panel ───────────────────────────────────────────────────────────
+const winstreakPanelCmd = {
+  data: new SlashCommandBuilder()
+    .setName('winstreak_panel')
+    .setDescription('Post the Winstreak order panel in this channel')
+    .setDefaultMemberPermissions(0x10)
+    .addStringOption(o => o.setName('image_url').setDescription('Image URLs separated by commas')),
+
+  async execute(interaction) {
+    if (guardAdmin(interaction)) return;
+    const imageUrlRaw = interaction.options.getString('image_url');
+    const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+    const container = new ContainerBuilder()
+      .setAccentColor(SUCCESS)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent('## <:Winstreak:1508363674908102657> Winstreak Service\n>>> ### <:arrow:1509857611816763482> **Build your streak with trusted pro players.**')
+      );
+
+    if (imageUrls.length > 0) {
+      container
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(imageUrls.map(url => ({ media: { url } })))
+        );
+    }
+
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('winstreak_order_btn')
+            .setLabel('Create Order')
+            .setStyle(ButtonStyle.Success)
+            .setEmoji({ name: 'Winstreak', id: '1508363674908102657' })
+        )
+      );
+
+    await interaction.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ content: '✅ Winstreak panel posted.', ephemeral: true });
+  },
+};
+
+module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd];

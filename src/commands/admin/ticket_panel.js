@@ -43,7 +43,7 @@ const row1 = new ActionRowBuilder().addComponents(
       new StringSelectMenuOptionBuilder()
         .setLabel('Buy Our Services')
         .setValue('services')
-        .setEmoji('<:rocket:1491490870979985438>')
+        .setEmoji('<:Boost:1508378809676861573>')
         .setDescription('View our available services'),
     )
 );

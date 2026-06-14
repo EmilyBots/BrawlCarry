@@ -277,8 +277,8 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     await interaction.reply({ embeds: [e], components: [new ActionRowBuilder().addComponents(appSelect)], ephemeral: true });
 
   } else if (choice === 'services') {
-    const e = baseEmbed('<:rocket:1491490870979985438> Our Services', PRIMARY);
-    e.setDescription('> <:master:1491521740860428459> <#1477338397570760784>\n> <:copyright:1485657838897467534> <#1355262063437414564>\n\n-# Please head over to one of these channels to create your order.');
+    const e = baseEmbed('<:Boost:1508378809676861573> Our Services', PRIMARY);
+    e.setDescription('## <:Boost:1508378809676861573>  Our Services\n> - <:master:1491521740860428459> <#1477338397570760784>\n> - <:RP3:1510915463146766407>  <#1355262063437414564>\n> - <:Winstreak:1508363674908102657> <#1497719352991023268>\n\n-# ***Choose a service above and create your order.***');
     await interaction.reply({ embeds: [e], ephemeral: true });
   }
 }

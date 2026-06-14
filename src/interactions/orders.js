@@ -16,6 +16,7 @@ const {
   CURRENT_RANKS, DESIRED_RANKS, ALL_RANKS, RANK_EMOJI,
   PRESTIGE_OPTIONS, PRESTIGE_EMOJI, PRESTIGE_PRICES, PRESTIGE_BASE_TROPHIES,
   P11_OPTIONS, P11_EMOJI, HARDCODED_SUPPORT_ROLES,
+  WINSTREAK_EMOJI, WINSTREAK_OPTIONS, WINSTREAK_PRICES,
 } = require('../config/constants');
 const { v4: uuidv4 } = require('uuid');
 
@@ -211,6 +212,186 @@ async function handlePrestigePanelBtn(interaction) {
     flags: MessageFlags.IsComponentsV2,
     ephemeral: true,
   });
+}
+
+async function handleWinstreakPanelBtn(interaction) {
+  orderState.delete(interaction.user.id);
+  await interaction.reply({
+    components: [buildSvcTypeEmbed('winstreak', false)],
+    flags: MessageFlags.IsComponentsV2,
+    ephemeral: true,
+  });
+}
+
+async function showWinstreakConfig(interaction) {
+  const guildId    = interaction.guildId;
+  const methods    = await getPaymentMethods(guildId);
+  const winsOptions = WINSTREAK_OPTIONS.map(w =>
+    new StringSelectMenuOptionBuilder().setLabel(w).setValue(w).setEmoji({ name: 'Winstreak', id: '1508363674908102657' })
+  );
+  const payOptions = methods.map(m =>
+    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+  );
+  const e = baseEmbed(`${WINSTREAK_EMOJI} Winstreak Order`, SUCCESS);
+  e.setDescription('>>> **Complete your winstreak order by selecting the options below.**');
+  return interaction.reply({
+    embeds: [e],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('winstreak_wins')
+          .setPlaceholder('Select Wins Target...')
+          .addOptions(winsOptions)
+      ),
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('winstreak_pay')
+          .setPlaceholder('Payment method...')
+          .addOptions(payOptions)
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function handleWinstreakSvcSubmit(interaction, state) {
+  const missing = [];
+  if (!state.winsTarget) missing.push('Wins Target');
+  if (!state.payment)    missing.push('Payment Method');
+  if (missing.length) return interaction.reply({ content: `❌ Please fill in: **${missing.join(', ')}**`, ephemeral: true });
+
+  const modal = new ModalBuilder()
+    .setCustomId('winstreak_brawler_modal')
+    .setTitle('Enter Brawler Name')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('brawler_name')
+          .setLabel('Brawler Name')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g. Shelly, Bull, Crow...')
+          .setMaxLength(50)
+          .setRequired(true)
+      )
+    );
+  await interaction.showModal(modal);
+}
+
+async function handleWinstreakBrawlerModal(interaction) {
+  const state   = getState(interaction.user.id);
+  const brawler = interaction.fields.getTextInputValue('brawler_name').trim();
+
+  if (!state.winsTarget || !state.payment || !state.serviceType) {
+    return interaction.reply({ content: '❌ Session expired. Please start your order again.', ephemeral: true });
+  }
+
+  const basePrice          = WINSTREAK_PRICES[state.winsTarget] ?? 0;
+  const est                = state.serviceType === 'carry' ? basePrice * 2 : basePrice;
+  state.estimatedPrice     = est;
+  state.brawlerName        = brawler;
+
+  const svcEmoji  = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const svcLabel  = state.serviceType === 'carry' ? 'Winstreak Carry' : 'Winstreak B00st';
+  const payEmoji  = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  const e = baseEmbed(`<:info:1508767700329959545> Review Your ${svcLabel} Order`, SUCCESS);
+  e.setDescription(
+    `## Please double-check your winstreak order details before creating your ticket.\n\n` +
+    `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
+    `**Wins Target** ${WINSTREAK_EMOJI}\n<:reply:1507680110843658260> **${state.winsTarget}**\n\n` +
+    `**Brawler** <:user:1491499694734708815>\n<:reply:1507680110843658260> **${brawler}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **${est.toFixed(2)}€**\n\n` +
+    `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
+  );
+
+  const view = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('winstreak_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('<:Yes:1508365664778190878>'),
+    new ButtonBuilder().setCustomId('winstreak_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
+    new ButtonBuilder().setCustomId('winstreak_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
+  );
+  await interaction.reply({ embeds: [e], components: [view], ephemeral: true });
+}
+
+async function handleWinstreakModal(interaction) {
+  const state  = getState(interaction.user.id);
+  const guild  = interaction.guild;
+  const member = interaction.member;
+  const cfg    = await getConfig(interaction.guildId);
+
+  if (!state.winsTarget || !state.payment || !state.serviceType || !state.brawlerName) {
+    return interaction.reply({ content: '❌ Session expired. Please start your order again.', ephemeral: true });
+  }
+
+  const orderId   = `WIN-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
+  const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const payEmoji  = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  await queryOne(
+    'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type, brawler_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [orderId, interaction.user.id, state.winsTarget, state.winsTarget, 0.0, state.payment, 'winstreak', state.serviceType, state.brawlerName]
+  );
+
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(SUCCESS)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`${WINSTREAK_EMOJI} **Winstreak Order Ticket**`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '## Your Winstreak request has been successfully created.\n\nOur team will review and begin processing it shortly.'
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
+
+  let ticket;
+  try {
+    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+    ticket = await createTicketThread(guild, member, `winstreak-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.ranked_ticket_channel_id ?? null, staffPings);
+  } catch (err) {
+    return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
+  }
+
+  await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
+
+  const orderContainer = new ContainerBuilder()
+    .setAccentColor(SUCCESS)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `<:info:1508767700329959545> **Order Details**\n## Your Winstreak ${modeClean} Order`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Wins Target** ${WINSTREAK_EMOJI}\n<:arrow:1509857611816763482> ${state.winsTarget}\n` +
+        `**Brawler** <:user:1491499694734708815>\n<:arrow:1509857611816763482> **${state.brawlerName}**\n` +
+        `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
+        `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Winstreak', id: '1508363674908102657' })
+      )
+    );
+  await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
+  await interaction.reply({ content: `✅ Your Winstreak order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
+
+  orderState.delete(interaction.user.id);
+}
+
+async function handleConfirmWinstreak(interaction) {
+  return handleWinstreakModal(interaction);
 }
 // ── Order config helpers — shown after service type is chosen ─────────────────
 async function showRankedConfig(interaction) {
@@ -501,6 +682,36 @@ async function handleSelect(interaction) {
     }
     return interaction.deferUpdate();
   }
+
+  // ── WINSTREAK ─────────────────────────────────────────────────────────────
+  if (id === 'winstreak_wins') {
+    state.winsTarget         = value;
+    state.winstreakProgressed = false;
+    if (state.payment) {
+      state.winstreakProgressed = true;
+      return handleWinstreakSvcSubmit(interaction, state);
+    }
+    const methods     = await getPaymentMethods(interaction.guildId);
+    const winsOptions = WINSTREAK_OPTIONS.map(w =>
+      new StringSelectMenuOptionBuilder().setLabel(w).setValue(w).setEmoji({ name: 'Winstreak', id: '1508363674908102657' }).setDefault(w === value)
+    );
+    const payOptions  = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
+    );
+    return interaction.update({ components: [
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('winstreak_wins').setPlaceholder('Select Wins Target...').addOptions(winsOptions)),
+      new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId('winstreak_pay').setPlaceholder('Payment method...').addOptions(payOptions)),
+    ]});
+  }
+
+  if (id === 'winstreak_pay') {
+    state.payment = value;
+    if (!state.winstreakProgressed && state.winsTarget) {
+      state.winstreakProgressed = true;
+      return handleWinstreakSvcSubmit(interaction, state);
+    }
+    return interaction.deferUpdate();
+  }
 }
 
 async function handleRankedSvcSubmit(interaction, state) {
@@ -577,6 +788,9 @@ async function handleConfirm(interaction) {
 
   if (id === 'ranked_confirm') {
     return handleRankedModal(interaction);
+  }
+  if (id === 'winstreak_confirm') {
+    return handleConfirmWinstreak(interaction);
   }
 }
 
@@ -691,6 +905,30 @@ async function handleEditOrder(interaction) {
         ),
         new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder().setCustomId('ranked_pay').setPlaceholder('Payment method...').addOptions(payOptions)
+        ),
+      ],
+    });
+  }
+
+  if (id === 'winstreak_edit') {
+    const methods     = await getPaymentMethods(interaction.guildId);
+    const winsOptions = WINSTREAK_OPTIONS.map(w =>
+      new StringSelectMenuOptionBuilder().setLabel(w).setValue(w).setEmoji({ name: 'Winstreak', id: '1508363674908102657' }).setDefault(w === state.winsTarget)
+    );
+    const payOptions  = methods.map(m =>
+      new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined).setDefault(m.label === state.payment)
+    );
+    const e = baseEmbed(`${WINSTREAK_EMOJI} Winstreak Order`, SUCCESS);
+    e.setDescription('>>> **Complete your winstreak order by selecting the options below.**');
+    state.winstreakProgressed = false;
+    return interaction.update({
+      embeds: [e],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('winstreak_wins').setPlaceholder('Select Wins Target...').addOptions(winsOptions)
+        ),
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder().setCustomId('winstreak_pay').setPlaceholder('Payment method...').addOptions(payOptions)
         ),
       ],
     });
@@ -919,8 +1157,9 @@ async function handleButton(interaction, client) {
     const orderType = parts[2];          // 'ranked' or 'prestige'
     const state     = getState(interaction.user.id);
     state.serviceType = svcType;
-    if (orderType === 'ranked')   return showRankedConfig(interaction);
-    if (orderType === 'prestige') return showPrestigeConfig(interaction);
+    if (orderType === 'ranked')    return showRankedConfig(interaction);
+    if (orderType === 'prestige')  return showPrestigeConfig(interaction);
+    if (orderType === 'winstreak') return showWinstreakConfig(interaction);
   }
 
   if (id.startsWith('send_boosters_') || id === 'order_publish_btn_v1') {
@@ -985,7 +1224,7 @@ async function handlePublishModal(interaction, client) {
   const guild      = interaction.guild;
   const cfg        = await getConfig(guild.id);
   const orderType  = ctx.orderType;
-  const panelChId  = orderType === 'ranked' ? cfg?.ranked_panel_channel_id : cfg?.prestige_panel_channel_id;
+  const panelChId  = orderType === 'prestige' ? cfg?.prestige_panel_channel_id : cfg?.ranked_panel_channel_id;
   const panelCh    = panelChId ? guild.channels.cache.get(String(panelChId)) ?? await guild.channels.fetch(String(panelChId)).catch(() => null) : null;
 
   if (!panelCh) return interaction.followUp({ content: `❌ Panel channel not found. Configure via \`/setup\`.`, ephemeral: true });
@@ -993,11 +1232,11 @@ async function handlePublishModal(interaction, client) {
   const svcType    = order.service_type ?? 'boost';
   const fromTier   = order.from_tier ?? '?';
   const toTier     = order.to_tier ?? '?';
-  const color      = orderType === 'ranked' ? PRIMARY : ACCENT;
-  const label      = orderType === 'ranked' ? 'Ranked' : 'Prestige';
+  const color      = orderType === 'prestige' ? ACCENT : orderType === 'winstreak' ? SUCCESS : PRIMARY;
+  const label      = orderType === 'prestige' ? 'Prestige' : orderType === 'winstreak' ? 'Winstreak' : 'Ranked';
   const svcLabel   = svcType === 'carry' ? `${label} **Carry**` : `${label} **Boost**`;
-  const svcEmoji = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
-  const details    = buildOrderDetailsStr(orderType, fromTier, toTier, svcType);
+  const svcEmoji   = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const details    = orderType !== 'winstreak' ? buildOrderDetailsStr(orderType, fromTier, toTier, svcType) : '';
 
   // Build dynamic detail line for claim embed
   let detailLine;
@@ -1005,6 +1244,8 @@ async function handlePublishModal(interaction, client) {
     const fromEmoji = PREST_CURRENT_EMOJI[fromTier] ?? '';
     const toEmoji   = PREST_DESIRED_EMOJI[toTier]   ?? '';
     detailLine = `${fromEmoji} \`${fromTier}\` <:arrow:1508833071137554572> ${toEmoji} \`${toTier}\``;
+  } else if (orderType === 'winstreak') {
+    detailLine = `${WINSTREAK_EMOJI} \`${fromTier}\` — **${order.brawler_name ?? '?'}**`;
   } else {
     const fromEmoji = rankEmoji(fromTier) ?? '';
     const toEmoji   = rankEmoji(toTier)   ?? '';
@@ -1139,12 +1380,17 @@ async function handleClaim(interaction, orderId, client) {
         const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
         await workspace.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
 
-        const details      = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
         const orderLabel   = (order.order_type ?? 'ranked').charAt(0).toUpperCase() + (order.order_type ?? 'ranked').slice(1);
         const svcLabel     = (order.service_type ?? 'boost').charAt(0).toUpperCase() + (order.service_type ?? 'boost').slice(1);
         const svcEmoji     = order.service_type === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
         const custMention  = customer?.toString() ?? `<@${order.user_id}>`;
-        const detailsLine  = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
+        let detailsLine;
+        if (order.order_type === 'winstreak') {
+          detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? '?'}\` — **${order.brawler_name ?? '?'}**`;
+        } else {
+          const details = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
+          detailsLine   = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
+        }
 
         const orderContainer = new ContainerBuilder()
           .setAccentColor(SUCCESS)
@@ -1281,11 +1527,10 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const svcType        = order.service_type ?? 'boost';
   const ordType        = order.order_type   ?? 'ranked';
-  const details        = buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType);
+  const details        = ordType !== 'winstreak' ? buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType) : '';
   const payEmoji       = await getPaymentEmoji(order.method, interaction.guildId);
   const custMention    = customer?.toString() ?? `<@${order.user_id}>`;
-  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : 'Ranked';
-  const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : 'Ranked';
   const orderTitle     = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
 
   let wm = null;
@@ -1319,6 +1564,8 @@ async function handleOrderCompleteModal(interaction, client) {
       const fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
       const toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
       detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier}\``;
+    } else if (ordType === 'winstreak') {
+      detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
     } else {
       detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
@@ -1358,13 +1605,19 @@ async function handleOrderCompleteModal(interaction, client) {
 
   if (customer) {
     try {
-      let fromEmoji = '', toEmoji = '';
-      if (ordType === 'prestige') {
-        fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
-        toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
-      } else if (ordType !== 'account') {
-        fromEmoji = rankEmoji(order.from_tier ?? '') ?? '';
-        toEmoji   = rankEmoji(order.to_tier   ?? '') ?? '';
+      let orderDetailsLine;
+      if (ordType === 'winstreak') {
+        orderDetailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
+      } else {
+        let fromEmoji = '', toEmoji = '';
+        if (ordType === 'prestige') {
+          fromEmoji = PREST_CURRENT_EMOJI[order.from_tier ?? ''] ?? '';
+          toEmoji   = PREST_DESIRED_EMOJI[order.to_tier   ?? ''] ?? '';
+        } else if (ordType !== 'account') {
+          fromEmoji = rankEmoji(order.from_tier ?? '') ?? '';
+          toEmoji   = rankEmoji(order.to_tier   ?? '') ?? '';
+        }
+        orderDetailsLine = `${fromEmoji} \`${order.from_tier ?? ''}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier ?? ''}\``;
       }
 
       const dmE = baseEmbed('\u200b', SUCCESS);
@@ -1373,7 +1626,7 @@ async function handleOrderCompleteModal(interaction, client) {
         `# <:vip:1508831641135612068> Order Complete\n\n` +
         `### Your order has been completed <:Boost:1508378809676861573>\n\n` +
         `### <:info:1508767700329959545> Order Details\n` +
-        `<:arrow:1509857611816763482> ${fromEmoji} \`${order.from_tier ?? ''}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier ?? ''}\`\n\n` +
+        `<:arrow:1509857611816763482> ${orderDetailsLine}\n\n` +
         `### <:Amount:1501221154650853450> Order Amount\n` +
         `<:arrow:1509857611816763482> **€${priceVal.toFixed(2)}**\n\n` +
         `-# Please leave a review in the button below<:verified:1508838509883162786>`
@@ -1401,14 +1654,17 @@ async function handleOrderCompleteModal(interaction, client) {
 module.exports = {
   handleRankedPanelBtn,
   handlePrestigePanelBtn,
+  handleWinstreakPanelBtn,
   handleSelect,
   handleConfirm,
   handleConfirmPrestige,
+  handleConfirmWinstreak,
   handleEditOrder,
   handleCloseOrder,
   handlePrestigeTrophyModal,
   handleRankedModal,
   handlePrestigeModal,
+  handleWinstreakBrawlerModal,
   handleButton,
   handlePublishModal,
   handleOrderCompleteModal,

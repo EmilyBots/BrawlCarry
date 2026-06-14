@@ -70,6 +70,7 @@ async function initDb() {
     prestige_panel_channel_id BIGINT,
     ranked_ticket_channel_id BIGINT,
     prestige_ticket_channel_id BIGINT,
+    winstreak_ticket_channel_id BIGINT,
     owner_id BIGINT,
     ticket_log_channel_id BIGINT,
     application_channel_id BIGINT,
@@ -144,6 +145,7 @@ async function initDb() {
     ['guild_config', 'carrier_role_id BIGINT'],
     ['guild_config', 'ticket_support_roles TEXT'],
     ['guild_config', 'reviewer_roles TEXT'],
+    ['guild_config', 'winstreak_ticket_channel_id BIGINT'],
   ];
 
   for (const [table, colDef] of migrations) {

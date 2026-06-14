@@ -278,7 +278,8 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
 
   } else if (choice === 'services') {
     const e = baseEmbed('\u200b', PRIMARY);
-    e.setDescription('## <:Boost:1508378809676861573>  Our Services\n> - <:master:1491521740860428459> <#1477338397570760784>\n> - <:RP3:1510915463146766407>  <#1355262063437414564>\n> - <:Winstreak:1508363674908102657> <#1497719352991023268>\n\n-# ***Choose a service above and create your order.***');
+    e.setTitle(null);
+    e.setDescription('## <:Boost:1508378809676861573> Our Services\n> - <:master:1491521740860428459> <#1477338397570760784>\n> - <:RP3:1510915463146766407>  <#1355262063437414564>\n> - <:Winstreak:1508363674908102657> <#1497719352991023268>\n\n-# ***Choose a service above and create your order.***');
     await interaction.reply({ embeds: [e], ephemeral: true });
   }
 }

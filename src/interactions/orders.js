@@ -50,6 +50,8 @@ const PREST_DESIRED_EMOJI = {
   'Prestige 3': '<:RP3:1510915463146766407>',
 };
 
+const TROPHIES_EMOJI = '<:Trophies:1485658086156013598>';
+
 /** Build desired rank options, filtered to only ranks above currentRank.
  *  When isCarry=true, caps options at CARRY_MAX_DESIRED and excludes Pro. */
 function buildDesiredRankOptions(currentRank, isCarry = false) {
@@ -86,6 +88,31 @@ function calculateMultiPrestigePrice(currentPrestige, desiredPrestige, trophyVal
   return Math.round(price * 100) / 100;
 }
 
+
+function calculateTrophiesPrice(current, desired) {
+  const diff = Math.floor((desired - current) / 100) * 100;
+  const brackets = [
+    { max: 20000,    rate: 5  },
+    { max: 40000,    rate: 8  },
+    { max: 60000,    rate: 12 },
+    { max: 80000,    rate: 15 },
+    { max: 100000,   rate: 20 },
+    { max: Infinity, rate: 24 },
+  ];
+  let remaining = diff;
+  let pos       = current;
+  let price     = 0;
+  for (const bracket of brackets) {
+    if (remaining <= 0) break;
+    if (pos >= bracket.max) continue;
+    const available = bracket.max - pos;
+    const used      = Math.min(remaining, available);
+    price     += (used / 1000) * bracket.rate;
+    remaining -= used;
+    pos       += used;
+  }
+  return Math.round(price * 100) / 100;
+}
 
 function buildRankedSvcOptions(desiredRank) {
   const boostOption = new StringSelectMenuOptionBuilder()
@@ -392,6 +419,197 @@ async function handleWinstreakModal(interaction) {
 
 async function handleConfirmWinstreak(interaction) {
   return handleWinstreakModal(interaction);
+}
+
+// ── Trophies handlers ─────────────────────────────────────────────────────────
+async function handleTrophiesPanelBtn(interaction) {
+  orderState.delete(interaction.user.id);
+  await interaction.reply({
+    components: [buildSvcTypeEmbed('trophies', false)],
+    flags: MessageFlags.IsComponentsV2,
+    ephemeral: true,
+  });
+}
+
+async function showTrophiesConfig(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('trophies_input_modal')
+    .setTitle('Trophy Push Order')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('current_trophies')
+          .setLabel('Current Trophies')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g. 23554')
+          .setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('desired_trophies')
+          .setLabel('Desired Trophies')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g. 25000')
+          .setRequired(true)
+      )
+    );
+  await interaction.showModal(modal);
+}
+
+async function handleTrophiesInputModal(interaction) {
+  const state      = getState(interaction.user.id);
+  const currentRaw = interaction.fields.getTextInputValue('current_trophies').trim().replace(/[^0-9]/g, '');
+  const desiredRaw = interaction.fields.getTextInputValue('desired_trophies').trim().replace(/[^0-9]/g, '');
+  const current    = parseInt(currentRaw, 10);
+  const desired    = parseInt(desiredRaw, 10);
+
+  if (isNaN(current) || isNaN(desired)) {
+    return interaction.reply({ content: '❌ Please enter valid numbers for both trophy fields.', ephemeral: true });
+  }
+  if (desired <= current) {
+    return interaction.reply({ content: '❌ Desired trophies must be higher than your current trophies.', ephemeral: true });
+  }
+  const diff = desired - current;
+  if (diff < 500) {
+    return interaction.reply({ content: `❌ Minimum order size is **500 trophies**. Your difference is only **${diff}**.`, ephemeral: true });
+  }
+
+  const baseEst              = calculateTrophiesPrice(current, desired);
+  state.currentTrophies      = current;
+  state.desiredTrophies      = desired;
+  state.estimatedPrice       = state.serviceType === 'carry' ? Math.round(baseEst * 2 * 100) / 100 : baseEst;
+  state.trophiesProgressed   = false;
+
+  const methods    = await getPaymentMethods(interaction.guildId);
+  const payOptions = methods.map(m =>
+    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+  );
+
+  const e = baseEmbed(`${TROPHIES_EMOJI} Trophy Push Order`, GOLD);
+  e.setDescription(
+    `**Current Trophies** ${TROPHIES_EMOJI}\n<:reply:1507680110843658260> **${current.toLocaleString()}**\n\n` +
+    `**Desired Trophies** ${TROPHIES_EMOJI}\n<:reply:1507680110843658260> **${desired.toLocaleString()}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${state.estimatedPrice.toFixed(2)}**\n\n` +
+    `Select your payment method below to continue.`
+  );
+
+  return interaction.reply({
+    embeds: [e],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('trophies_pay')
+          .setPlaceholder('Payment method...')
+          .addOptions(payOptions)
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function showTrophiesReview(interaction, state) {
+  const svcEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const svcLabel = state.serviceType === 'carry' ? 'Trophy Carry' : 'Trophy B00st';
+  const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  const e = baseEmbed(`<:info:1508767700329959545> Review Your ${svcLabel} Order`, GOLD);
+  e.setDescription(
+    `## Please double-check your trophy order details before creating your ticket.\n\n` +
+    `**Order Type** ${svcEmoji}\n<:reply:1507680110843658260> **${svcLabel}**\n\n` +
+    `**Current Trophies** ${TROPHIES_EMOJI}\n<:reply:1507680110843658260> **${state.currentTrophies?.toLocaleString() ?? '?'}**\n\n` +
+    `**Desired Trophies** ${TROPHIES_EMOJI}\n<:reply:1507680110843658260> **${state.desiredTrophies?.toLocaleString() ?? '?'}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${(state.estimatedPrice ?? 0).toFixed(2)}**\n\n` +
+    `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
+  );
+
+  const view = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('trophies_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('<:Yes:1508365664778190878>'),
+    new ButtonBuilder().setCustomId('trophies_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
+    new ButtonBuilder().setCustomId('trophies_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
+  );
+  return interaction.update({ embeds: [e], components: [view] });
+}
+
+async function handleTrophiesModal(interaction) {
+  const state  = getState(interaction.user.id);
+  const guild  = interaction.guild;
+  const member = interaction.member;
+  const cfg    = await getConfig(interaction.guildId);
+
+  if (!state.currentTrophies || !state.desiredTrophies || !state.payment || !state.serviceType) {
+    return interaction.reply({ content: '❌ Session expired. Please start your order again.', ephemeral: true });
+  }
+
+  const orderId   = `TROPH-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  const modeClean = state.serviceType === 'carry' ? 'Carry' : 'Boost';
+  const modeEmoji = state.serviceType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
+  const payEmoji  = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  await queryOne(
+    'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [orderId, interaction.user.id, String(state.currentTrophies), String(state.desiredTrophies), state.estimatedPrice ?? 0, state.payment, 'trophies', state.serviceType]
+  );
+
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(GOLD)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`${TROPHIES_EMOJI} **Trophy Push Order Ticket**`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '## Your Trophy Push request has been successfully created.\n\nOur team will review and begin processing it shortly.'
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
+
+  let ticket;
+  try {
+    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+    ticket = await createTicketThread(guild, member, `trophies-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.trophies_ticket_channel_id ?? null, staffPings);
+  } catch (err) {
+    return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
+  }
+
+  await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
+
+  const orderContainer = new ContainerBuilder()
+    .setAccentColor(GOLD)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `<:info:1508767700329959545> **Order Details**\n## Your Trophy Push ${modeClean} Order`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Current Trophies** ${TROPHIES_EMOJI}\n<:arrow:1509857611816763482> ${state.currentTrophies.toLocaleString()}\n` +
+        `**Desired Trophies** ${TROPHIES_EMOJI}\n<:arrow:1509857611816763482> **${state.desiredTrophies.toLocaleString()}**\n` +
+        `**Order Type** ${modeEmoji}\n<:arrow:1509857611816763482> ${modeClean}\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
+        `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${(state.estimatedPrice ?? 0).toFixed(2)}**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Trophies', id: '1485658086156013598' })
+      )
+    );
+  await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
+  await interaction.reply({ content: `✅ Your Trophy Push order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
+
+  orderState.delete(interaction.user.id);
+}
+
+async function handleConfirmTrophies(interaction) {
+  return handleTrophiesModal(interaction);
 }
 // ── Order config helpers — shown after service type is chosen ─────────────────
 async function showRankedConfig(interaction) {
@@ -712,6 +930,11 @@ async function handleSelect(interaction) {
     }
     return interaction.deferUpdate();
   }
+
+  if (id === 'trophies_pay') {
+    state.payment = value;
+    return showTrophiesReview(interaction, state);
+  }
 }
 
 async function handleRankedSvcSubmit(interaction, state) {
@@ -908,6 +1131,34 @@ async function handleEditOrder(interaction) {
         ),
       ],
     });
+  }
+
+  if (id === 'trophies_edit') {
+    const modal = new ModalBuilder()
+      .setCustomId('trophies_input_modal')
+      .setTitle('Trophy Push Order')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('current_trophies')
+            .setLabel('Current Trophies')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('e.g. 23554')
+            .setValue(state.currentTrophies ? String(state.currentTrophies) : '')
+            .setRequired(true)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('desired_trophies')
+            .setLabel('Desired Trophies')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('e.g. 25000')
+            .setValue(state.desiredTrophies ? String(state.desiredTrophies) : '')
+            .setRequired(true)
+        )
+      );
+    state.trophiesProgressed = false;
+    return interaction.showModal(modal);
   }
 
   if (id === 'winstreak_edit') {
@@ -1160,6 +1411,7 @@ async function handleButton(interaction, client) {
     if (orderType === 'ranked')    return showRankedConfig(interaction);
     if (orderType === 'prestige')  return showPrestigeConfig(interaction);
     if (orderType === 'winstreak') return showWinstreakConfig(interaction);
+    if (orderType === 'trophies')  return showTrophiesConfig(interaction);
   }
 
   if (id.startsWith('send_boosters_') || id === 'order_publish_btn_v1') {
@@ -1232,11 +1484,11 @@ async function handlePublishModal(interaction, client) {
   const svcType    = order.service_type ?? 'boost';
   const fromTier   = order.from_tier ?? '?';
   const toTier     = order.to_tier ?? '?';
-  const color      = orderType === 'prestige' ? ACCENT : orderType === 'winstreak' ? SUCCESS : PRIMARY;
-  const label      = orderType === 'prestige' ? 'Prestige' : orderType === 'winstreak' ? 'Winstreak' : 'Ranked';
+  const color      = orderType === 'prestige' ? ACCENT : orderType === 'winstreak' ? SUCCESS : orderType === 'trophies' ? GOLD : PRIMARY;
+  const label      = orderType === 'prestige' ? 'Prestige' : orderType === 'winstreak' ? 'Winstreak' : orderType === 'trophies' ? 'Trophies' : 'Ranked';
   const svcLabel   = svcType === 'carry' ? `${label} **Carry**` : `${label} **Boost**`;
   const svcEmoji   = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
-  const details    = orderType !== 'winstreak' ? buildOrderDetailsStr(orderType, fromTier, toTier, svcType) : '';
+  const details    = (orderType !== 'winstreak' && orderType !== 'trophies') ? buildOrderDetailsStr(orderType, fromTier, toTier, svcType) : '';
 
   // Build dynamic detail line for claim embed
   let detailLine;
@@ -1246,6 +1498,8 @@ async function handlePublishModal(interaction, client) {
     detailLine = `${fromEmoji} \`${fromTier}\` <:arrow:1508833071137554572> ${toEmoji} \`${toTier}\``;
   } else if (orderType === 'winstreak') {
     detailLine = `${WINSTREAK_EMOJI} \`${fromTier}\` — **${order.brawler_name ?? '?'}**`;
+  } else if (orderType === 'trophies') {
+    detailLine = `${TROPHIES_EMOJI} \`${parseInt(fromTier).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(toTier).toLocaleString()}\``;
   } else {
     const fromEmoji = rankEmoji(fromTier) ?? '';
     const toEmoji   = rankEmoji(toTier)   ?? '';
@@ -1387,6 +1641,8 @@ async function handleClaim(interaction, orderId, client) {
         let detailsLine;
         if (order.order_type === 'winstreak') {
           detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? '?'}\` — **${order.brawler_name ?? '?'}**`;
+        } else if (order.order_type === 'trophies') {
+          detailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
         } else {
           const details = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
           detailsLine   = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
@@ -1527,10 +1783,10 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const svcType        = order.service_type ?? 'boost';
   const ordType        = order.order_type   ?? 'ranked';
-  const details        = ordType !== 'winstreak' ? buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType) : '';
+  const details        = (ordType !== 'winstreak' && ordType !== 'trophies') ? buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType) : '';
   const payEmoji       = await getPaymentEmoji(order.method, interaction.guildId);
   const custMention    = customer?.toString() ?? `<@${order.user_id}>`;
-  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : 'Ranked';
+  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : ordType === 'trophies' ? 'Trophies' : 'Ranked';
   const orderTitle     = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
   const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
@@ -1567,6 +1823,8 @@ async function handleOrderCompleteModal(interaction, client) {
       detailsLine = `${fromEmoji} \`${order.from_tier}\` <:arrow:1508833071137554572> ${toEmoji} \`${order.to_tier}\``;
     } else if (ordType === 'winstreak') {
       detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
+    } else if (ordType === 'trophies') {
+      detailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
     } else {
       detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
@@ -1609,6 +1867,8 @@ async function handleOrderCompleteModal(interaction, client) {
       let orderDetailsLine;
       if (ordType === 'winstreak') {
         orderDetailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
+      } else if (ordType === 'trophies') {
+        orderDetailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
       } else {
         let fromEmoji = '', toEmoji = '';
         if (ordType === 'prestige') {
@@ -1656,16 +1916,19 @@ module.exports = {
   handleRankedPanelBtn,
   handlePrestigePanelBtn,
   handleWinstreakPanelBtn,
+  handleTrophiesPanelBtn,
   handleSelect,
   handleConfirm,
   handleConfirmPrestige,
   handleConfirmWinstreak,
+  handleConfirmTrophies,
   handleEditOrder,
   handleCloseOrder,
   handlePrestigeTrophyModal,
   handleRankedModal,
   handlePrestigeModal,
   handleWinstreakBrawlerModal,
+  handleTrophiesInputModal,
   handleButton,
   handlePublishModal,
   handleOrderCompleteModal,

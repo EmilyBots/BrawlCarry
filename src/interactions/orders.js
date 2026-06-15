@@ -599,7 +599,7 @@ async function handleTrophiesModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Trophies', id: '1485658086156013598' })
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
       )
     );
   await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });

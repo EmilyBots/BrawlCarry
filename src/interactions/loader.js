@@ -37,7 +37,6 @@ async function loadInteractions(interaction, client) {
     if (id === 'ranked_confirm')    return orders.handleConfirm(interaction, client);
     if (id === 'prestige_confirm')  return orders.handleConfirmPrestige(interaction, client);
     if (id === 'winstreak_confirm') return orders.handleConfirmWinstreak(interaction, client);
-    if (id === 'winstreak_confirm') return orders.handleConfirmWinstreak(interaction, client);
     if (id === 'trophies_confirm')  return orders.handleConfirmTrophies(interaction, client);
     if (id === 'ranked_edit' || id === 'prestige_edit' || id === 'winstreak_edit' || id === 'trophies_edit') return orders.handleEditOrder(interaction, client);
     if (id === 'ranked_close' || id === 'prestige_close' || id === 'winstreak_close' || id === 'trophies_close') return orders.handleCloseOrder(interaction, client);

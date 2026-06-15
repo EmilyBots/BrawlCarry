@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle,
         ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags } = require('discord.js');
 const { baseEmbed } = require('../../utils/embeds');
-const { PRIMARY, ACCENT, SUCCESS, FOOTER_BRAND } = require('../../config/constants');
+const { PRIMARY, ACCENT, SUCCESS, GOLD, FOOTER_BRAND } = require('../../config/constants');
 
 const ADMIN_ROLE_ID = '1479079737052762205';
 const guardAdmin = (i) => {
@@ -369,4 +369,49 @@ const winstreakPanelCmd = {
   },
 };
 
-module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd];
+// ── Trophies panel ────────────────────────────────────────────────────────────
+const trophiesPanelCmd = {
+  data: new SlashCommandBuilder()
+    .setName('trophies_panel')
+    .setDescription('Post the Trophies order panel in this channel')
+    .setDefaultMemberPermissions(0x10)
+    .addStringOption(o => o.setName('image_url').setDescription('Image URLs separated by commas')),
+
+  async execute(interaction) {
+    if (guardAdmin(interaction)) return;
+    const imageUrlRaw = interaction.options.getString('image_url');
+    const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+    const container = new ContainerBuilder()
+      .setAccentColor(GOLD)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent('## <:Trophies:1485658086156013598> Trophy Service\n>>> ### <:arrow:1509857611816763482> **Push your overall trophies with trusted pro players.**')
+      );
+
+    if (imageUrls.length > 0) {
+      container
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(imageUrls.map(url => ({ media: { url } })))
+        );
+    }
+
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('trophies_order_btn')
+            .setLabel('Create Order')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji({ name: 'Trophies', id: '1485658086156013598' })
+        )
+      );
+
+    await interaction.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ content: '✅ Trophies panel posted.', ephemeral: true });
+  },
+};
+
+module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, trophiesPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd];

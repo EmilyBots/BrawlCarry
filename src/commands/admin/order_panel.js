@@ -109,7 +109,7 @@ const rankedThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -139,7 +139,7 @@ const prestigeThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -169,7 +169,7 @@ const supportThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -199,7 +199,7 @@ const accountThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -229,7 +229,7 @@ const winstreakThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -259,7 +259,7 @@ const trophiesThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -289,7 +289,7 @@ const applicationThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)

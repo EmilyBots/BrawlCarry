@@ -109,10 +109,8 @@ const rankedThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -141,10 +139,8 @@ const prestigeThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -173,10 +169,8 @@ const supportThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -205,10 +199,8 @@ const accountThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -237,10 +229,8 @@ const winstreakThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -269,10 +259,8 @@ const trophiesThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
@@ -301,10 +289,8 @@ const applicationThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508757847242964992/C451729B-CE89-4480-9D02-A0D24BAB5556.png?ex=6a16b3be&is=6a15623e&hm=e426df4f9ccfc3e125f3ea4f4a7a72fbdcc89bc1dbf27ef97cfef747ffa6f3b7&';
-
-    const BANNER = 'https://cdn.discordapp.com/attachments/1491058618735394896/1508759035216924724/51CB4E50-64FC-4009-992E-C322421DA723.png?ex=6a16b4d9&is=6a156359&hm=02fc8a8a01e77763ebede060edd082115790f78d47bbed6570c86ca67cee5ac5&';
-
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(

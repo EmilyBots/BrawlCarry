@@ -15,7 +15,6 @@ module.exports = {
     .addChannelOption(o => o.setName('ranked_ticket_channel').setDescription('Text channel where Ranked Boost ticket threads are created'))
     .addChannelOption(o => o.setName('winstreak_ticket_channel').setDescription('Text channel where Winstreak ticket threads are created'))
     .addChannelOption(o => o.setName('trophies_ticket_channel').setDescription('Text channel where Trophies ticket threads are created'))
-    .addChannelOption(o => o.setName('winstreak_ticket_channel').setDescription('Text channel where Winstreak ticket threads are created'))
     .addChannelOption(o => o.setName('ranked_panel_channel').setDescription('Channel where booster claiming cards for Ranked orders are posted'))
     .addChannelOption(o => o.setName('prestige_panel_channel').setDescription('Channel where booster claiming cards for Prestige orders are posted'))
     .addUserOption(o => o.setName('owner').setDescription('The server owner/admin who manages the bot'))

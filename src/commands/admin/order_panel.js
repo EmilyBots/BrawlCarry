@@ -376,4 +376,30 @@ const trophiesPanelCmd = {
   },
 };
 
-module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, trophiesPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd];
+// ── Matcherino Thread Channel info panel ─────────────────────────────────────
+const matcherinoThreadChannelCmd = {
+  data: new SlashCommandBuilder()
+    .setName('matcherino_thread_panel')
+    .setDescription('Post the Matcherino Thread Channel info panel in this channel')
+    .setDefaultMemberPermissions(0x10),
+
+  async execute(interaction) {
+    if (guardAdmin(interaction)) return;
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
+    const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
+    const e = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setDescription(
+        '# <:reply:1507680110843658260> Matcherino Thread Channel\n' +
+        '### <:Boost:1508378809676861573> All private Matcherino tickets created by customers will appear under this channel <:Matcherino:1516042613831106621>'
+      )
+      .setThumbnail(BOT_LOGO);
+
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
+
+    await interaction.channel.send({ embeds: [e, banner] });
+    await interaction.reply({ content: '✅ Matcherino Thread Channel panel posted.', ephemeral: true });
+  },
+};
+// NUOVO
+module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, trophiesPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd, matcherinoThreadChannelCmd];

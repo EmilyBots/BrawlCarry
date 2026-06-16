@@ -139,7 +139,7 @@ const prestigeThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)

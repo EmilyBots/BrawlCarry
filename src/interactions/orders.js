@@ -17,6 +17,7 @@ const {
   PRESTIGE_OPTIONS, PRESTIGE_EMOJI, PRESTIGE_PRICES, PRESTIGE_BASE_TROPHIES,
   P11_OPTIONS, P11_EMOJI, HARDCODED_SUPPORT_ROLES,
   WINSTREAK_EMOJI, WINSTREAK_OPTIONS, WINSTREAK_PRICES,
+  MATCHERINO_EMOJI, MATCHERINO_PRICE,
 } = require('../config/constants');
 const { v4: uuidv4 } = require('uuid');
 
@@ -611,6 +612,164 @@ async function handleTrophiesModal(interaction) {
 async function handleConfirmTrophies(interaction) {
   return handleTrophiesModal(interaction);
 }
+
+// ── Matcherino handlers ───────────────────────────────────────────────────────
+async function handleMatcherinoPanelBtn(interaction) {
+  orderState.delete(interaction.user.id);
+  const state      = getState(interaction.user.id);
+  state.serviceType = 'boost';
+
+  const modal = new ModalBuilder()
+    .setCustomId('matcherino_input_modal')
+    .setTitle('Matcherino Order')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId('brawler_count')
+          .setLabel('How many brawlers do you have?')
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('e.g. 45')
+          .setRequired(true)
+      )
+    );
+  await interaction.showModal(modal);
+}
+
+async function handleMatcherinoInputModal(interaction) {
+  const state        = getState(interaction.user.id);
+  const brawlerRaw   = interaction.fields.getTextInputValue('brawler_count').trim().replace(/[^0-9]/g, '');
+  const brawlerCount = parseInt(brawlerRaw, 10);
+
+  if (isNaN(brawlerCount)) {
+    return interaction.reply({ content: '❌ Please enter a valid number for your brawler count.', ephemeral: true });
+  }
+
+  state.brawlerCount   = brawlerCount;
+  state.estimatedPrice = MATCHERINO_PRICE;
+  state.serviceType    = 'boost';
+
+  const methods    = await getPaymentMethods(interaction.guildId);
+  const payOptions = methods.map(m =>
+    new StringSelectMenuOptionBuilder().setLabel(m.label).setValue(m.label).setEmoji(m.emoji || undefined)
+  );
+
+  const e = baseEmbed(`${MATCHERINO_EMOJI} Matcherino Order`, PRIMARY);
+  e.setDescription(
+    `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:reply:1507680110843658260> **${brawlerCount}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${MATCHERINO_PRICE.toFixed(2)}**\n\n` +
+    `Select your payment method below to continue.`
+  );
+
+  return interaction.reply({
+    embeds: [e],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('matcherino_pay')
+          .setPlaceholder('Payment method...')
+          .addOptions(payOptions)
+      ),
+    ],
+    ephemeral: true,
+  });
+}
+
+async function showMatcherinoReview(interaction, state) {
+  const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  const e = baseEmbed(`<:info:1508767700329959545> Review Your Matcherino Order`, PRIMARY);
+  e.setDescription(
+    `## Please double-check your Matcherino order details before creating your ticket.\n\n` +
+    `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:reply:1507680110843658260> **${state.brawlerCount ?? '?'}**\n\n` +
+    `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${MATCHERINO_PRICE.toFixed(2)}**\n\n` +
+    `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
+  );
+
+  const view = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('matcherino_confirm').setLabel('Confirm & Continue').setStyle(ButtonStyle.Success).setEmoji('<:Yes:1508365664778190878>'),
+    new ButtonBuilder().setCustomId('matcherino_edit').setLabel('Edit Order').setStyle(ButtonStyle.Secondary).setEmoji('<:Change:1508511751698645002>'),
+    new ButtonBuilder().setCustomId('matcherino_close').setLabel('Close Order').setStyle(ButtonStyle.Danger).setEmoji('<:sold:1507693147306852515>'),
+  );
+  return interaction.update({ embeds: [e], components: [view] });
+}
+
+async function handleMatcherinoModal(interaction) {
+  const state  = getState(interaction.user.id);
+  const guild  = interaction.guild;
+  const member = interaction.member;
+  const cfg    = await getConfig(interaction.guildId);
+
+  if (state.brawlerCount === undefined || state.brawlerCount === null || !state.payment) {
+    return interaction.reply({ content: '❌ Session expired. Please start your order again.', ephemeral: true });
+  }
+
+  const orderId  = `MATCH-${uuidv4().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  const payEmoji = await getPaymentEmoji(state.payment, interaction.guildId);
+
+  await queryOne(
+    'INSERT INTO orders (id, user_id, from_tier, to_tier, price, method, order_type, service_type) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    [orderId, interaction.user.id, String(state.brawlerCount), null, MATCHERINO_PRICE, state.payment, 'matcherino', 'boost']
+  );
+
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`${MATCHERINO_EMOJI} **Matcherino Order Ticket**`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '## Your Matcherino request has been successfully created.\n\nOur team will review and begin processing it shortly.'
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
+
+  let ticket;
+  try {
+    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+    ticket = await createTicketThread(guild, member, `matcherino-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, cfg?.matcherino_ticket_channel_id ?? null, staffPings);
+  } catch (err) {
+    return interaction.reply({ content: `❌ Failed to create ticket: \`${err.message}\`\n\nAsk an admin to check \`/setup\` channel permissions.`, ephemeral: true });
+  }
+
+  await queryOne('UPDATE orders SET ticket_channel_id = $1 WHERE id = $2', [ticket.id, orderId]);
+
+  const orderContainer = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `<:info:1508767700329959545> **Order Details**\n## Your Matcherino Order`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:arrow:1509857611816763482> ${state.brawlerCount}\n` +
+        `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
+        `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${MATCHERINO_PRICE.toFixed(2)}**`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Matcherino', id: '1516042613831106621' })
+      )
+    );
+  await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });
+  await interaction.reply({ content: `✅ Your Matcherino order has been placed!\n📩 Ticket opened: ${ticket.toString()}`, ephemeral: true });
+
+  orderState.delete(interaction.user.id);
+}
+
+async function handleConfirmMatcherino(interaction) {
+  return handleMatcherinoModal(interaction);
+}
 // ── Order config helpers — shown after service type is chosen ─────────────────
 async function showRankedConfig(interaction) {
   const guildId = interaction.guildId;
@@ -935,6 +1094,11 @@ async function handleSelect(interaction) {
     state.payment = value;
     return showTrophiesReview(interaction, state);
   }
+
+  if (id === 'matcherino_pay') {
+    state.payment = value;
+    return showMatcherinoReview(interaction, state);
+  }
 }
 
 async function handleRankedSvcSubmit(interaction, state) {
@@ -1131,6 +1295,24 @@ async function handleEditOrder(interaction) {
         ),
       ],
     });
+  }
+
+  if (id === 'matcherino_edit') {
+    const modal = new ModalBuilder()
+      .setCustomId('matcherino_input_modal')
+      .setTitle('Matcherino Order')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('brawler_count')
+            .setLabel('How many brawlers do you currently own?')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('e.g. 45')
+            .setValue(state.brawlerCount !== undefined ? String(state.brawlerCount) : '')
+            .setRequired(true)
+        )
+      );
+    return interaction.showModal(modal);
   }
 
   if (id === 'trophies_edit') {
@@ -1485,10 +1667,10 @@ async function handlePublishModal(interaction, client) {
   const fromTier   = order.from_tier ?? '?';
   const toTier     = order.to_tier ?? '?';
   const color      = orderType === 'prestige' ? ACCENT : orderType === 'winstreak' ? SUCCESS : orderType === 'trophies' ? GOLD : PRIMARY;
-  const label      = orderType === 'prestige' ? 'Prestige' : orderType === 'winstreak' ? 'Winstreak' : orderType === 'trophies' ? 'Trophies' : 'Ranked';
+  const label      = orderType === 'prestige' ? 'Prestige' : orderType === 'winstreak' ? 'Winstreak' : orderType === 'trophies' ? 'Trophies' : orderType === 'matcherino' ? 'Matcherino' : 'Ranked';
   const svcLabel   = svcType === 'carry' ? `${label} **Carry**` : `${label} **Boost**`;
   const svcEmoji   = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
-  const details    = (orderType !== 'winstreak' && orderType !== 'trophies') ? buildOrderDetailsStr(orderType, fromTier, toTier, svcType) : '';
+  const details    = (orderType !== 'winstreak' && orderType !== 'trophies' && orderType !== 'matcherino') ? buildOrderDetailsStr(orderType, fromTier, toTier, svcType) : '';
 
   // Build dynamic detail line for claim embed
   let detailLine;
@@ -1500,6 +1682,8 @@ async function handlePublishModal(interaction, client) {
     detailLine = `${WINSTREAK_EMOJI} \`${fromTier}\` — **${order.brawler_name ?? '?'}**`;
   } else if (orderType === 'trophies') {
     detailLine = `${TROPHIES_EMOJI} \`${parseInt(fromTier).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(toTier).toLocaleString()}\``;
+  } else if (orderType === 'matcherino') {
+    detailLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
   } else {
     const fromEmoji = rankEmoji(fromTier) ?? '';
     const toEmoji   = rankEmoji(toTier)   ?? '';
@@ -1643,6 +1827,8 @@ async function handleClaim(interaction, orderId, client) {
           detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? '?'}\` — **${order.brawler_name ?? '?'}**`;
         } else if (order.order_type === 'trophies') {
           detailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
+        } else if (order.order_type === 'matcherino') {
+          detailsLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
         } else {
           const details = buildOrderDetailsStr(order.order_type ?? 'ranked', order.from_tier ?? '?', order.to_tier ?? '?', order.service_type ?? 'boost');
           detailsLine   = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
@@ -1783,10 +1969,10 @@ async function handleOrderCompleteModal(interaction, client) {
 
   const svcType        = order.service_type ?? 'boost';
   const ordType        = order.order_type   ?? 'ranked';
-  const details        = (ordType !== 'winstreak' && ordType !== 'trophies') ? buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType) : '';
+  const details        = (ordType !== 'winstreak' && ordType !== 'trophies' && ordType !== 'matcherino') ? buildOrderDetailsStr(ordType, order.from_tier ?? '', order.to_tier ?? '', svcType) : '';
   const payEmoji       = await getPaymentEmoji(order.method, interaction.guildId);
   const custMention    = customer?.toString() ?? `<@${order.user_id}>`;
-  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : ordType === 'trophies' ? 'Trophies' : 'Ranked';
+  const baseType       = ordType === 'prestige' ? 'Prestige' : ordType === 'account' ? 'Account' : ordType === 'winstreak' ? 'Winstreak' : ordType === 'trophies' ? 'Trophies' : ordType === 'matcherino' ? 'Matcherino' : 'Ranked';
   const orderTitle     = ordType === 'account' ? '4CCOUNT ORDER' : `${baseType.toUpperCase()} ORDER`;
   const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
@@ -1825,6 +2011,8 @@ async function handleOrderCompleteModal(interaction, client) {
       detailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
     } else if (ordType === 'trophies') {
       detailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
+    } else if (ordType === 'matcherino') {
+      detailsLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
     } else {
       detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
@@ -1869,6 +2057,8 @@ async function handleOrderCompleteModal(interaction, client) {
         orderDetailsLine = `${WINSTREAK_EMOJI} \`${order.from_tier ?? ''}\` — **${order.brawler_name ?? '?'}**`;
       } else if (ordType === 'trophies') {
         orderDetailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
+      } else if (ordType === 'matcherino') {
+        orderDetailsLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
       } else {
         let fromEmoji = '', toEmoji = '';
         if (ordType === 'prestige') {
@@ -1917,11 +2107,13 @@ module.exports = {
   handlePrestigePanelBtn,
   handleWinstreakPanelBtn,
   handleTrophiesPanelBtn,
+  handleMatcherinoPanelBtn,
   handleSelect,
   handleConfirm,
   handleConfirmPrestige,
   handleConfirmWinstreak,
   handleConfirmTrophies,
+  handleConfirmMatcherino,
   handleEditOrder,
   handleCloseOrder,
   handlePrestigeTrophyModal,
@@ -1929,6 +2121,7 @@ module.exports = {
   handlePrestigeModal,
   handleWinstreakBrawlerModal,
   handleTrophiesInputModal,
+  handleMatcherinoInputModal,
   handleButton,
   handlePublishModal,
   handleOrderCompleteModal,

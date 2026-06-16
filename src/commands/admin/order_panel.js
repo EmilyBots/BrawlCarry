@@ -120,10 +120,8 @@ const rankedThreadChannelCmd = {
       .setThumbnail(BOT_LOGO);
 
     
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    // NUOVO
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Ranked Thread Channel panel posted.', ephemeral: true });

@@ -119,9 +119,10 @@ const rankedThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
+    
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -148,9 +149,9 @@ const prestigeThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -177,10 +178,11 @@ const supportThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
+
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Support Thread Channel panel posted.', ephemeral: true });
@@ -206,9 +208,9 @@ const accountThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -235,10 +237,11 @@ const winstreakThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
+
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Winstreak Thread Channel panel posted.', ephemeral: true });
@@ -264,9 +267,9 @@ const trophiesThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -293,9 +296,9 @@ const applicationThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
+      .setDescription('\u200b')
       .setImage(BANNER);
 
     await interaction.channel.send({ embeds: [e, banner] });

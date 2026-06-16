@@ -120,7 +120,6 @@ const rankedThreadChannelCmd = {
       .setThumbnail(BOT_LOGO);
 
     
-    // NUOVO
     const banner = { color: 0x5865F2, image: { url: BANNER } };
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -137,7 +136,7 @@ const prestigeThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -146,11 +145,8 @@ const prestigeThreadChannelCmd = {
         '### <:Boost:1508378809676861573> All private prestige tickets created by clients will appear under this channel <:P3:1508147370947252345>'
       )
       .setThumbnail(BOT_LOGO);
-
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+          
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Prestige Thread Channel panel posted.', ephemeral: true });
@@ -166,7 +162,7 @@ const supportThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -176,10 +172,7 @@ const supportThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -196,7 +189,7 @@ const accountThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -206,10 +199,8 @@ const accountThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
+
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ 4ccount Thread Channel panel posted.', ephemeral: true });
@@ -225,7 +216,7 @@ const winstreakThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -235,10 +226,7 @@ const winstreakThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
 
     await interaction.channel.send({ embeds: [e, banner] });
@@ -255,7 +243,7 @@ const trophiesThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -265,10 +253,7 @@ const trophiesThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Trophies Thread Channel panel posted.', ephemeral: true });
@@ -284,7 +269,7 @@ const applicationThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/eyDmzmo.gif';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
@@ -294,10 +279,7 @@ const applicationThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
-    const banner = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setDescription('\u200b')
-      .setImage(BANNER);
+    const banner = { color: 0x5865F2, image: { url: BANNER } };
 
     await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Application Thread Channel panel posted.', ephemeral: true });

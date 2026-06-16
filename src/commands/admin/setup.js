@@ -15,6 +15,7 @@ module.exports = {
     .addChannelOption(o => o.setName('ranked_ticket_channel').setDescription('Text channel where Ranked Boost ticket threads are created'))
     .addChannelOption(o => o.setName('winstreak_ticket_channel').setDescription('Text channel where Winstreak ticket threads are created'))
     .addChannelOption(o => o.setName('trophies_ticket_channel').setDescription('Text channel where Trophies ticket threads are created'))
+    .addChannelOption(o => o.setName('matcherino_ticket_channel').setDescription('Text channel where Matcherino ticket threads are created'))
     .addChannelOption(o => o.setName('ranked_panel_channel').setDescription('Channel where booster claiming cards for Ranked orders are posted'))
     .addChannelOption(o => o.setName('prestige_panel_channel').setDescription('Channel where booster claiming cards for Prestige orders are posted'))
     .addUserOption(o => o.setName('owner').setDescription('The server owner/admin who manages the bot'))
@@ -48,8 +49,9 @@ module.exports = {
     const rankedTicketCh     = g('ranked_ticket_channel');
     const prestigeTicketCh   = g('prestige_ticket_channel');
     const winstreakTicketCh  = g('winstreak_ticket_channel');
-    const trophiesTicketCh   = g('trophies_ticket_channel');
-    const rankedPanelCh      = g('ranked_panel_channel');
+    const trophiesTicketCh    = g('trophies_ticket_channel');
+    const matcherinoTicketCh  = g('matcherino_ticket_channel');
+    const rankedPanelCh       = g('ranked_panel_channel');
     const prestigePanelCh    = g('prestige_panel_channel');
     const owner              = u('owner');
     const logCh              = g('ticket_log_channel');
@@ -80,8 +82,9 @@ module.exports = {
     if (rankedTicketCh)     updates.ranked_ticket_channel_id      = rankedTicketCh.id;
     if (prestigeTicketCh)   updates.prestige_ticket_channel_id    = prestigeTicketCh.id;
     if (winstreakTicketCh)  updates.winstreak_ticket_channel_id   = winstreakTicketCh.id;
-    if (trophiesTicketCh)   updates.trophies_ticket_channel_id    = trophiesTicketCh.id;
-    if (rankedPanelCh)      updates.ranked_panel_channel_id       = rankedPanelCh.id;
+    if (trophiesTicketCh)    updates.trophies_ticket_channel_id    = trophiesTicketCh.id;
+    if (matcherinoTicketCh)  updates.matcherino_ticket_channel_id  = matcherinoTicketCh.id;
+    if (rankedPanelCh)       updates.ranked_panel_channel_id       = rankedPanelCh.id;
     if (prestigePanelCh)    updates.prestige_panel_channel_id     = prestigePanelCh.id;
     if (owner)              updates.owner_id                      = owner.id;
     if (logCh)              updates.ticket_log_channel_id         = logCh.id;
@@ -107,8 +110,9 @@ module.exports = {
     if (rankedTicketCh)     e.addFields({ name: '🔥 Ranked Ticket Channel',       value: rankedTicketCh.toString(),      inline: true });
     if (prestigeTicketCh)   e.addFields({ name: '✨ Prestige Ticket Channel',     value: prestigeTicketCh.toString(),    inline: true });
     if (winstreakTicketCh)  e.addFields({ name: '⚡ Winstreak Ticket Channel',    value: winstreakTicketCh.toString(),   inline: true });
-    if (trophiesTicketCh)   e.addFields({ name: '🏆 Trophies Ticket Channel',     value: trophiesTicketCh.toString(),    inline: true });
-    if (rankedPanelCh)      e.addFields({ name: '📢 Ranked Claiming Channel',     value: rankedPanelCh.toString(),       inline: true });
+    if (trophiesTicketCh)    e.addFields({ name: '🏆 Trophies Ticket Channel',     value: trophiesTicketCh.toString(),    inline: true });
+    if (matcherinoTicketCh)  e.addFields({ name: '🎮 Matcherino Ticket Channel',   value: matcherinoTicketCh.toString(),  inline: true });
+    if (rankedPanelCh)       e.addFields({ name: '📢 Ranked Claiming Channel',     value: rankedPanelCh.toString(),       inline: true });
     if (prestigePanelCh)    e.addFields({ name: '📢 Prestige Claiming Channel',   value: prestigePanelCh.toString(),     inline: true });
     if (owner)              e.addFields({ name: '👑 Owner',                       value: `<@${owner.id}>`,               inline: true });
     if (logCh)              e.addFields({ name: '📋 Ticket Log Channel',          value: logCh.toString(),               inline: true });

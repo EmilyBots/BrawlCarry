@@ -119,13 +119,12 @@ const rankedThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Ranked Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -149,13 +148,12 @@ const prestigeThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Prestige Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -179,13 +177,12 @@ const supportThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Support Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -209,13 +206,12 @@ const accountThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ 4ccount Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -239,13 +235,12 @@ const winstreakThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Winstreak Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -269,13 +264,12 @@ const trophiesThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Trophies Thread Channel panel posted.', ephemeral: true });
   },
 };
@@ -299,13 +293,12 @@ const applicationThreadChannelCmd = {
       )
       .setThumbnail(BOT_LOGO);
 
+    // NUOVO
     const banner = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setImage(BANNER)
-      .setFooter({ text: FOOTER_BRAND, iconURL: BOT_LOGO });
+      .setImage(BANNER);
 
-    await interaction.channel.send({ embeds: [e] });
-    await interaction.channel.send({ embeds: [banner] });
+    await interaction.channel.send({ embeds: [e, banner] });
     await interaction.reply({ content: '✅ Application Thread Channel panel posted.', ephemeral: true });
   },
 };

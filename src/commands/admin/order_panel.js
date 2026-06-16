@@ -142,7 +142,7 @@ const prestigeThreadChannelCmd = {
       .setColor(0x5865F2)
       .setDescription(
         '# <:reply:1507680110843658260> Prestige Thread Channel\n' +
-        '### <:Boost:1508378809676861573> All private prestige tickets created by clients will appear under this channel <:P3:1508147370947252345>'
+        '### <:Boost:1508378809676861573> All private prestige tickets created by clients will appear under this channel <:RP3:1510915463146766407>'
       )
       .setThumbnail(BOT_LOGO);
           

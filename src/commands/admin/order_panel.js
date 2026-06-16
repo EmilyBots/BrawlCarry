@@ -401,5 +401,49 @@ const matcherinoThreadChannelCmd = {
     await interaction.reply({ content: '✅ Matcherino Thread Channel panel posted.', ephemeral: true });
   },
 };
-// NUOVO
-module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, trophiesPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd, matcherinoThreadChannelCmd];
+// ── Matcherino panel ──────────────────────────────────────────────────────────
+const matcherinoPanelCmd = {
+  data: new SlashCommandBuilder()
+    .setName('matcherino_panel')
+    .setDescription('Post the Matcherino order panel in this channel')
+    .setDefaultMemberPermissions(0x10)
+    .addStringOption(o => o.setName('image_url').setDescription('Image URLs separated by commas')),
+
+  async execute(interaction) {
+    if (guardAdmin(interaction)) return;
+    const imageUrlRaw = interaction.options.getString('image_url');
+    const imageUrls   = imageUrlRaw ? imageUrlRaw.split(',').map(u => u.trim()).filter(Boolean) : [];
+
+    const container = new ContainerBuilder()
+      .setAccentColor(PRIMARY)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder()
+          .setContent('## <:Matcherino:1516042613831106621> Matcherino Service\n>>> ### <:arrow:1509857611816763482> **Get your Matcherino pin with trusted pro players.**')
+      );
+
+    if (imageUrls.length > 0) {
+      container
+        .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+        .addMediaGalleryComponents(
+          new MediaGalleryBuilder().addItems(imageUrls.map(url => ({ media: { url } })))
+        );
+    }
+
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('matcherino_order_btn')
+            .setLabel('Create Order')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji({ name: 'Matcherino', id: '1516042613831106621' })
+        )
+      );
+
+    await interaction.channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({ content: '✅ Matcherino panel posted.', ephemeral: true });
+  },
+};
+
+module.exports = [rankedPanelCmd, prestigePanelCmd, winstreakPanelCmd, trophiesPanelCmd, matcherinoPanelCmd, rankedThreadChannelCmd, prestigeThreadChannelCmd, supportThreadChannelCmd, accountThreadChannelCmd, winstreakThreadChannelCmd, trophiesThreadChannelCmd, applicationThreadChannelCmd, matcherinoThreadChannelCmd];

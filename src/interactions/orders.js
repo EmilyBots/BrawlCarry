@@ -1685,7 +1685,7 @@ async function handlePublishModal(interaction, client) {
   } else if (orderType === 'trophies') {
     detailLine = `${TROPHIES_EMOJI} \`${parseInt(fromTier).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(toTier).toLocaleString()}\``;
   } else if (orderType === 'matcherino') {
-    detailLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
+    detailLine = `${MATCHERINO_EMOJI} **Matcherino**`;
   } else {
     const fromEmoji = rankEmoji(fromTier) ?? '';
     const toEmoji   = rankEmoji(toTier)   ?? '';
@@ -2014,7 +2014,7 @@ async function handleOrderCompleteModal(interaction, client) {
     } else if (ordType === 'trophies') {
       detailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
     } else if (ordType === 'matcherino') {
-      detailsLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
+      detailsLine = `${MATCHERINO_EMOJI} **Matcherino Pin**`;
     } else {
       detailsLine = details.split('\n')[0].replace('→', '<:arrow:1508833071137554572>');
     }
@@ -2060,7 +2060,7 @@ async function handleOrderCompleteModal(interaction, client) {
       } else if (ordType === 'trophies') {
         orderDetailsLine = `${TROPHIES_EMOJI} \`${parseInt(order.from_tier ?? 0).toLocaleString()}\` <:arrow:1508833071137554572> \`${parseInt(order.to_tier ?? 0).toLocaleString()}\``;
       } else if (ordType === 'matcherino') {
-        orderDetailsLine = `${MATCHERINO_EMOJI} **Matcherino Order**`;
+        orderDetailsLine = `${MATCHERINO_EMOJI} **Matcherino Pin**`;
       } else {
         let fromEmoji = '', toEmoji = '';
         if (ordType === 'prestige') {

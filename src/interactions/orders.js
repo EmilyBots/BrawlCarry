@@ -655,7 +655,7 @@ async function handleMatcherinoInputModal(interaction) {
 
   const e = baseEmbed(`${MATCHERINO_EMOJI} Matcherino Order`, PRIMARY);
   e.setDescription(
-    `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:reply:1507680110843658260> **${brawlerCount}**\n\n` +
+    `**Brawlers Owned** <:user:1508831475796148285>\n<:reply:1507680110843658260> **${brawlerCount}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${MATCHERINO_PRICE.toFixed(2)}**\n\n` +
     `Select your payment method below to continue.`
   );
@@ -680,7 +680,7 @@ async function showMatcherinoReview(interaction, state) {
   const e = baseEmbed(`<:info:1508767700329959545> Review Your Matcherino Order`, PRIMARY);
   e.setDescription(
     `## Please double-check your Matcherino order details before creating your ticket.\n\n` +
-    `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:reply:1507680110843658260> **${state.brawlerCount ?? '?'}**\n\n` +
+    `**Brawlers Owned** <:user:1508831475796148285>\n<:reply:1507680110843658260> **${state.brawlerCount ?? '?'}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${MATCHERINO_PRICE.toFixed(2)}**\n\n` +
     `**Payment Method** ${payEmoji}\n<:reply:1507680110843658260> **${state.payment}**`
   );
@@ -750,7 +750,7 @@ async function handleMatcherinoModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `**Brawlers Owned** ${MATCHERINO_EMOJI}\n<:arrow:1509857611816763482> ${state.brawlerCount}\n` +
+        `**Brawlers Owned** <:user:1508831475796148285>\n<:arrow:1509857611816763482> ${state.brawlerCount}\n` +
         `**Payment Method** ${payEmoji}\n<:arrow:1509857611816763482> ${state.payment}\n` +
         `**Estimated Price** <:Amount:1501221154650853450>\n<:arrow:1509857611816763482> **€${MATCHERINO_PRICE.toFixed(2)}**`
       )

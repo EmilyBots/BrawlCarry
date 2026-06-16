@@ -109,7 +109,7 @@ const rankedThreadChannelCmd = {
 
   async execute(interaction) {
     if (guardAdmin(interaction)) return;
-    const BOT_LOGO = 'https://i.imgur.com/xpP93hM.png';
+    const BOT_LOGO = 'https://i.imgur.com/DvZCqcJ.png';
     const BANNER = 'https://i.imgur.com/ZOcB74G.jpeg';
     const e = new EmbedBuilder()
       .setColor(0x5865F2)

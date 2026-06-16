@@ -654,7 +654,9 @@ async function handleMatcherinoInputModal(interaction) {
   );
 
   const e = baseEmbed(`${MATCHERINO_EMOJI} Matcherino Order`, PRIMARY);
+  e.setTitle(null);
   e.setDescription(
+    `## ${MATCHERINO_EMOJI} Matcherino Order\n\n` +
     `**Brawlers Owned** <:user:1508831475796148285>\n<:reply:1507680110843658260> **${brawlerCount}**\n\n` +
     `**Estimated Price** <:Amount:1501221154650853450>\n<:reply:1507680110843658260> **€${MATCHERINO_PRICE.toFixed(2)}**\n\n` +
     `Select your payment method below to continue.`

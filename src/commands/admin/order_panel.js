@@ -390,7 +390,7 @@ const matcherinoThreadChannelCmd = {
     const e = new EmbedBuilder()
       .setColor(0x5865F2)
       .setDescription(
-        '# <:reply:1507680110843658260> Matcherino Thread Channel\n' +
+        '# <:reply:1507680110843658260> MC Thread Channel\n' +
         '### <:Boost:1508378809676861573> All private Matcherino tickets created by customers will appear under this channel <:Matcherino:1516042613831106621>'
       )
       .setThumbnail(BOT_LOGO);

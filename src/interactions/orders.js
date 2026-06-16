@@ -760,7 +760,7 @@ async function handleMatcherinoModal(interaction) {
     .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
     .addActionRowComponents(
       new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji({ name: 'Matcherino', id: '1516042613831106621' })
+        new ButtonBuilder().setCustomId(`send_boosters_${orderId}`).setLabel('Confirm Order').setStyle(ButtonStyle.Success).setEmoji('<:Boost:1508378809676861573>')
       )
     );
   await ticket.send({ components: [orderContainer], flags: MessageFlags.IsComponentsV2 });

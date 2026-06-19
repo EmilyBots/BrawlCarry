@@ -1,0 +1,39 @@
+const express = require('express');
+const { queryOne } = require('../db');
+
+function startStatsServer(client) {
+  const app = express();
+  const PORT = process.env.STATS_PORT || 4000;
+  const GUILD_ID = process.env.GUILD_ID;
+
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', process.env.WEBSITE_URL || '*');
+    next();
+  });
+
+  app.get('/api/stats', async (req, res) => {
+    try {
+      const guild = client.guilds.cache.get(GUILD_ID);
+
+      const [orders, vouches] = await Promise.all([
+        queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'completed'`),
+        queryOne(`SELECT COUNT(*) as count FROM vouchers`),
+      ]);
+
+      res.json({
+        memberCount:     guild?.memberCount ?? 0,
+        ordersCompleted: parseInt(orders?.count ?? 0),
+        totalVouches:    parseInt(vouches?.count ?? 0),
+      });
+    } catch (err) {
+      console.error('[Stats API]', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.listen(PORT, () => {
+    console.log(`[Stats API] Running on port ${PORT}`);
+  });
+}
+
+module.exports = { startStatsServer };

@@ -17,8 +17,10 @@ function startStatsServer(client) {
 
       const [orders, vouches] = await Promise.all([
         queryOne(`SELECT COUNT(*) as count FROM orders WHERE status = 'completed'`).catch(e => { console.error('[Stats API] orders query:', e.message); return null; }),
-        queryOne(`SELECT COUNT(*) as count FROM vouches`).catch(e => { console.error('[Stats API] vouches query:', e.message); return null; }),
+        queryOne(`SELECT COUNT(*) as count FROM vouchers`).catch(e => { console.error('[Stats API] vouches query:', e.message); return null; }),
       ]);
+
+      console.log('[Stats API] orders row:', orders, '| vouches row:', vouches);
       res.json({
         memberCount:     guild?.memberCount ?? 0,
         ordersCompleted: parseInt(orders?.count ?? 0),

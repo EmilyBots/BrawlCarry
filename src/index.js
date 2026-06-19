@@ -1,6 +1,7 @@
 require('dotenv').config();
-const { startBot } = require('./bot');
+const { startBot, client } = require('./bot');       // ADD client to import
 const { startOAuthServer } = require('./oauth/server');
+const { startStatsServer } = require('./api/stats'); // ADD
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
@@ -10,3 +11,4 @@ if (!token) {
 
 startOAuthServer();
 startBot(token);
+startStatsServer(client); // ADD

@@ -7,7 +7,7 @@ function startStatsServer(client) {
   const GUILD_ID = process.env.GUILD_ID;
 
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.WEBSITE_URL || '*');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     next();
   });
 

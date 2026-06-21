@@ -103,8 +103,10 @@ async function handleCloseDirectly(interaction, client) {
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
   const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
 
+  // nuovo codice
   await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, interaction.member, null);
-                     }
+}
+
 async function handleCloseBtn(interaction, client) {
   const channel = interaction.channel;
   const guild   = interaction.guild;

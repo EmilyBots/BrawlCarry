@@ -286,35 +286,45 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
   }
 }
 
+// nuovo codice
 async function handleApplicationCenterSelect(interaction, choice) {
   const { ButtonBuilder, ButtonStyle } = require('discord.js');
+
+  await interaction.deferReply({ ephemeral: true });
+
   const guild  = interaction.guild;
   const member = interaction.member;
   const cfg    = await getConfig(interaction.guildId);
 
   const titles = {
-    apply_booster:    '<:rocket:1491490870979985438> Booster Application',
-    apply_staff:      '<:shield:1491489447445794866> Staff Application',
-    apply_advertiser: '<:Carry:1501221214251651082> Advertiser Application',
+    apply_booster:    'Booster Application',
+    apply_staff:      'Staff Application',
+    apply_advertiser: 'Advertiser Application',
   };
   const slugs = { apply_booster: 'booster', apply_staff: 'staff', apply_advertiser: 'advertiser' };
 
-  const title    = titles[choice];
-  const slug     = slugs[choice];
-  const overrideChId = '1491397629546860614'; // hardcoded application ticket channel
+  const title = titles[choice];
+  const slug  = slugs[choice];
+  if (!title || !slug) return interaction.editReply({ content: '❌ Unknown application type.' });
+
+  const overrideChId = '1491397629546860614';
 
   const e = baseEmbed(title, PRIMARY);
   e.setDescription(`## Your ${slug} application has been successfully created.\n\nOur management team will review your application shortly.\n\nYou can manage your ticket using the options below.`);
-  
+
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
-new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
   );
 
-  const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg, overrideChId);
-  const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-  await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
-  await interaction.reply({ content: `✅ ${title} ticket created: ${ticket.toString()}`, ephemeral: true });
+  try {
+    const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg, overrideChId);
+    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+    await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
+    await interaction.editReply({ content: `✅ ${title} ticket created: ${ticket.toString()}` });
+  } catch (err) {
+    await interaction.editReply({ content: '❌ Failed to create ticket. Please contact an admin.' });
+  }
 }
 
 module.exports = { handleButton, handleSelect, handleCloseModal, handleSetupModal };

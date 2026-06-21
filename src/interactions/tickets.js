@@ -272,9 +272,9 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
       .setCustomId('application_center_select_v1')
       .setPlaceholder('Select an application type...')
       .addOptions(
-        new StringSelectMenuOptionBuilder().setLabel('Booster Application').setValue('apply_booster').setEmoji('<:rocket:1491490870979985438>').setDescription('Apply as a booster'),
-        new StringSelectMenuOptionBuilder().setLabel('Staff Application').setValue('apply_staff').setEmoji('<:shield:1491489447445794866>').setDescription('Apply for staff team'),
-        new StringSelectMenuOptionBuilder().setLabel('Advertiser Application').setValue('apply_advertiser').setEmoji('<:Carry:1501221214251651082>').setDescription('Apply as an advertiser'),
+        new StringSelectMenuOptionBuilder().setLabel('B00ster Application').setValue('apply_booster').setEmoji({ name: 'rocket', id: '1491490870979985438' }).setDescription('Apply as a b00ster'),
+        new StringSelectMenuOptionBuilder().setLabel('Staff Application').setValue('apply_staff').setEmoji({ name: 'shield', id: '1491489447445794866' }).setDescription('Apply for staff team'),
+        new StringSelectMenuOptionBuilder().setLabel('Advertiser Application').setValue('apply_advertiser').setEmoji({ name: 'Carry', id: '1501221214251651082' }).setDescription('Apply as an advertiser'),
       );
     await interaction.reply({ embeds: [e], components: [new ActionRowBuilder().addComponents(appSelect)], ephemeral: true });
 

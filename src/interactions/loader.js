@@ -2,7 +2,6 @@ const orders       = require('./orders');
 const tickets      = require('./tickets');
 const vouches      = require('./vouches');
 const giveaways    = require('./giveaways');
-const applications = require('./applications');
 const accounts     = require('./accounts');
 const boosterRating = require('./booster_rating');
 
@@ -31,7 +30,6 @@ async function loadInteractions(interaction, client) {
   id.startsWith('ga_roles:') ||
   id.startsWith('ga_pg:')
 ) return giveaways.handleButton(interaction, client);
-    if (id === 'app_accept_v1' || id === 'app_reject_v1') return applications.handleButton(interaction, client);
     if (id.startsWith('account_buy:') || id.startsWith('account_sold:')) return accounts.handleButton(interaction, client);
     if (id === 'avail_available' || id === 'avail_busy' || id === 'avail_offline') return handleAvailability(interaction);
     if (id.startsWith('review_submit_ranked_v1') || id.startsWith('review_submit_prestige_v1') || id === 'simple_review_submit_v1') return vouches.handleReviewSubmit(interaction, client);
@@ -67,7 +65,6 @@ async function loadInteractions(interaction, client) {
     if (id === 'close_reason_modal')   return tickets.handleCloseModal(interaction, client);
     if (id === 'ticket_panel_setup_modal') return tickets.handleSetupModal(interaction, client);
     if (id === 'vouch_detail_modal')   return vouches.handleModal(interaction, client);
-    if (id.startsWith('app_modal_'))   return applications.handleModal(interaction, client);
     if (id === 'account_sale_modal')   return accounts.handleModal(interaction, client);
     return;
   }

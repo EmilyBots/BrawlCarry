@@ -131,9 +131,9 @@ function validatePrestigeTrophies(prestigeSpec, trophyVal) {
 const PRESTIGE_2_3_PRICES = {
   2000: 80,    2050: 77,  2100: 73.5,    2150: 70,
   2200: 67,    2250: 63,    2300: 60, 2350: 56,
-  2400: 52, 2450: 48,    2500: 44.5, 2550: 40,
-  2600: 36, 2650: 33,    2700: 30,    2750: 25,
-  2800: 22,  2850: 18,    2900: 14,    2950: 9,
+  2400: 54, 2450: 52,    2500: 50, 2550: 48,
+  2600: 46, 2650: 44,    2700: 42,    2750: 40,
+  2800: 38,  2850: 36,    2900: 30,    2950: 22,
 };
 
 function calculatePrestigePrice(prestigeSpec, trophyVal, serviceType) {

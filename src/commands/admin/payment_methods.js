@@ -167,37 +167,5 @@ const postAccountCmd = {
   },
 };
 
-// ── /assign_role ──────────────────────────────────────────────────────────────
-const assignRoleCmd = {
-  data: new SlashCommandBuilder()
-    .setName('assign_role')
-    .setDescription('Assign or remove a role from a member')
-    .setDefaultMemberPermissions(null)
-    .addUserOption(o => o.setName('member').setDescription('The member').setRequired(true))
-    .addRoleOption(o => o.setName('role').setDescription('The role').setRequired(true))
-    .addStringOption(o => o.setName('action').setDescription('assign or remove').addChoices(
-      { name: 'assign', value: 'assign' },
-      { name: 'remove', value: 'remove' },
-    )),
 
-  async execute(interaction) {
-    if (await guardAdmin(interaction)) return;
-    const member = interaction.options.getMember('member');
-    const role   = interaction.options.getRole('role');
-    const action = interaction.options.getString('action') ?? 'assign';
-
-    try {
-      if (action === 'assign') {
-        await member.roles.add(role, `Assigned by ${interaction.user.tag}`);
-        await interaction.reply({ embeds: [baseEmbed('✅ Role Assigned', SUCCESS, `${role} has been assigned to ${member}.`)], ephemeral: true });
-      } else {
-        await member.roles.remove(role, `Removed by ${interaction.user.tag}`);
-        await interaction.reply({ embeds: [baseEmbed('✅ Role Removed', DANGER, `${role} has been removed from ${member}.`)], ephemeral: true });
-      }
-    } catch (_) {
-      await interaction.reply({ content: '❌ I don\'t have permission to manage that role.', ephemeral: true });
-    }
-  },
-};
-
-module.exports = [addPaymentMethodCmd, removePaymentMethodCmd, listPaymentMethodsCmd, setRankPriceCmd, setPrestigePriceCmd, postAccountCmd, assignRoleCmd];
+module.exports = [addPaymentMethodCmd, removePaymentMethodCmd, listPaymentMethodsCmd, setRankPriceCmd, setPrestigePriceCmd, postAccountCmd];

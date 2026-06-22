@@ -304,9 +304,7 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
       .addActionRowComponents(new ActionRowBuilder().addComponents(appSelect));
     await interaction.reply({ components: [applyContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
 
-  } else if (choice === 'services') {
-
-  } else if (choice === 'services') {
+    } else if (choice === 'services') {
     const { MessageFlags } = require('discord.js');
     const servicesContainer = new ContainerBuilder()
       .setAccentColor(PRIMARY)

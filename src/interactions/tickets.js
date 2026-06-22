@@ -1,4 +1,4 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, ChannelType, ButtonBuilder, ButtonStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, ChannelType, ButtonBuilder, ButtonStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig, setConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
@@ -293,10 +293,23 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     await interaction.reply({ embeds: [e], components: [new ActionRowBuilder().addComponents(appSelect)], ephemeral: true });
 
   } else if (choice === 'services') {
-    const e = baseEmbed('\u200b', PRIMARY);
-    e.setTitle(null);
-    e.setDescription('## <:Boost:1508378809676861573> Our Services\n> - <:master:1491521740860428459> <#1477338397570760784>\n> - <:RP3:1510915463146766407>  <#1355262063437414564>\n> - <:Trophies:1485658086156013598> https://discord.com/channels/1355262062095372429/1497718405799743509\n> - <:Winstreak:1508363674908102657> <#1497719352991023268>\n> - <:Matcherino:1516042613831106621> https://discord.com/channels/1355262062095372429/1513100284279128104\n\n-# ***Choose a service above and create your order.***');
-    await interaction.reply({ embeds: [e], ephemeral: true });
+    const { MessageFlags } = require('discord.js');
+    const servicesContainer = new ContainerBuilder()
+      .setAccentColor(PRIMARY)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('## <:Boost:1508378809676861573> BrawlCarry Services\n### <:info:1508767700329959545> Choose a service below and open your order.')
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          '> - <:master:1491521740860428459> <#1477338397570760784>\n' +
+          '> - <:RP3:1510915463146766407> <#1355262063437414564>\n' +
+          '> - <:Trophies:1485658086156013598> https://discord.com/channels/1355262062095372429/1497718405799743509\n' +
+          '> - <:Winstreak:1508363674908102657> <#1497719352991023268>\n' +
+          '> - <:Matcherino:1516042613831106621> https://discord.com/channels/1355262062095372429/1513100284279128104'
+        )
+      );
+    await interaction.reply({ components: [servicesContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
   }
 }
 

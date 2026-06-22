@@ -293,13 +293,13 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          '### > - <:Boost:1508378809676861573> **Booster** — ***Tier D+ verified***\n' +
-          '### > - <:staff3:1508838870383464611> **Staff** — ***Active, reliable, and trusted***\n' +
-          '### > - <:announcement:1508831558100975738> **Advertiser** — ***Previous advertising experience preferred***'
+          ' > - <:Boost:1508378809676861573> **Booster** — ***Tier D+ verified***\n' +
+          ' > - <:staff3:1508838870383464611> **Staff** — ***Active, reliable, and trusted***\n' +
+          ' > - <:announcement:1508831558100975738> **Advertiser** — ***Previous advertising experience preferred***'
         )
       )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addActionRowComponents(new ActionRowBuilder().addComponents(appSelect));
-    await interaction.reply({ components: [applyContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
 
   } else if (choice === 'services') {
     const { MessageFlags } = require('discord.js');

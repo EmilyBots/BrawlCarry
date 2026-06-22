@@ -25,7 +25,7 @@ module.exports = {
             .setLabel('Order A Service')
             .setValue('services')
             .setEmoji({ name: 'Cart', id: '1518675188479168622' })
-            .setDescription('View all available BrawlCarry services'),
+            .setDescription('Browse all BrawlCarry services'),
           new StringSelectMenuOptionBuilder()
             .setLabel('Staff Applications')
             .setValue('apply')
@@ -35,7 +35,7 @@ module.exports = {
             .setLabel('General Support')
             .setValue('support')
             .setEmoji({ name: 'ticket', id: '1508838977602457723' })
-            .setDescription('Get help from our support team'),
+            .setDescription('Need help? Contact our support team'),
         )
     );
 

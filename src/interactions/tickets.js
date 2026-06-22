@@ -6,6 +6,8 @@ const { createTicketThread, buildTranscript } = require('../utils/tickets');
 const { removeTicketActivity, updateTicketActivity } = require('../utils/permissions');
 const { PRIMARY, SUCCESS, HARDCODED_SUPPORT_ROLES } = require('../config/constants');
 
+const pendingCloses = new Map();
+
 // ── Staff roles allowed to close tickets ─────────────────────────────────────
 const STAFF_ROLES = [
   '1491447093078921267',
@@ -300,6 +302,9 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addActionRowComponents(new ActionRowBuilder().addComponents(appSelect));
+    await interaction.reply({ components: [applyContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
+
+  } else if (choice === 'services') {
 
   } else if (choice === 'services') {
     const { MessageFlags } = require('discord.js');

@@ -17,7 +17,11 @@ module.exports = {
     const imageUrl = interaction.options.getString('image_url');
 
     const row1 = new ActionRowBuilder().addComponents(
-      new StringSelectMenuOptionBuilder()
+      new StringSelectMenuBuilder()
+        .setCustomId('support_center_select_v1')
+        .setPlaceholder('Select an option...')
+        .addOptions(
+          new StringSelectMenuOptionBuilder()
             .setLabel('Order A Service')
             .setValue('services')
             .setEmoji({ name: 'booster', id: '1508831601600106547' })

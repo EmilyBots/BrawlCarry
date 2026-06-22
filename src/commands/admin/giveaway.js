@@ -205,8 +205,8 @@ statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573>
 
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
-  .setTitle(`## <:Gift:1509855137156567130>  ${prize}`)
-  .setDescription(`## > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'));
+  .setTitle(null)
+  .setDescription(`## <:Gift:1509855137156567130>  ${prize}\n## > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'));
 
 
 const view = new ActionRowBuilder().addComponents(

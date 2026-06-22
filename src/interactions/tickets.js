@@ -341,9 +341,10 @@ async function handleApplicationCenterSelect(interaction, choice) {
         new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
       )
     );
-  const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-  const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, overrideChId, staffPings);
-  await interaction.reply({ content: `✅ ${title} ticket created: ${ticket.toString()}`, ephemeral: true });
+  try {
+    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+    const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, overrideChId, staffPings);
+    await interaction.editReply({ content: `✅ ${title} ticket created: ${ticket.toString()}` });
   } catch (err) {
     await interaction.editReply({ content: '❌ Failed to create ticket. Please contact an admin.' });
   }

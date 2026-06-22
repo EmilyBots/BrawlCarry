@@ -8,7 +8,7 @@ const {
 const { queryOne, queryAll, getConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
 const { calculateRankPrice, calculatePrestigePrice, validatePrestigeTrophies, rankEmoji, prestigeEmoji, buildOrderDetailsStr } = require('../utils/pricing');
-const { getPaymentMethods, getPaymentEmoji, getBoosterStatus, updateTicketActivity } = require('../utils/permissions');
+const { getPaymentMethods, getPaymentEmoji, updateTicketActivity } = require('../utils/permissions');
 const { createTicketThread } = require('../utils/tickets');
 const { fetchAndWatermark } = require('../utils/watermark');
 const {
@@ -1731,11 +1731,6 @@ async function handleClaim(interaction, orderId, client) {
 
   if (!booster.roles.cache.has('1485296409795235910')) {
     return interaction.reply({ content: '<:sold:1507693147306852515> Only B00ster can claim orders!', ephemeral: true });
-  }
-
-  const status = await getBoosterStatus(booster.id);
-  if (status !== 'available') {
-    return interaction.reply({ content: `❌ Your availability is set to **${status}**. Set it to \`available\` with \`/availability\` before claiming.`, ephemeral: true });
   }
 
   // Atomic claim — only succeeds if status is still 'pending'

@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MediaGalleryBuilder, MessageFlags } = require('discord.js');
 const { PRIMARY, GOLD, DARK, ACCENT } = require('../../config/constants');
 
- module.exports = {
+module.exports = {
   data: new SlashCommandBuilder()
     .setName('ticket_panel')
     .setDescription('Post the combined support & application panel in this channel')

@@ -297,7 +297,7 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     const servicesContainer = new ContainerBuilder()
       .setAccentColor(PRIMARY)
       .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('## <:Boost:1508378809676861573> BrawlCarry Services\n### <:info:1508767700329959545> Choose a service below and open your order.')
+        new TextDisplayBuilder().setContent('## <:Boost:1508378809676861573> BrawlCarry Services\n### <:info:1508767700329959545> Choose a service below to open your order.')
       )
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
       .addTextDisplayComponents(

@@ -1,4 +1,4 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, ChannelType } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, ChannelType, ButtonBuilder, ButtonStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
 const { queryOne } = require('../db/index');
 const { getConfig, setConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
@@ -50,7 +50,6 @@ async function handleGeneralSupportBtn(interaction) {
   );
   e.setAuthor({ name: member.displayName, iconURL: member.displayAvatarURL() });
 
-  const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
   const closeView = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
 new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
@@ -241,7 +240,6 @@ async function handleSelect(interaction, client) {
 }
 
 async function handleSupportCenterSelect(interaction, choice) {
-  const { ButtonBuilder, ButtonStyle } = require('discord.js');
   const guild  = interaction.guild;
   const member = interaction.member;
   const cfg    = await getConfig(interaction.guildId);
@@ -252,11 +250,27 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
   );
 
   if (choice === 'support') {
-    const e = baseEmbed('<:microphone:1491490055636647966> Support Ticket', SUCCESS);
-    e.setDescription('## Your support request has been successfully created.\n\nOur team will assist you shortly.\n\nYou can manage your ticket using the options below.');
-    const ticket = await createTicketThread(guild, member, `support-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg);
+    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
+    const ticketContainer = new ContainerBuilder()
+      .setAccentColor(SUCCESS)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent('<:ticket:1508838977602457723> **Support Ticket**')
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          '## Your support request has been successfully created.\n\nOur team will assist you shortly.'
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+          new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+        )
+      );
     const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
+    const ticket = await createTicketThread(guild, member, `support-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, null, staffPings);
     await interaction.reply({ content: `✅ Support ticket created: ${ticket.toString()}`, ephemeral: true });
 
   } else if (choice === 'apply') {
@@ -286,9 +300,7 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
   }
 }
 
-// nuovo codice
 async function handleApplicationCenterSelect(interaction, choice) {
-  const { ButtonBuilder, ButtonStyle } = require('discord.js');
 
   await interaction.deferReply({ ephemeral: true });
 
@@ -309,19 +321,29 @@ async function handleApplicationCenterSelect(interaction, choice) {
 
   const overrideChId = '1491397629546860614';
 
-  const e = baseEmbed(title, PRIMARY);
-  e.setDescription(`## Your ${slug} application has been successfully created.\n\nOur management team will review your application shortly.\n\nYou can manage your ticket using the options below.`);
-
-  const closeView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
-    new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
-  );
-
-  try {
-    const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, e, closeView, cfg, overrideChId);
-    const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
-    await ticket.send({ content: staffPings, allowedMentions: { parse: ['roles'] } });
-    await interaction.editReply({ content: `✅ ${title} ticket created: ${ticket.toString()}` });
+  // nuovo codice
+  const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
+  const ticketContainer = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`**${title}**`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Your ${slug} application has been successfully created.\n\nOur team will review your application shortly.`
+      )
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_close_v2').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji({ name: 'Unclaim', id: '1512089273380110418' }),
+        new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With Reason').setStyle(ButtonStyle.Primary).setEmoji({ name: 'Reason', id: '1512918382507327651' })
+      )
+    );
+  const staffPings = HARDCODED_SUPPORT_ROLES.map(r => `<@&${r}>`).join(' ');
+  const ticket = await createTicketThread(guild, member, `${slug}-${member.user.username.slice(0, 12).toLowerCase()}`, null, ticketContainer, cfg, overrideChId, staffPings);
+  await interaction.reply({ content: `✅ ${title} ticket created: ${ticket.toString()}`, ephemeral: true });
   } catch (err) {
     await interaction.editReply({ content: '❌ Failed to create ticket. Please contact an admin.' });
   }

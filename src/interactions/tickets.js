@@ -250,8 +250,7 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
   );
 
   if (choice === 'support') {
-    const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
-    const ticketContainer = new ContainerBuilder()
+     const ticketContainer = new ContainerBuilder()
       .setAccentColor(SUCCESS)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent('<:ticket:1508838977602457723> **Support Ticket**')
@@ -274,7 +273,6 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     await interaction.reply({ content: `✅ Support ticket created: ${ticket.toString()}`, ephemeral: true });
 
   } else if (choice === 'apply') {
-    const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags } = require('discord.js');
     const appSelect = new StringSelectMenuBuilder()
       .setCustomId('application_center_select_v1')
       .setPlaceholder('Select an application type...')
@@ -303,7 +301,6 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     await interaction.reply({ components: [applyContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
 
     } else if (choice === 'services') {
-    const { MessageFlags } = require('discord.js');
     const servicesContainer = new ContainerBuilder()
       .setAccentColor(PRIMARY)
       .addTextDisplayComponents(
@@ -344,8 +341,6 @@ async function handleApplicationCenterSelect(interaction, choice) {
 
   const overrideChId = '1491397629546860614';
 
-  // nuovo codice
-  const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder } = require('discord.js');
   const ticketContainer = new ContainerBuilder()
     .setAccentColor(PRIMARY)
     .addTextDisplayComponents(
@@ -373,4 +368,4 @@ async function handleApplicationCenterSelect(interaction, choice) {
   }
 }
 
-module.exports = { handleButton, handleSelect, handleCloseModal, handleSetupModal };
+module.exports = { handleButton, handleSelect, handleCloseModal };

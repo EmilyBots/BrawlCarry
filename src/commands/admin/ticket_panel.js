@@ -24,12 +24,12 @@ module.exports = {
           new StringSelectMenuOptionBuilder()
             .setLabel('Order A Service')
             .setValue('services')
-            .setEmoji({ name: 'booster', id: '1508831601600106547' })
+            .setEmoji({ name: 'Cart', id: '1518675188479168622' })
             .setDescription('View all available BrawlCarry services'),
           new StringSelectMenuOptionBuilder()
             .setLabel('Staff Applications')
             .setValue('apply')
-            .setEmoji({ name: 'staff2', id: '1508838600463351868' })
+            .setEmoji({ name: 'Boost', id: '1508378809676861573' })
             .setDescription('Apply for a staff or booster role'),
           new StringSelectMenuOptionBuilder()
             .setLabel('General Support')

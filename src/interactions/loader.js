@@ -3,12 +3,8 @@ const tickets      = require('./tickets');
 const vouches      = require('./vouches');
 const giveaways    = require('./giveaways');
 const accounts     = require('./accounts');
-const boosterRating = require('./booster_rating');
 
-/**
- * Route an incoming interaction to the correct handler.
- * Handlers return true if they handled it, false/undefined otherwise.
- */
+
 async function loadInteractions(interaction, client) {
   const id = interaction.customId ?? '';
 
@@ -48,7 +44,6 @@ async function loadInteractions(interaction, client) {
     if (id.startsWith('ranked_') || id.startsWith('prest_') || id.startsWith('winstreak_') || id.startsWith('trophies_') || id.startsWith('matcherino_')) return orders.handleSelect(interaction, client);
     if (id === 'support_center_select_v1' || id === 'application_center_select_v1') return tickets.handleSelect(interaction, client);
     if (id.startsWith('vouch_') || id === 'vouch_rating_select' || id === 'vouch_pay_select' || id === 'vouch_svc_select') return vouches.handleSelect(interaction, client);
-    if (id.startsWith('booster_rate:')) return boosterRating.handleSelect(interaction, client);
     return;
   }
 

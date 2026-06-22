@@ -33,7 +33,7 @@ const row1 = new ActionRowBuilder().addComponents(
       new StringSelectMenuOptionBuilder()
         .setLabel('General Support')
         .setValue('support')
-        .setEmoji('<:microphone:1491490055636647966>')
+        .setEmoji({ name: 'ticket', id: '1508838977602457723' })
         .setDescription('Open a ticket with our support team'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Staff Applications')

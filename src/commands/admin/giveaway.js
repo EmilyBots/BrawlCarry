@@ -53,8 +53,6 @@ async function runGiveawayCleanup(client) {
       continue;
     }
 
-    // ── Scaduti senza winner: verifica se canale esiste ancora ────────────
-    // (solo questi richiedono la verifica canale, non tutti)
     const ch = ga.channel_id
       ? (() => {
           for (const guild of client.guilds.cache.values()) {
@@ -66,14 +64,11 @@ async function runGiveawayCleanup(client) {
       : null;
 
     if (!ch) {
-      // Canale non trovato → giveaway orfano
       await qOne('DELETE FROM giveaways WHERE id = $1', [gaId]);
       removedOrphan++;
       continue;
     }
 
-    // Canale esiste ma il giveaway è scaduto e non ha winner:
-    // il loop di giveaway_end lo processerà normalmente, non tocchiamo nulla.
   }
 
   return { removedExpired, removedOrphan, removedInvalid };
@@ -206,7 +201,7 @@ statsLines.push(`\n### <:arrow:1509857611816763482> <:Boost:1508378809676861573>
 const e = new EmbedBuilder()
   .setColor(PRIMARY)
   .setTitle(null)
-  .setDescription(`## <:Gift:1509855137156567130>  ${prize}\n## > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'));
+  .setDescription(`## <:Gift:1509855137156567130>  ${prize}\n### > <:info:1508767700329959545> ${description}\n\n` + statsLines.join('\n'));
 
 
 const view = new ActionRowBuilder().addComponents(

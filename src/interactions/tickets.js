@@ -332,9 +332,9 @@ async function handleApplicationCenterSelect(interaction, choice) {
   const cfg    = await getConfig(interaction.guildId);
 
   const titles = {
-    apply_booster:    'Booster Application',
-    apply_staff:      'Staff Application',
-    apply_advertiser: 'Advertiser Application',
+    apply_booster:    '<:Boost:1508378809676861573> Booster Application',
+    apply_staff:      '<:staff3:1508838870383464611> Staff Application',
+    apply_advertiser: '<:announcement:1508831558100975738> Advertiser Application',
   };
   const slugs = { apply_booster: 'booster', apply_staff: 'staff', apply_advertiser: 'advertiser' };
 

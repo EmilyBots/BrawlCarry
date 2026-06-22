@@ -174,8 +174,6 @@ async function performClose(interaction, channel, guild, messages, order, author
   } catch (_) {}
 }
 
-const pendingCloses = new Map();
-
 // ── Modal: ticket panel setup ─────────────────────────────────────────────────
 async function handleSetupModal(interaction) {
   const title = interaction.fields.getTextInputValue('panel_title');

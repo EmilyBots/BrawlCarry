@@ -17,25 +17,21 @@ module.exports = {
     const imageUrl = interaction.options.getString('image_url');
 
     const row1 = new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId('support_center_select_v1')
-        .setPlaceholder('Select an option...')
-        .addOptions(
-          new StringSelectMenuOptionBuilder()
-            .setLabel('General Support')
-            .setValue('support')
-            .setEmoji({ name: 'ticket', id: '1508838977602457723' })
-            .setDescription('Open a ticket with our support team'),
+      new StringSelectMenuOptionBuilder()
+            .setLabel('Order A Service')
+            .setValue('services')
+            .setEmoji({ name: 'booster', id: '1508831601600106547' })
+            .setDescription('View all available BrawlCarry services'),
           new StringSelectMenuOptionBuilder()
             .setLabel('Staff Applications')
             .setValue('apply')
             .setEmoji({ name: 'staff2', id: '1508838600463351868' })
-            .setDescription('Apply for a staff or b00ster role'),
+            .setDescription('Apply for a staff or booster role'),
           new StringSelectMenuOptionBuilder()
-            .setLabel('Buy Our Services')
-            .setValue('services')
-            .setEmoji({ name: 'booster', id: '1508831601600106547' })
-            .setDescription('View our available services'),
+            .setLabel('General Support')
+            .setValue('support')
+            .setEmoji({ name: 'ticket', id: '1508838977602457723' })
+            .setDescription('Get help from our support team'),
         )
     );
 

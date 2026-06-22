@@ -138,7 +138,7 @@ const giveawayCmd = {
          )
       );
 
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 5; i++) {
       cmd
         .addRoleOption(o => o.setName(`role_${i}`).setDescription(`Bonus role ${i}`))
         .addIntegerOption(o => o.setName(`entries_${i}`).setDescription(`Extra entries for role ${i}`).setMinValue(1));
@@ -170,7 +170,7 @@ const giveawayCmd = {
     }
 
     const extraEntriesData = [];
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 5; i++) {
       const role    = interaction.options.getRole(`role_${i}`);
       const entries = interaction.options.getInteger(`entries_${i}`) ?? 1;
       if (role) extraEntriesData.push({ role_id: role.id, count: Math.max(1, entries) });

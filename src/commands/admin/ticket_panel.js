@@ -38,12 +38,12 @@ const row1 = new ActionRowBuilder().addComponents(
       new StringSelectMenuOptionBuilder()
         .setLabel('Staff Applications')
         .setValue('apply')
-        .setEmoji('<:shield:1491489447445794866>')
-        .setDescription('Apply for a staff or booster role'),
+        .setEmoji('<:staff2:1508838600463351868>')
+        .setDescription('Apply for a staff or b00ster role'),
       new StringSelectMenuOptionBuilder()
         .setLabel('Buy Our Services')
         .setValue('services')
-        .setEmoji('<:Boost:1508378809676861573>')
+        .setEmoji('<:booster:1508831601600106547>')
         .setDescription('View our available services'),
     )
 );

@@ -1,10 +1,7 @@
 const { queryAll, queryOne } = require('../db/index');
 const { DEFAULT_PAYMENT_METHODS } = require('../config/constants');
 
-/**
- * Check if a GuildMember has administrator or manage_channels permissions.
- * @param {import('discord.js').GuildMember} member
- */
+
 function isStaff(member) {
   return member.permissions.has('Administrator') || member.permissions.has('ManageChannels');
 }
@@ -46,23 +43,6 @@ async function getPaymentEmoji(methodLabel, guildId) {
   return found?.emoji ?? '💳';
 }
 
-// ── Booster availability ──────────────────────────────────────────────────────
-
-async function getBoosterStatus(userId) {
-  const row = await queryOne('SELECT status FROM booster_availability WHERE user_id = $1', [userId]);
-  return row?.status ?? 'available';
-}
-
-async function setBoosterStatus(userId, guildId, status) {
-  await queryOne(
-    `INSERT INTO booster_availability (user_id, guild_id, status, updated_at)
-     VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (user_id) DO UPDATE
-     SET guild_id = EXCLUDED.guild_id, status = EXCLUDED.status, updated_at = EXCLUDED.updated_at`,
-    [userId, guildId, status]
-  );
-}
-
 // ── Ticket activity ───────────────────────────────────────────────────────────
 
 async function updateTicketActivity(channelId, guildId) {
@@ -82,6 +62,5 @@ async function removeTicketActivity(channelId) {
 module.exports = {
   isStaff,
   getPaymentMethods, addPaymentMethod, removePaymentMethod, getPaymentEmoji,
-  getBoosterStatus, setBoosterStatus,
   updateTicketActivity, removeTicketActivity,
 };

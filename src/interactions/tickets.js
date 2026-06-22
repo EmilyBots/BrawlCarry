@@ -274,23 +274,33 @@ new ButtonBuilder().setCustomId('ticket_close_reason_v2').setLabel('Close With R
     await interaction.reply({ content: `✅ Support ticket created: ${ticket.toString()}`, ephemeral: true });
 
   } else if (choice === 'apply') {
-    const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-    const e = baseEmbed('<:Info:1501221322183934002> Application Center', PRIMARY);
-    e.setDescription(
-      '>>> Select the role you want to apply for below.\n\n' +
-      '<:rocket:1491490870979985438> **Booster** — Masters III minimum\n' +
-      '<:shield:1491489447445794866> **Staff** — Fluent English & trusted member\n' +
-      '<:Carry:1501221214251651082> **Advertiser** — Previous advertising experience preferred'
-    );
+    const { StringSelectMenuBuilder, StringSelectMenuOptionBuilder, MessageFlags } = require('discord.js');
     const appSelect = new StringSelectMenuBuilder()
       .setCustomId('application_center_select_v1')
       .setPlaceholder('Select an application type...')
       .addOptions(
-        new StringSelectMenuOptionBuilder().setLabel('B00ster Application').setValue('apply_booster').setEmoji({ name: 'rocket', id: '1491490870979985438' }).setDescription('Apply as a b00ster'),
-        new StringSelectMenuOptionBuilder().setLabel('Staff Application').setValue('apply_staff').setEmoji({ name: 'shield', id: '1491489447445794866' }).setDescription('Apply for staff team'),
+        new StringSelectMenuOptionBuilder().setLabel('Booster Application').setValue('apply_booster').setEmoji({ name: 'Boost', id: '1508378809676861573' }).setDescription('Apply as a booster'),
+        new StringSelectMenuOptionBuilder().setLabel('Staff Application').setValue('apply_staff').setEmoji({ name: 'staff3', id: '1508838870383464611' }).setDescription('Apply for staff team'),
         new StringSelectMenuOptionBuilder().setLabel('Advertiser Application').setValue('apply_advertiser').setEmoji({ name: 'announcement', id: '1508831558100975738' }).setDescription('Apply as an advertiser'),
       );
-    await interaction.reply({ embeds: [e], components: [new ActionRowBuilder().addComponents(appSelect)], ephemeral: true });
+    const applyContainer = new ContainerBuilder()
+      .setAccentColor(PRIMARY)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          '## <:crown:1508833236464439356> Application Center\n### <:info:1508767700329959545> Select a role below to begin your application.'
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          '### > - <:Boost:1508378809676861573> **Booster** — Tier D+ verified\n' +
+          '### > - <:staff3:1508838870383464611> **Staff** — Active, reliable, and trusted\n' +
+          '### > - <:announcement:1508831558100975738> **Advertiser** — Previous advertising experience preferred'
+        )
+      )
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(new ActionRowBuilder().addComponents(appSelect));
+    await interaction.reply({ components: [applyContainer], flags: MessageFlags.IsComponentsV2, ephemeral: true });
 
   } else if (choice === 'services') {
     const { MessageFlags } = require('discord.js');

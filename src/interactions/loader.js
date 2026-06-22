@@ -27,7 +27,6 @@ async function loadInteractions(interaction, client) {
   id.startsWith('ga_pg:')
 ) return giveaways.handleButton(interaction, client);
     if (id.startsWith('account_buy:') || id.startsWith('account_sold:')) return accounts.handleButton(interaction, client);
-    if (id === 'avail_available' || id === 'avail_busy' || id === 'avail_offline') return handleAvailability(interaction);
     if (id.startsWith('review_submit_ranked_v1') || id.startsWith('review_submit_prestige_v1') || id === 'simple_review_submit_v1') return vouches.handleReviewSubmit(interaction, client);
     if (id === 'ranked_confirm')    return orders.handleConfirm(interaction, client);
     if (id === 'prestige_confirm')  return orders.handleConfirmPrestige(interaction, client);
@@ -76,25 +75,5 @@ async function loadInteractions(interaction, client) {
   }
 }
 
-// ── Availability buttons (simple enough to live here) ─────────────────────────
-const { setBoosterStatus } = require('../utils/permissions');
-const { baseEmbed } = require('../utils/embeds');
-const { SUCCESS, GOLD, DANGER } = require('../config/constants');
-
-async function handleAvailability(interaction) {
-  const status = interaction.customId.replace('avail_', '');
-  await setBoosterStatus(interaction.user.id, interaction.guildId, status);
-
-  const labels = { available: '🟢 Available', busy: '🟡 Busy', offline: '🔴 Offline' };
-  const colors = { available: SUCCESS, busy: GOLD, offline: DANGER };
-  const descs  = {
-    available: 'Your status is now set to **🟢 Available**.\nYou can now claim new boost orders.',
-    busy:      'Your status is now set to **🟡 Busy**.\nYou won\'t be able to claim new orders until you set yourself as Available.',
-    offline:   'Your status is now set to **🔴 Offline**.\nYou won\'t be able to claim orders until you change your status.',
-  };
-
-  const e = baseEmbed(`${labels[status]} — Status Updated`, colors[status], descs[status]);
-  await interaction.update({ embeds: [e], components: [] });
-}
 
 module.exports = { loadInteractions };

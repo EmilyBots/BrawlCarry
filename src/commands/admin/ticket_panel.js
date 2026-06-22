@@ -43,7 +43,7 @@ module.exports = {
       .setAccentColor(ACCENT)
       .addTextDisplayComponents(
         new TextDisplayBuilder()
-          .setContent('## <:info:1508767700329959545> Support Center\n>>> Contact our team for support, applications, or server-related issues.')
+          .setContent('## <:info:1508767700329959545> Support Center\n>>> <:arrow:1509857611816763482> Choose a category below to get started.')
       );
 
     if (imageUrl) {

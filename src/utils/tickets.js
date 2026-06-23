@@ -116,9 +116,17 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
  * @param {import('discord.js').GuildMember} closedBy
  * @returns {Buffer}
  */
-function buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName = null) {
+async function buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName = null) {
   const guild     = channel.guild;
-  const guildIcon = guild.iconURL() ?? 'https://cdn.discordapp.com/embed/avatars/0.png';
+  let guildIcon = 'https://cdn.discordapp.com/embed/avatars/0.png';
+  try {
+    const iconUrl = guild.iconURL({ extension: 'png', size: 64 });
+    if (iconUrl) {
+      const res = await fetch(iconUrl);
+      const buf = await res.arrayBuffer();
+      guildIcon = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`;
+    }
+  } catch (_) {}
   const openedTs  = messages[0]?.createdAt.toUTCString().slice(0, 22) ?? '—';
   const closedTs  = new Date().toUTCString().slice(0, 22);
 
@@ -126,15 +134,27 @@ function buildTranscript(messages, channel, ticketType, authorMention, closedBy,
     return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function avatar(user) {
-    try { return user.displayAvatarURL({ size: 64 }); }
-    catch (_) { return 'https://cdn.discordapp.com/embed/avatars/0.png'; }
+  const avatarCache = new Map();
+  async function avatar(user) {
+    if (avatarCache.has(user.id)) return avatarCache.get(user.id);
+    try {
+      const url = user.displayAvatarURL({ size: 64, extension: 'png' });
+      const res = await fetch(url);
+      const buf = await res.arrayBuffer();
+      const b64 = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`;
+      avatarCache.set(user.id, b64);
+      return b64;
+    } catch (_) {
+      const fallback = `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="32" fill="#5865f2"/><text x="32" y="42" text-anchor="middle" font-size="28" font-family="sans-serif" fill="#fff">${(user.username ?? '?').charAt(0).toUpperCase()}</text></svg>`).toString('base64')}`;
+      avatarCache.set(user.id, fallback);
+      return fallback;
+    }
   }
 
-  function renderMsg(msg) {
+  async function renderMsg(msg) {
     try {
       const ts      = msg.createdAt.toUTCString().slice(0, 22);
-      const av      = avatar(msg.author);
+      const av      = await avatar(msg.author);
       const name    = esc(msg.member?.displayName ?? msg.author.username);
       const content = esc(msg.content) || "<em class='muted'>—</em>";
 
@@ -168,7 +188,7 @@ function buildTranscript(messages, channel, ticketType, authorMention, closedBy,
     }
   }
 
-  const msgsHtml = messages.filter(m => !m.author.bot).map(renderMsg).join('\n');
+  const msgsHtml = (await Promise.all(messages.filter(m => !m.author.bot).map(renderMsg))).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">

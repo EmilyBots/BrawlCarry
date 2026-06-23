@@ -97,15 +97,14 @@ async function handleCloseDirectly(interaction, client) {
   else if (chName.includes('prestige')) ticketType = 'Prestige';
   else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
 
-  const htmlBuf = buildTranscript(messages, channel, ticketType, authorMention, interaction.member);
-  const transcriptFile = new AttachmentBuilder(htmlBuf, { name: `transcript-${channel.name}.html` });
+  const html = buildTranscript(messages, channel, ticketType, authorMention, interaction.member);
 
   const cfg     = await getConfig(guild.id);
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
   const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
 
   // nuovo codice
-  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, interaction.member, null);
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, interaction.member, null);
 }
 
 async function handleCloseBtn(interaction, client) {
@@ -132,26 +131,37 @@ async function handleCloseBtn(interaction, client) {
 }
 
 // ── Close with optional reason (called from modal or direct) ──────────────────
-async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy, reason) {
-  const transcriptUpload = await (async () => {
-    try {
-      const msg = await (logCh ?? channel).send({ files: [transcriptFile] });
-      return msg.attachments.first()?.url ?? null;
-    } catch (_) { return null; }
-  })();
+async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason) {
+  let transcriptUrl = null;
+  try {
+    const transcriptId = `${channel.id}-${Date.now()}`;
+    const res = await fetch(`http://localhost:${process.env.STATS_PORT ?? 4000}/api/transcripts/upload`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id: transcriptId, html }),
+    });
+    const data = await res.json();
+    transcriptUrl = data.url ?? null;
+  } catch (err) {
+    console.error('[Transcript] Upload failed:', err);
+  }
 
-  const e = baseEmbed(null, PRIMARY);
-  e.setDescription(
-    `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
-    `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n\n` +
-    `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n\n` +
-    `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}` +
-    (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '')
-  );
+  const container = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
+        `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n\n` +
+        `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n\n` +
+        `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}` +
+        (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '') +
+        (transcriptUrl ? `\n\n📄 **Transcript**\n<:arrow:1509857611816763482> [View Transcript](${transcriptUrl})` : '')
+      )
+    );
 
-  if (logCh) await logCh.send({ embeds: [e], files: [transcriptFile] }).catch(() => {});
+  if (logCh) await logCh.send({ components: [container], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
 
-  try { await channel.send({ embeds: [e] }); } catch (_) {}
+  try { await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) {}
 
   // Release booster if workspace thread
   if (channel.name.startsWith('active-')) {

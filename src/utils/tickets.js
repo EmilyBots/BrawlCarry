@@ -151,6 +151,48 @@ async function buildTranscript(messages, channel, ticketType, authorMention, clo
     }
   }
 
+  const IMAGE_EXT = /\.(png|jpe?g|webp|gif)$/i;
+  const VIDEO_EXT  = /\.(mp4|webm)$/i;
+
+  function isImageAttachment(a) {
+    return a.contentType?.startsWith('image/') || IMAGE_EXT.test(a.name ?? '');
+  }
+  function isVideoAttachment(a) {
+    return a.contentType?.startsWith('video/') || VIDEO_EXT.test(a.name ?? '');
+  }
+
+  // Images are small enough to safely embed as base64 (CDN URLs expire).
+  const mediaCache = new Map();
+  async function fetchAsDataUrl(url, fallbackMime) {
+    if (mediaCache.has(url)) return mediaCache.get(url);
+    try {
+      const res = await fetch(url);
+      const mime = res.headers.get('content-type') ?? fallbackMime ?? 'application/octet-stream';
+      const buf  = await res.arrayBuffer();
+      const dataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`;
+      mediaCache.set(url, dataUrl);
+      return dataUrl;
+    } catch (_) {
+      mediaCache.set(url, null);
+      return null;
+    }
+  }
+
+  function fileSizeLabel(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function fileCardHtml(name, url, size) {
+    return (
+      `<a class="file" href="${url}" target="_blank">📄 ${esc(name)}` +
+      (size ? `<span class="file-size">${fileSizeLabel(size)}</span>` : '') +
+      `<span class="file-dl">Download File</span></a>`
+    );
+  }
+
   async function renderMsg(msg) {
     try {
       const ts      = msg.createdAt.toUTCString().slice(0, 22);
@@ -166,12 +208,41 @@ async function buildTranscript(messages, channel, ticketType, authorMention, clo
         `<div class="content">${content}</div>`,
       ];
 
+      // Attachments: images embedded as base64 (CDN expires), videos kept as
+      // CDN URLs with an HTML5 player (avoids bloating the DB with base64 video).
       for (const a of msg.attachments.values()) {
-        if (a.contentType?.startsWith('image')) {
-          parts.push(`<a href="${a.url}" target="_blank"><img class="att" src="${a.url}" loading="lazy"></a>`);
+        if (isImageAttachment(a)) {
+          const dataUrl = await fetchAsDataUrl(a.url, a.contentType);
+          if (dataUrl) {
+            parts.push(`<a href="${dataUrl}" target="_blank"><img class="att-img" src="${dataUrl}" loading="lazy" alt="${esc(a.name)}"></a>`);
+          } else {
+            parts.push(fileCardHtml(a.name, a.url, a.size));
+          }
+        } else if (isVideoAttachment(a)) {
+          parts.push(
+            `<video class="att-video" controls preload="metadata">` +
+            `<source src="${a.url}" type="${a.contentType ?? 'video/mp4'}"></video>` +
+            `<div class="video-note">If the video doesn't load, the Discord link may have expired — <a class="file-dl" href="${a.url}" target="_blank">try direct link</a></div>`
+          );
         } else {
-          parts.push(`<a class="file" href="${a.url}" target="_blank">📎 ${esc(a.name)}</a>`);
+          parts.push(fileCardHtml(a.name, a.url, a.size));
         }
+      }
+
+      // Message embeds: render image/thumbnail visuals (e.g. link previews, GIF embeds)
+      for (const emb2 of msg.embeds) {
+        const visualUrl = emb2.image?.url ?? emb2.thumbnail?.url ?? null;
+        if (visualUrl) {
+          const dataUrl = await fetchAsDataUrl(visualUrl);
+          if (dataUrl) parts.push(`<a href="${dataUrl}" target="_blank"><img class="att-img" src="${dataUrl}" loading="lazy"></a>`);
+        }
+      }
+
+      // Stickers
+      for (const sticker of msg.stickers?.values?.() ?? []) {
+        const stickerUrl = sticker.url ?? `https://media.discordapp.net/stickers/${sticker.id}.png`;
+        const dataUrl = await fetchAsDataUrl(stickerUrl, 'image/png');
+        if (dataUrl) parts.push(`<img class="att-sticker" src="${dataUrl}" loading="lazy" alt="${esc(sticker.name ?? 'sticker')}">`);
       }
 
       for (const emb of msg.embeds) {
@@ -216,8 +287,14 @@ header img{width:48px;height:48px;border-radius:50%;border:2px solid #5865f2}
 .ts{font-size:11px;color:#72767d}
 .content{word-break:break-word;white-space:pre-wrap;color:#dcddde;font-size:14px}
 .muted{color:#72767d;font-style:italic}
-.att{max-width:340px;max-height:220px;border-radius:6px;margin-top:8px;display:block;object-fit:cover;border:1px solid #2b2d31}
-.file{display:inline-flex;align-items:center;gap:6px;margin-top:6px;color:#00aff4;background:#1e1f22;padding:5px 12px;border-radius:6px;font-size:12px;text-decoration:none;border:1px solid #2b2d31}
+.att-img{max-width:600px;width:100%;border-radius:10px;margin-top:8px;display:block;border:1px solid #2b2d31}
+.att-video{max-width:600px;width:100%;border-radius:10px;margin-top:8px;display:block;border:1px solid #2b2d31;background:#000}
+.att-sticker{max-width:160px;width:100%;margin-top:8px;display:block}
+.video-note{font-size:11px;color:#72767d;margin-top:4px}
+.file{display:flex;align-items:center;gap:10px;margin-top:8px;max-width:600px;width:100%;color:#dcddde;background:#1e1f22;padding:12px 14px;border-radius:10px;font-size:13px;text-decoration:none;border:1px solid #2b2d31}
+.file-size{color:#72767d;font-size:11px;margin-left:auto}
+.file-dl{color:#00aff4;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+@media (max-width:600px){.att-img,.att-video,.file{max-width:100%}}
 .emb{border-left:4px solid #5865f2;background:#1e1f22;border-radius:0 6px 6px 0;padding:10px 14px;margin-top:8px;max-width:520px;border-top:1px solid #2b2d31;border-right:1px solid #2b2d31;border-bottom:1px solid #2b2d31}
 .et{font-weight:700;color:#fff;font-size:13px;margin-bottom:4px}
 .ed{font-size:12px;color:#b5bac1;white-space:pre-wrap}

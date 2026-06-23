@@ -90,6 +90,8 @@ async function handleCloseDirectly(interaction, client) {
     const activityRow = await queryOne('SELECT creator_id FROM ticket_activity WHERE channel_id = $1', [channel.id]).catch(() => null);
     authorMention = activityRow?.creator_id ? `<@${activityRow.creator_id}>` : (messages.find(m => !m.author.bot)?.author.toString() ?? '—');
   }
+  const authorMember = await guild.members.fetch(authorMention.replace(/<@!?|>/g, '')).catch(() => null);
+  const authorName = authorMember?.displayName ?? null;
 
   const chName = channel.name.toLowerCase();
   let ticketType = 'Support';
@@ -97,7 +99,7 @@ async function handleCloseDirectly(interaction, client) {
   else if (chName.includes('prestige')) ticketType = 'Prestige';
   else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
 
-  const html = buildTranscript(messages, channel, ticketType, authorMention, interaction.member);
+  const html = buildTranscript(messages, channel, ticketType, authorMention, interaction.member, authorName);
 
   const cfg     = await getConfig(guild.id);
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
@@ -238,14 +240,15 @@ async function handleCloseModal(interaction, client) {
   else if (chName.includes('prestige')) ticketType = 'Prestige';
   else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
 
-  const htmlBuf = buildTranscript(messages, channel, ticketType, authorMention, closedBy);
-  const transcriptFile = new AttachmentBuilder(htmlBuf, { name: `transcript-${channel.name}.html` });
+  const authorMember = await guild.members.fetch(authorMention.replace(/<@!?|>/g, '')).catch(() => null);
+  const authorName = authorMember?.displayName ?? null;
+  const html = buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName);
 
   const cfg     = await getConfig(guild.id);
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
   const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
 
-  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy, reason);
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason);
 }
 
 // ── Select: support center ────────────────────────────────────────────────────

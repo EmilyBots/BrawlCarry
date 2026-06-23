@@ -153,28 +153,30 @@ async function performClose(interaction, channel, guild, messages, order, author
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
-        `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n\n` +
-        `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n\n` +
+        `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n` +
+        `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n` +
         `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}` +
-        (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '')
+        (reason ? `\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '')
       )
     );
 
-  const closeMessage = { components: [container], flags: MessageFlags.IsComponentsV2 };
   if (transcriptUrl) {
-    const transcriptRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('View Transcript')
-        .setEmoji('📄')
-        .setStyle(ButtonStyle.Link)
-        .setURL(transcriptUrl)
-    );
-    closeMessage.components.push(transcriptRow);
+    container
+      .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+      .addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel('View Transcript')
+            .setStyle(ButtonStyle.Link)
+            .setEmoji('📄')
+            .setURL(transcriptUrl)
+        )
+      );
   }
 
-  if (logCh) await logCh.send(closeMessage).catch(() => {});
+  if (logCh) await logCh.send({ components: [container], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
 
-  try { await channel.send(closeMessage); } catch (_) {}
+  try { await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) {}
 
   // Release booster if workspace thread
   if (channel.name.startsWith('active-')) {

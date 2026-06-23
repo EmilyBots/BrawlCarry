@@ -133,13 +133,14 @@ async function handleCloseBtn(interaction, client) {
 
 // ── Close with optional reason (called from modal or direct) ──────────────────
 async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy, reason) {
-  const e = baseEmbed('📋 Ticket Closed', PRIMARY);
-  e.addFields(
-    { name: '📂 Channel Type',  value: `↳ ${ticketType}`,          inline: false },
-    { name: '👤 Ticket Author', value: `↳ ${authorMention}`,       inline: true  },
-    { name: '🔒 Closed By',     value: `↳ ${closedBy.toString()}`, inline: true  },
+  const e = baseEmbed(null, PRIMARY);
+  e.setDescription(
+    `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
+    `<:OrderType:1518926773767635045> **Order Type**\n<:reply:1482062778243219507> ${ticketType}\n\n` +
+    `<:claim:1512088775759626260> **Opened By**\n<:reply:1482062778243219507> ${authorMention}\n\n` +
+    `<:Unclaim:1512089273380110418> **Closed By**\n<:reply:1482062778243219507> ${closedBy.toString()}` +
+    (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:reply:1482062778243219507> ${reason}` : '')
   );
-  if (reason) e.addFields({ name: '📝 Close Reason', value: `↳ ${reason}`, inline: false });
 
   if (logCh) await logCh.send({ embeds: [e], files: [transcriptFile] }).catch(() => {});
 

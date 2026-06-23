@@ -87,8 +87,8 @@ async function handleCloseDirectly(interaction, client) {
   );
   let authorMention = order?.user_id ? `<@${order.user_id}>` : null;
   if (!authorMention) {
-    const firstHuman = messages.find(m => !m.author.bot);
-    authorMention = firstHuman?.author.toString() ?? '—';
+    const activityRow = await queryOne('SELECT creator_id FROM ticket_activity WHERE channel_id = $1', [channel.id]).catch(() => null);
+    authorMention = activityRow?.creator_id ? `<@${activityRow.creator_id}>` : (messages.find(m => !m.author.bot)?.author.toString() ?? '—');
   }
 
   const chName = channel.name.toLowerCase();
@@ -211,8 +211,8 @@ async function handleCloseModal(interaction, client) {
   );
   let authorMention = order?.user_id ? `<@${order.user_id}>` : null;
   if (!authorMention) {
-    const firstHuman = messages.find(m => !m.author.bot);
-    authorMention = firstHuman?.author.toString() ?? '—';
+    const activityRow = await queryOne('SELECT creator_id FROM ticket_activity WHERE channel_id = $1', [channel.id]).catch(() => null);
+    authorMention = activityRow?.creator_id ? `<@${activityRow.creator_id}>` : (messages.find(m => !m.author.bot)?.author.toString() ?? '—');
   }
 
   const chName = channel.name.toLowerCase();

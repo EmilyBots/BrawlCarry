@@ -137,6 +137,12 @@ async function initDb() {
   )`);
 
   // ── Safe migrations (ADD COLUMN IF NOT EXISTS) ────────────────────────────
+  await query(`CREATE TABLE IF NOT EXISTS transcripts (
+    id TEXT PRIMARY KEY,
+    html TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   const migrations = [
     ['orders', 'brawler_name TEXT'],
     ['orders', 'trophy_val INT'],

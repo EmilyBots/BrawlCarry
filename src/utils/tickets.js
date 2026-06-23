@@ -168,7 +168,7 @@ function buildTranscript(messages, channel, ticketType, authorMention, closedBy,
     }
   }
 
-  const msgsHtml = messages.map(renderMsg).join('\n');
+  const msgsHtml = messages.filter(m => !m.author.bot).map(renderMsg).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">

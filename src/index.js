@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./register'); // RIMUOVI DOPO
 const { startBot, client } = require('./bot');       // ADD client to import
 const { startOAuthServer } = require('./oauth/server');
 const { startStatsServer } = require('./api/stats'); // ADD

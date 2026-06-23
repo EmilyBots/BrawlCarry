@@ -116,7 +116,7 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
  * @param {import('discord.js').GuildMember} closedBy
  * @returns {Buffer}
  */
-function buildTranscript(messages, channel, ticketType, authorMention, closedBy) {
+function buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName = null) {
   const guild     = channel.guild;
   const guildIcon = guild.iconURL() ?? 'https://cdn.discordapp.com/embed/avatars/0.png';
   const openedTs  = messages[0]?.createdAt.toUTCString().slice(0, 22) ?? '—';
@@ -213,7 +213,7 @@ footer{text-align:center;padding:20px;font-size:11px;color:#4e5058;border-top:1p
 <div class="meta-bar">
   <div class="mi"><label>Opened</label><span>${openedTs} UTC</span></div>
   <div class="mi"><label>Closed</label><span>${closedTs} UTC</span></div>
-  <div class="mi"><label>Ticket Author</label><span>${esc(authorMention.replace(/<@!?|>/g, ''))}</span></div>
+  <div class="mi"><label>Ticket Author</label><span>${esc(authorName ?? authorMention.replace(/<@!?|>/g, ''))}</span></div>
   <div class="mi"><label>Closed By</label><span>${esc(closedBy.displayName ?? closedBy.user?.username)}</span></div>
   <div class="mi"><label>Messages</label><span>${messages.length}</span></div>
 </div>

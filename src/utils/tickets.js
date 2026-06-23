@@ -212,12 +212,7 @@ async function buildTranscript(messages, channel, ticketType, authorMention, clo
       // CDN URLs with an HTML5 player (avoids bloating the DB with base64 video).
       for (const a of msg.attachments.values()) {
         if (isImageAttachment(a)) {
-          const dataUrl = await fetchAsDataUrl(a.url, a.contentType);
-          if (dataUrl) {
-            parts.push(`<a href="${dataUrl}" target="_blank"><img class="att-img" src="${dataUrl}" loading="lazy" alt="${esc(a.name)}"></a>`);
-          } else {
-            parts.push(fileCardHtml(a.name, a.url, a.size));
-          }
+          parts.push(`<a href="${a.url}" target="_blank"><img class="att-img" src="${a.url}" loading="lazy" alt="${esc(a.name)}"></a>`);
         } else if (isVideoAttachment(a)) {
           parts.push(
             `<video class="att-video" controls preload="metadata">` +
@@ -233,16 +228,14 @@ async function buildTranscript(messages, channel, ticketType, authorMention, clo
       for (const emb2 of msg.embeds) {
         const visualUrl = emb2.image?.url ?? emb2.thumbnail?.url ?? null;
         if (visualUrl) {
-          const dataUrl = await fetchAsDataUrl(visualUrl);
-          if (dataUrl) parts.push(`<a href="${dataUrl}" target="_blank"><img class="att-img" src="${dataUrl}" loading="lazy"></a>`);
+          parts.push(`<a href="${visualUrl}" target="_blank"><img class="att-img" src="${visualUrl}" loading="lazy"></a>`);
         }
       }
 
       // Stickers
       for (const sticker of msg.stickers?.values?.() ?? []) {
         const stickerUrl = sticker.url ?? `https://media.discordapp.net/stickers/${sticker.id}.png`;
-        const dataUrl = await fetchAsDataUrl(stickerUrl, 'image/png');
-        if (dataUrl) parts.push(`<img class="att-sticker" src="${dataUrl}" loading="lazy" alt="${esc(sticker.name ?? 'sticker')}">`);
+        parts.push(`<img class="att-sticker" src="${stickerUrl}" loading="lazy" alt="${esc(sticker.name ?? 'sticker')}">`);
       }
 
       for (const emb of msg.embeds) {

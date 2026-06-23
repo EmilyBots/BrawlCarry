@@ -106,7 +106,7 @@ async function handleCloseDirectly(interaction, client) {
   const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
 
   // nuovo codice
-  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, interaction.member, null);
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, interaction.member, null, messages[0]?.createdAt ?? null);
 }
 
 async function handleCloseBtn(interaction, client) {
@@ -133,7 +133,7 @@ async function handleCloseBtn(interaction, client) {
 }
 
 // ── Close with optional reason (called from modal or direct) ──────────────────
-async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason) {
+async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason, openedAt) {
   let transcriptUrl = null;
   try {
     const transcriptId = `${channel.id}-${Date.now()}`;
@@ -155,8 +155,9 @@ async function performClose(interaction, channel, guild, messages, order, author
         `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
         `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n` +
         `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n` +
-        `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}` +
-        (reason ? `\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '')
+        `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}\n` +
+        `<:Time:1518926727743672350> **Open Time**\n<:arrow:1509857611816763482> ${openedAt ? `<t:${Math.floor(openedAt.getTime() / 1000)}:f>` : '—'}\n` +
+        `<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason ?? 'No Reason Provided'}`
       )
     );
 
@@ -261,7 +262,7 @@ async function handleCloseModal(interaction, client) {
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
   const logCh   = logChId ? guild.channels.cache.get(logChId) : null;
 
-  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason);
+  await performClose(interaction, channel, guild, messages, order, authorMention, ticketType, html, logCh, closedBy, reason, messages[0]?.createdAt ?? null);
 }
 
 // ── Select: support center ────────────────────────────────────────────────────

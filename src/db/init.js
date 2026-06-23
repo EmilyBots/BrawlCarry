@@ -148,6 +148,7 @@ async function initDb() {
     ['guild_config', 'winstreak_ticket_channel_id BIGINT'],
     ['guild_config', 'trophies_ticket_channel_id BIGINT'],
     ['guild_config', 'matcherino_ticket_channel_id BIGINT'],
+    ['ticket_activity', 'creator_id TEXT'],
   ];
 
   for (const [table, colDef] of migrations) {

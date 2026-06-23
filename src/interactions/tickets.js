@@ -151,8 +151,11 @@ async function performClose(interaction, channel, guild, messages, order, author
   const container = new ContainerBuilder()
     .setAccentColor(PRIMARY)
     .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## <:ticket:1508838977602457723> **Ticket Closed**`)
+    )
+    .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+    .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
         `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n` +
         `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n` +
         `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}\n` +

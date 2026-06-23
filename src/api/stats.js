@@ -35,6 +35,37 @@ function startStatsServer(client) {
     }
   });
 
+  app.use(express.json({ limit: '5mb' }));
+
+  app.post('/api/transcripts/upload', async (req, res) => {
+    try {
+      const { id, html } = req.body;
+      if (!id || !html) return res.status(400).json({ error: 'Missing id or html' });
+      await queryOne(
+        `INSERT INTO transcripts (id, html) VALUES ($1, $2)
+         ON CONFLICT (id) DO UPDATE SET html = EXCLUDED.html`,
+        [id, html]
+      );
+      const url = `${process.env.SITE_URL ?? 'https://www.brawlcarry.com'}/transcripts/${id}`;
+      res.json({ url });
+    } catch (err) {
+      console.error('[Transcripts] Upload error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/transcripts/:id', async (req, res) => {
+    try {
+      const row = await queryOne('SELECT html FROM transcripts WHERE id = $1', [req.params.id]);
+      if (!row) return res.status(404).send('<h1>Transcript not found</h1>');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(row.html);
+    } catch (err) {
+      console.error('[Transcripts] Serve error:', err);
+      res.status(500).send('<h1>Internal server error</h1>');
+    }
+  });
+
   app.listen(PORT, () => {
     console.log(`[Stats API] Running on port ${PORT}`);
   });

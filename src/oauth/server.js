@@ -157,7 +157,7 @@ app.get('/auth/founder', (req, res) => {
 app.get('/callback/founder', async (req, res) => {
   const code = req.query.code;
   if (!code) return res.send('❌ Nessun codice');
-
+ 
   const tokenResp = await axios.post(
     'https://discord.com/api/oauth2/token',
     new URLSearchParams({

@@ -133,18 +133,29 @@ async function handleCloseBtn(interaction, client) {
 
 // ── Close with optional reason (called from modal or direct) ──────────────────
 async function performClose(interaction, channel, guild, messages, order, authorMention, ticketType, transcriptFile, logCh, closedBy, reason) {
-  const e = baseEmbed(null, PRIMARY);
-  e.setDescription(
-    `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
-    `<:OrderType:1518926773767635045> **Order Type**\n<:arrow:1509857611816763482> ${ticketType}\n\n` +
-    `<:claim:1512088775759626260> **Opened By**\n<:arrow:1509857611816763482> ${authorMention}\n\n` +
-    `<:Unclaim:1512089273380110418> **Closed By**\n<:arrow:1509857611816763482> ${closedBy.toString()}` +
-    (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:arrow:1509857611816763482> ${reason}` : '')
-  );
+  const transcriptUpload = await (async () => {
+    try {
+      const msg = await (logCh ?? channel).send({ files: [transcriptFile] });
+      return msg.attachments.first()?.url ?? null;
+    } catch (_) { return null; }
+  })();
 
-  if (logCh) await logCh.send({ embeds: [e], files: [transcriptFile] }).catch(() => {});
+  const container = new ContainerBuilder()
+    .setAccentColor(PRIMARY)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## <:ticket:1508838977602457723> **Ticket Closed**\n\n` +
+        `<:OrderType:1518926773767635045> **Order Type**\n<:reply:1482062778243219507> ${ticketType}\n\n` +
+        `<:claim:1512088775759626260> **Opened By**\n<:reply:1482062778243219507> ${authorMention}\n\n` +
+        `<:Unclaim:1512089273380110418> **Closed By**\n<:reply:1482062778243219507> ${closedBy.toString()}` +
+        (reason ? `\n\n<:Reason:1512918382507327651> **Close Reason**\n<:reply:1482062778243219507> ${reason}` : '') +
+        (transcriptUpload ? `\n\n📄 **Transcript**\n<:reply:1482062778243219507> [View Transcript](${transcriptUpload})` : '')
+      )
+    );
 
-  try { await channel.send({ embeds: [e] }); } catch (_) {}
+  if (logCh) await logCh.send({ components: [container], flags: MessageFlags.IsComponentsV2 }).catch(() => {});
+
+  try { await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) {}
 
   // Release booster if workspace thread
   if (channel.name.startsWith('active-')) {

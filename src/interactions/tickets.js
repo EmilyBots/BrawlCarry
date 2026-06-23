@@ -172,7 +172,7 @@ async function performClose(interaction, channel, guild, messages, order, author
           new ButtonBuilder()
             .setLabel('View Transcript')
             .setStyle(ButtonStyle.Link)
-            .setEmoji('📄')
+            .setEmoji('🌐')
             .setURL(transcriptUrl)
         )
       );

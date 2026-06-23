@@ -1,6 +1,7 @@
 const { ChannelType, PermissionOverwrite, MessageFlags } = require('discord.js');
 const { HARDCODED_SUPPORT_ROLES } = require('../config/constants');
 const { updateTicketActivity } = require('./permissions');
+const { queryOne } = require('../db/index');
 
 /**
  * Create a ticket thread or text channel for a member.
@@ -54,6 +55,7 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
         await thread.send({ components: [view], flags: MessageFlags.IsComponentsV2 });
       }
       await updateTicketActivity(thread.id, guild.id);
+      await queryOne('UPDATE ticket_activity SET creator_id = $1 WHERE channel_id = $2', [member.id, thread.id]).catch(() => {});
       return thread;
     }
   }
@@ -99,6 +101,7 @@ async function createTicketThread(guild, member, name, topicEmbed, view, cfg, ov
     await ch.send({ components: [view], flags: MessageFlags.IsComponentsV2 });
   }
   await updateTicketActivity(ch.id, guild.id);
+  await queryOne('UPDATE ticket_activity SET creator_id = $1 WHERE channel_id = $2', [member.id, ch.id]).catch(() => {});
   return ch;
 }
 

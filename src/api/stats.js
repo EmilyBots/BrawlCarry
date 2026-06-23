@@ -14,6 +14,8 @@ function startStatsServer(client) {
     next();
   });
 
+  app.use(express.json({ limit: '10mb' }));
+
   app.get('/api/stats', async (req, res) => {
     try {
       const guild = client.guilds.cache.get(GUILD_ID);
@@ -35,7 +37,7 @@ function startStatsServer(client) {
     }
   });
 
-  app.use(express.json({ limit: '5mb' }));
+  app.use(express.json({ limit: '10mb' }));
 
   app.post('/api/transcripts/upload', async (req, res) => {
     try {

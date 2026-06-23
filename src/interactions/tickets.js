@@ -99,7 +99,7 @@ async function handleCloseDirectly(interaction, client) {
   else if (chName.includes('prestige')) ticketType = 'Prestige';
   else if (/apply|booster|staff|advertiser/.test(chName)) ticketType = 'Application';
 
-  const html = buildTranscript(messages, channel, ticketType, authorMention, interaction.member, authorName);
+  const html = await buildTranscript(messages, channel, ticketType, authorMention, interaction.member, authorName);
 
   const cfg     = await getConfig(guild.id);
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;
@@ -242,7 +242,7 @@ async function handleCloseModal(interaction, client) {
 
   const authorMember = await guild.members.fetch(authorMention.replace(/<@!?|>/g, '')).catch(() => null);
   const authorName = authorMember?.displayName ?? null;
-  const html = buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName);
+  const html = await buildTranscript(messages, channel, ticketType, authorMention, closedBy, authorName);
 
   const cfg     = await getConfig(guild.id);
   const logChId = cfg?.ticket_log_channel_id ? String(cfg.ticket_log_channel_id) : null;

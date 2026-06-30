@@ -4,6 +4,7 @@ const { loadCommands, registerCommands } = require('./commands/loader');
 const { loadInteractions } = require('./interactions/loader');
 const { startGiveawayEndLoop, startGiveawayReminderLoop } = require('./tasks/giveaway_end');
 const { startInactiveTicketLoop } = require('./tasks/inactive_tickets');
+const { cleanupOrphanedClaims } = require('./commands/orders');
 
 const client = new Client({
   intents: [
@@ -97,6 +98,7 @@ client.once('ready', async () => {
   startGiveawayEndLoop(client);
   startGiveawayReminderLoop(client);
   startInactiveTicketLoop(client);
+  setTimeout(() => cleanupOrphanedClaims(client), 10000); // aspetta 10s che la cache sia pronta
   console.log('[OK] Background tasks started');
 });
 

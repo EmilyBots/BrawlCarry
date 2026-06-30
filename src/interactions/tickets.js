@@ -182,13 +182,13 @@ async function performClose(interaction, channel, guild, messages, order, author
 
   try { await channel.send({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) {}
 
-  // Release booster if workspace thread
-  if (channel.name.startsWith('active-')) {
-    await queryOne(
-      "UPDATE orders SET status = 'pending', booster_id = NULL, claimed_at = NULL, workspace_channel_id = NULL WHERE workspace_channel_id = $1 AND status = 'claimed'",
-      [channel.id]
-    ).catch(() => {});
-  }
+  // Release booster if either the workspace thread OR the original ticket
+  // channel is being closed — orfani succedevano quando si chiudeva il
+  // ticket principale invece del workspace 'active-...'
+  await queryOne(
+    "UPDATE orders SET status = 'pending', booster_id = NULL, claimed_at = NULL, workspace_channel_id = NULL WHERE (workspace_channel_id = $1 OR ticket_channel_id = $1) AND status = 'claimed'",
+    [channel.id]
+  ).catch(() => {});
 
   await removeTicketActivity(channel.id);
 

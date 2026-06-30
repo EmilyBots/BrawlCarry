@@ -4,8 +4,7 @@ const { loadCommands, registerCommands } = require('./commands/loader');
 const { loadInteractions } = require('./interactions/loader');
 const { startGiveawayEndLoop, startGiveawayReminderLoop } = require('./tasks/giveaway_end');
 const { startInactiveTicketLoop } = require('./tasks/inactive_tickets');
-const { cleanupOrphanedClaims } = require('./commands/orders');
-
+const { cleanupOrphanedClaims } = require('./interactions/orders');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,

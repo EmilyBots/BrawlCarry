@@ -1735,21 +1735,21 @@ async function handleClaim(interaction, orderId, client) {
 
   // Atomic claim — only succeeds if status is still 'pending'
   const result = await queryOne(
-    "UPDATE orders SET booster_id = $1, status = 'claimed', claimed_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING *",
+    `UPDATE orders SET booster_id = $1, status = 'claimed', claimed_at = NOW()
+     WHERE id = $2 AND status = 'pending'
+       AND (SELECT COUNT(*) FROM orders WHERE booster_id = $1 AND status = 'claimed') < 2
+     RETURNING *`,
     [booster.id, orderId]
   );
 
   if (!result) {
     const check = await queryOne('SELECT status, booster_id FROM orders WHERE id = $1', [orderId]);
-    const msg   = !check ? '❌ Order not found.' : '❌ This order has already been claimed by another booster.';
-    return interaction.reply({ content: msg, ephemeral: true });
-  }
-
-  const activeCount = await queryOne("SELECT COUNT(*) AS cnt FROM orders WHERE booster_id = $1 AND status = 'claimed'", [booster.id]);
-  if (parseInt(activeCount.cnt) > 3) {
-    await queryOne("UPDATE orders SET booster_id = NULL, status = 'pending', claimed_at = NULL WHERE id = $1", [orderId]);
+    if (!check) return interaction.reply({ content: '❌ Order not found.', ephemeral: true });
+    if (check.status !== 'pending') return interaction.reply({ content: '❌ This order has already been claimed by another booster.', ephemeral: true });
     return interaction.reply({ content: '❌ You already have **2 active orders**. Please complete one before claiming another.', ephemeral: true });
   }
+
+
 
   const order = result;
 

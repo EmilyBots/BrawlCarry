@@ -2099,6 +2099,34 @@ async function handleOrderCompleteModal(interaction, client) {
 
 
 
+// ── Cleanup ordini orfani — controlla se il canale esiste ancora ──────────────
+async function cleanupOrphanedClaims(client) {
+  const claimed = await queryAll("SELECT id, booster_id, ticket_channel_id, workspace_channel_id FROM orders WHERE status = 'claimed'");
+  let released = 0;
+
+  for (const order of claimed) {
+    const chId = order.workspace_channel_id ? String(order.workspace_channel_id) : (order.ticket_channel_id ? String(order.ticket_channel_id) : null);
+    if (!chId) continue;
+
+    let exists = false;
+    for (const guild of client.guilds.cache.values()) {
+      const ch = guild.channels.cache.get(chId) ?? await guild.channels.fetch(chId).catch(() => null);
+      if (ch) { exists = true; break; }
+    }
+
+    if (!exists) {
+      await queryOne(
+        "UPDATE orders SET status = 'pending', booster_id = NULL, claimed_at = NULL, workspace_channel_id = NULL WHERE id = $1 AND status = 'claimed'",
+        [order.id]
+      ).catch(() => {});
+      released++;
+      console.log(`[Cleanup] Rilasciato ordine orfano ${order.id} (booster ${order.booster_id})`);
+    }
+  }
+
+  console.log(`[Cleanup] Completato: ${released} ordini orfani rilasciati su ${claimed.length} controllati.`);
+}
+
 module.exports = {
   handleRankedPanelBtn,
   handlePrestigePanelBtn,
@@ -2122,4 +2150,5 @@ module.exports = {
   handleButton,
   handlePublishModal,
   handleOrderCompleteModal,
+  cleanupOrphanedClaims,
 };

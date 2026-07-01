@@ -24,6 +24,7 @@ const { v4: uuidv4 } = require('uuid');
 // ── In-memory state store for multi-step select views ─────────────────────────
 // Keyed by userId — stores selections until final submit
 const orderState = new Map();
+const pendingCompletions = new Map(); // userId → orderId
 
 function getState(userId) {
   if (!orderState.has(userId)) orderState.set(userId, {});
@@ -2151,4 +2152,5 @@ module.exports = {
   handlePublishModal,
   handleOrderCompleteModal,
   cleanupOrphanedClaims,
+  pendingCompletions,
 };

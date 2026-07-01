@@ -2027,7 +2027,7 @@ async function handleOrderCompleteModal(interaction, client) {
     container
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
-
+  }
 
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(

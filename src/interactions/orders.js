@@ -1942,7 +1942,7 @@ async function handleOrderCompleteModal(interaction, client) {
   const orderId  = interaction.fields.getTextInputValue('order_id').trim();
   const priceStr = interaction.fields.getTextInputValue('final_price').replace('€', '').trim();
   const imgUrl   = interaction.fields.getTextInputValue('proof_image').trim();
-  const applyWm  = interaction.fields.getTextInputValue('apply_watermark').trim().toLowerCase() === 'yes';
+  
 
   const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
   if (!order) return interaction.followUp({ content: `❌ Order \`${orderId}\` not found.`, ephemeral: true });
@@ -1974,7 +1974,7 @@ async function handleOrderCompleteModal(interaction, client) {
   const modeEmoji      = svcType === 'carry' ? '<:Carry:1510590429052272660>' : '<:Boost:1508378809676861573>';
 
   let wm = null;
-  if (imgUrl && applyWm) {
+  if (imgUrl) {
     try {
       wm = await fetchAndWatermark(imgUrl);
     } catch (err) {

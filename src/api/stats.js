@@ -1,7 +1,7 @@
 const express = require('express');
 const axios   = require('axios');
 const { queryOne } = require('../db');
-
+ 
 function startStatsServer(client) {
   const app = express();
   const PORT = process.env.STATS_PORT || 4000;

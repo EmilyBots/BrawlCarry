@@ -2,6 +2,7 @@ const {
   SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ChannelType,
 } = require('discord.js');
 const { queryOne } = require('../../db/index');
+const { pendingCompletions } = require('../../interactions/orders');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -33,14 +34,6 @@ module.exports = {
       .addComponents(
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
-            .setCustomId('order_id')
-            .setLabel('Order ID')
-            .setStyle(TextInputStyle.Short)
-            .setValue(order.id)
-            .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
             .setCustomId('final_price')
             .setLabel('Final Price (EUR)')
             .setStyle(TextInputStyle.Short)
@@ -57,6 +50,7 @@ module.exports = {
     ),
     );
 
+    pendingCompletions.set(interaction.user.id, order.id);
     await interaction.showModal(modal);
   },
 };

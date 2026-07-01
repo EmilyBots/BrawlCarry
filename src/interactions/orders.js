@@ -1940,10 +1940,12 @@ async function handleUnclaim(interaction, orderId) {
 async function handleOrderCompleteModal(interaction, client) {
   await interaction.deferReply({ ephemeral: true });
 
-  const orderId  = interaction.fields.getTextInputValue('order_id').trim();
+  const orderId = pendingCompletions.get(interaction.user.id);
+  pendingCompletions.delete(interaction.user.id); // cleanup sempre, prima di qualsiasi return
+  if (!orderId) return interaction.followUp({ content: '❌ Session expired or bot restarted. Please run `/order_complete` again.', ephemeral: true });
+
   const priceStr = interaction.fields.getTextInputValue('final_price').replace('€', '').trim();
   const imgUrl   = interaction.fields.getTextInputValue('proof_image').trim();
-  
 
   const order = await queryOne('SELECT * FROM orders WHERE id = $1', [orderId]);
   if (!order) return interaction.followUp({ content: `❌ Order \`${orderId}\` not found.`, ephemeral: true });
@@ -2025,11 +2027,7 @@ async function handleOrderCompleteModal(interaction, client) {
     container
       .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: 'attachment://proof.jpg' } }]))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
-  } else if (imgUrl && !applyWm) {
-    container
-      .addMediaGalleryComponents(new MediaGalleryBuilder().addItems([{ media: { url: imgUrl } }]))
-      .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
-  }
+
 
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(

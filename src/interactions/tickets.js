@@ -198,8 +198,31 @@ async function performClose(interaction, channel, guild, messages, order, author
       const userId    = order?.user_id    ? String(order.user_id)    : (messages.find(m => !m.author.bot)?.author.id ?? null);
       const boosterId = order?.booster_id ? String(order.booster_id) : null;
 
-      if (userId)    { try { await channel.parent.permissionOverwrites.delete(userId,    'Ticket closed – removing temporary customer access'); } catch (_) {} }
-      if (boosterId) { try { await channel.parent.permissionOverwrites.delete(boosterId, 'Ticket closed – removing temporary booster access');  } catch (_) {} }
+      if (userId) { try { await channel.parent.permissionOverwrites.delete(userId, 'Ticket closed – removing temporary customer access'); } catch (_) {} }
+
+      if (boosterId) {
+        const otherInSameCategory = await queryAll(
+          `SELECT workspace_channel_id, ticket_channel_id FROM orders
+           WHERE booster_id = $1
+             AND status = 'claimed'
+             AND id != $2`,
+          [order.booster_id, order.id]
+        ).catch(() => []);
+
+        const sameParent = (await Promise.all(
+          otherInSameCategory.map(async o => {
+            const chId = o.workspace_channel_id ?? o.ticket_channel_id;
+            if (!chId) return false;
+            const ch = channel.guild.channels.cache.get(String(chId))
+              ?? await channel.guild.channels.fetch(String(chId)).catch(() => null);
+            return ch?.parentId === channel.parent?.id;
+          })
+        )).some(Boolean);
+
+        if (!sameParent) {
+          try { await channel.parent.permissionOverwrites.delete(boosterId, 'Ticket closed – removing temporary booster access'); } catch (_) {} 
+        }
+      }
     }
   }
   await new Promise(r => setTimeout(r, 3000));

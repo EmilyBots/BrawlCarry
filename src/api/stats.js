@@ -95,12 +95,31 @@ function startStatsServer(client) {
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
       const { access_token } = tokenResp.data;
-      await axios.put(
-        `https://discord.com/api/v10/users/@me/applications/${process.env.DISCORD_APPLICATION_ID}/role-connection`,
-        { platform_name: 'BrawlCarry', metadata: { is_founder: true } },
-        { headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' } }
-      );
-      res.send('✅ Sei Founder! Controlla il profilo Discord.');
+
+// Who is this?
+const userResp = await axios.get('https://discord.com/api/v10/users/@me', {
+  headers: { Authorization: `Bearer ${access_token}` },
+});
+const userId = userResp.data.id;
+
+const FOUNDER_USER_ID = process.env.FOUNDER_USER_ID; // your Discord user ID
+
+if (userId !== FOUNDER_USER_ID) {
+  // Not you: explicitly set false, don't assign the role
+  await axios.put(
+    `https://discord.com/api/v10/users/@me/applications/${process.env.DISCORD_APPLICATION_ID}/role-connection`,
+    { platform_name: 'BrawlCarry', metadata: { is_founder: 0 } },
+    { headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' } }
+  );
+  return res.send('❌ This role is not available for your account.');
+}
+
+await axios.put(
+  `https://discord.com/api/v10/users/@me/applications/${process.env.DISCORD_APPLICATION_ID}/role-connection`,
+  { platform_name: 'BrawlCarry', metadata: { is_founder: 1 } },
+  { headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' } }
+);
+res.send('✅ You are Founder! Check your Discord profile.');
     } catch (err) {
       console.error('[Founder OAuth] error:', err.message);
       res.status(500).send('❌ Errore interno. Riprova.');

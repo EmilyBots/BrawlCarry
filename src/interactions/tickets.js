@@ -1,5 +1,5 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ChannelType, ButtonBuilder, ButtonStyle, ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, MessageFlags, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
-const { queryOne } = require('../db/index');
+const { queryOne, queryAll } = require('../db/index');
 const { getConfig, setConfig } = require('../db/index');
 const { baseEmbed } = require('../utils/embeds');
 const { createTicketThread, buildTranscript } = require('../utils/tickets');
